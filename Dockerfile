@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:latest
+# FROM ubuntu:latest
+FROM nvidia/cuda:8.0-cudnn7-runtime-ubuntu16.04
 
 MAINTAINER <mediapipe@google.com>
 
