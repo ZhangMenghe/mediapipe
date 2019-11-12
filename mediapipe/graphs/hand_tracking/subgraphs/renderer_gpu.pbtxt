@@ -1,4 +1,6 @@
 # MediaPipe hand tracking rendering subgraph.
+# Only different names
+
 
 type: "RendererSubgraph"
 
