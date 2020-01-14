@@ -22,6 +22,7 @@ cc_binary(
     srcs = ["slam.cc"],
     visibility = ["//visibility:public"],
     deps = [
+        "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/image:luminance_calculator",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
