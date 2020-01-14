@@ -44,7 +44,7 @@ namespace mediapipe {
 
   CalculatorGraphConfig config = ParseTextProtoOrDie<CalculatorGraphConfig>(R"(
     input_stream: "IMAGE_GPU:input_video"
-    output_stream: "IMAGE_GPU:output_video"
+    output_stream: "output_video"
 
     # Transforms the input image on GPU to a 256x256 image. To scale the input
     # image, the scale_mode option is set to FIT to preserve the aspect ratio,
@@ -52,7 +52,7 @@ namespace mediapipe {
     node: {
       calculator: "ImageTransformationCalculator"
       input_stream: "IMAGE_GPU:input_video"
-      output_stream: "IMAGE_GPU:output_video"
+      output_stream: "IMAGE_GPU:transformed_input_video"
       output_stream: "LETTERBOX_PADDING:letterbox_padding"
       node_options: {
         [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
@@ -64,11 +64,11 @@ namespace mediapipe {
     }
 
     # Converts RGB images into luminance images, still stored in RGB format.
-    #node: {
-    #  calculator: "LuminanceCalculator"
-    #  input_stream: "IMAGE_GPU:transformed_input_video"
-    #  output_stream: "IMAGE_GPU:output_video"
-    #}
+    node: {
+      calculator: "LuminanceCalculator"
+      input_stream: "transformed_input_video"
+      output_stream: "output_video"
+    }
   )");
 
   mediapipe::CalculatorGraph graph;
