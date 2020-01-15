@@ -17,25 +17,11 @@ licenses(["notice"])  # Apache 2.0
 package(default_visibility = ["//mediapipe/examples:__subpackages__"])
 
 
+# Linux only
 cc_binary(
     name = "orb_slam",
-    srcs = ["slam.cc"],
-    visibility = ["//visibility:public"],
     deps = [
-        "//mediapipe/calculators/image:image_transformation_calculator",
-        "//mediapipe/calculators/image:luminance_calculator",
-        "//mediapipe/framework:calculator_framework",
-        "//mediapipe/framework/formats:image_frame",
-        "//mediapipe/framework/formats:image_frame_opencv",
-        "//mediapipe/framework/port:commandlineflags",
-        "//mediapipe/framework/port:file_helpers",
-        "//mediapipe/framework/port:opencv_highgui",
-        "//mediapipe/framework/port:opencv_imgproc",
-        "//mediapipe/framework/port:opencv_video",
-        "//mediapipe/framework/port:parse_text_proto",
-        "//mediapipe/framework/port:status",
-        "//mediapipe/gpu:gl_calculator_helper",
-        "//mediapipe/gpu:gpu_buffer",
-        "//mediapipe/gpu:gpu_shared_data_internal",
+        "//mediapipe/examples/desktop:demo_run_graph_main_gpu",
+        "//mediapipe/graphs/orb_slam:orbslam_calculators",
     ],
 )
