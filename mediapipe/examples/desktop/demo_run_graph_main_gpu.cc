@@ -28,11 +28,10 @@
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gpu_buffer.h"
 #include "mediapipe/gpu/gpu_shared_data_internal.h"
+#include<fstream>
 
-
-DEFINE_string(
-    calculator_graph_config_file, "",
-    "Name of file containing text format CalculatorGraphConfig proto.");
+DEFINE_string(calculator_graph_config_file, "",
+              "Name of file containing text format CalculatorGraphConfig proto.");
 DEFINE_string(input_video_path, "",
               "Full path of video to load. "
               "If not provided, attempt to use a webcam.");
@@ -41,6 +40,14 @@ DEFINE_string(input_frames_path, "",
 DEFINE_string(output_video_path, "",
               "Full path of where to save result (.mp4 only). "
               "If not provided, show result in a window.");
+
+DEFINE_string(vocabulary_path, "",
+              "Full path to vocabulary");
+DEFINE_string(camera_configuration, "",
+              "Full path to camera configuration");
+DEFINE_string(timestamp_series, "",
+              "Full path to predefined timestamps");
+
 namespace mediapipe {
   class GPUTask{
       private:
@@ -61,27 +68,59 @@ namespace mediapipe {
         const char kOutputStream[13] = "output_video";
         const char kWindowName[10] = "MediaPipe";
         const int write_fps = 30;//capture.get(cv::CAP_PROP_FPS)
+        std::vector<std::string> frame_paths;
+        std::vector<size_t> frame_timestamp_vec;
+        size_t frame_nums;
 
-      public:
-        GPUTask();
-        ::mediapipe::Status Initilization();
-        ::mediapipe::Status Run();
+        ::mediapipe::Status init_capture_src();
         bool postProcessVideo(cv::Mat frame);
         cv::Size getFrameSize();
         size_t updateTimeStamp();
         
         bool getFrame(cv::Mat& camera_frame);
-        
-        
-  };
-  GPUTask::GPUTask(){
 
-  }
+      public:
+        ::mediapipe::Status Initilization();
+        ::mediapipe::Status Run();
+  };
+
   size_t GPUTask::updateTimeStamp(){
     frame_timestamp++;
-    if(load_type == FROM_FRAMES) return -1;
+    // if(load_type == FROM_FRAMES) return frame_timestamp_vec[frame_timestamp];
     return frame_timestamp;
   }
+
+  ::mediapipe::Status GPUTask::init_capture_src(){
+    LOG(INFO) << "Initialize the camera or load the video.";
+    if(!FLAGS_input_video_path.empty()) load_type = FROM_VIDEO;
+    else if(!FLAGS_input_frames_path.empty()) load_type = FROM_FRAMES;
+    else load_type = FROM_CAMERA;
+
+    if(load_type == FROM_FRAMES){
+      //load images
+      std::ifstream fTimes;
+      fTimes.open(FLAGS_timestamp_series.c_str());
+      frame_timestamp_vec.reserve(5000);
+      frame_paths.reserve(5000);
+      while(!fTimes.eof()){
+          std::string s;getline(fTimes,s);
+          if(!s.empty()){
+              std::stringstream ss; ss << s;
+              frame_paths.push_back(FLAGS_input_frames_path + "/" + ss.str() + ".png");
+              double t;ss >> t;
+              frame_timestamp_vec.push_back(t/1e9);
+          }
+      }
+      frame_nums = frame_paths.size();
+      RET_CHECK(frame_nums > 0);
+    }else{
+      if(load_type == FROM_CAMERA) capture.open(0);
+      else capture.open(FLAGS_input_video_path);
+      RET_CHECK(capture.isOpened());
+    }
+    return ::mediapipe::OkStatus();
+  }
+
   ::mediapipe::Status GPUTask::Initilization(){
     //init config
     std::string calculator_graph_config_contents;
@@ -106,16 +145,8 @@ namespace mediapipe {
     gpu_helper.InitializeForTest(graph.GetGpuResources().get());
     
     //init capture src
-    LOG(INFO) << "Initialize the camera or load the video.";
-    if(!FLAGS_input_video_path.empty()) load_type = FROM_VIDEO;
-    else if(!FLAGS_input_frames_path.empty()) load_type = FROM_FRAMES;
-    else load_type = FROM_CAMERA;
-
-    if(load_type != FROM_FRAMES){
-      if(load_type == FROM_CAMERA) capture.open(0);
-      else capture.open(FLAGS_input_video_path);
-      RET_CHECK(capture.isOpened());
-    }
+    RET_CHECK(init_capture_src().ok());
+    
     //init writer
     if (!FLAGS_output_video_path.empty()) {
       LOG(INFO) << "Prepare video writer.";
@@ -137,28 +168,33 @@ namespace mediapipe {
         capture.read(frame);                    // Consume first frame.
         capture.set(cv::CAP_PROP_POS_AVI_RATIO, 0);  // Rewind to beginning.
         frame_size = frame.size();
-      }else
-        return cv::Size(10,10);//todo
+      }else{
+        cv::Mat tframe;
+        if(!getFrame(tframe)) return frame_size;
+        frame_size = tframe.size(); 
+      }
     }
     return frame_size;
   }
   bool GPUTask::getFrame(cv::Mat& camera_frame){
-      if(load_type == FROM_FRAMES){
-        //todo
-        return false;
-      }
+    if(load_type == FROM_FRAMES){
+      // LOG(INFO) << frame_paths[frame_timestamp];
+      cv::Mat gray_frame = cv::imread(frame_paths[frame_timestamp], CV_LOAD_IMAGE_UNCHANGED);
+      if(gray_frame.empty())return false;
+      cv::cvtColor(gray_frame,camera_frame, cv::COLOR_GRAY2RGB);
+    }else{
       // Capture opencv camera or video frame.
       cv::Mat camera_frame_raw;
       capture >> camera_frame_raw;
       if (camera_frame_raw.empty()) return false;  // End of video.
       cv::cvtColor(camera_frame_raw, camera_frame, cv::COLOR_BGR2RGB);
-      if (load_type == FROM_CAMERA) {
+      if (load_type == FROM_CAMERA) 
         cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
-      }
+    }
     return true;
   }
   bool GPUTask::postProcessVideo(cv::Mat frame){
-    if (load_type == FROM_CAMERA) {
+    if (FLAGS_output_video_path.empty()) {
       cv::imshow(kWindowName, frame);
         // Press any key to exit.
         const int pressed_key = cv::waitKey(5);
@@ -203,10 +239,10 @@ namespace mediapipe {
           // Send GPU image packet into the graph.
           MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
               kInputStream, mediapipe::Adopt(gpu_frame.release())
-                                .At(mediapipe::Timestamp(frame_timestamp++))));
+                                .At(mediapipe::Timestamp(updateTimeStamp()))));
           return ::mediapipe::OkStatus();
         }));
-
+      
       // Get the graph result packet, or stop if that fails.
       mediapipe::Packet packet;
       if (!poller.Next(&packet)) break;
@@ -234,6 +270,7 @@ namespace mediapipe {
       // Convert back to opencv for display or saving.
       cv::Mat output_frame_mat = mediapipe::formats::MatView(output_frame.get());
       cv::cvtColor(output_frame_mat, output_frame_mat, cv::COLOR_RGB2BGR);
+      // LOG(INFO) << "==="<<output_frame_mat.cols;
       if(!postProcessVideo(output_frame_mat)) grab_frames = false;
     }
 

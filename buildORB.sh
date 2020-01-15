@@ -1,0 +1,1 @@
+bazel build -c opt mediapipe/examples/desktop/orb_slam:orb_slam

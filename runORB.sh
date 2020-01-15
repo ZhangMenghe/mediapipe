@@ -1,0 +1,1 @@
+GLOG_logtostderr=1 bazel-bin/mediapipe/examples/desktop/orb_slam/orb_slam --calculator_graph_config_file=mediapipe/graphs/orb_slam/orb_slam.pbtxt --input_frames_path=../data/slam/frames/data --timestamp_series=../data/slam/timestamp.txt
