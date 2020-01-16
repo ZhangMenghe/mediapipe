@@ -215,6 +215,9 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   if (cc->Outputs().HasTag("LETTERBOX_PADDING")) {
     cc->Outputs().Tag("LETTERBOX_PADDING").Set<std::array<float, 4>>();
   }
+  if (cc->Outputs().HasTag("CAMERA_POSE")) {
+    cc->Outputs().Tag("CAMERA_POSE").Set<std::string>();
+  }
 
   if (use_gpu) {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
@@ -378,6 +381,12 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
 
 ::mediapipe::Status ImageTransformationCalculator::RenderGpu(
     CalculatorContext* cc) {
+  if (cc->Outputs().HasTag("CAMERA_POSE")) {
+    cc->Outputs()
+        .Tag("CAMERA_POSE")
+        .Add("AAAAAA", cc->InputTimestamp());
+  }
+
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   int input_width = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>().width();
   int input_height = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>().height();
@@ -395,6 +404,7 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
         .Tag("LETTERBOX_PADDING")
         .Add(padding.release(), cc->InputTimestamp());
   }
+
 
   const auto& input = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>();
   QuadRenderer* renderer = nullptr;

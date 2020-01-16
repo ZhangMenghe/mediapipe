@@ -5,8 +5,11 @@ package(default_visibility = ["//visibility:private"])
 exports_files(["LICENSE"])
 
 cc_library(
-    name = "orb_calculator",
-    srcs = ["orb_calculator.cc"],
+    name = "orb_slam_calculator",
+    srcs = [
+        "merge_slam_calculator.cc",
+        "orb_slam_calculator.cc"
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "@orb_slam2//:ORB_SLAM2",

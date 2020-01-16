@@ -126,8 +126,8 @@ namespace mediapipe {
     std::string calculator_graph_config_contents;
     MP_RETURN_IF_ERROR(mediapipe::file::GetContents(
         FLAGS_calculator_graph_config_file, &calculator_graph_config_contents));
-    LOG(INFO) << "Get calculator graph config contents: "
-              << calculator_graph_config_contents;
+    // LOG(INFO) << "Get calculator graph config contents: "
+    //           << calculator_graph_config_contents;
     mediapipe::CalculatorGraphConfig config =
         mediapipe::ParseTextProtoOrDie<mediapipe::CalculatorGraphConfig>(
             calculator_graph_config_contents);
@@ -248,6 +248,7 @@ namespace mediapipe {
       if (!poller.Next(&packet)) break;
       std::unique_ptr<mediapipe::ImageFrame> output_frame;
 
+      // LOG(INFO) << "====String info: "<< packet.Get<std::string>();
       // Convert GpuBuffer to ImageFrame.
       MP_RETURN_IF_ERROR(gpu_helper.RunInGlContext(
         [this,&packet,&output_frame]() -> ::mediapipe::Status {

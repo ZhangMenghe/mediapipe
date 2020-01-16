@@ -8,8 +8,9 @@ load(
 )
 
 cc_library(
-    name = "orbslam_calculators",
+    name = "desktop_orbslam_calculators",
     deps = [
+        "//mediapipe/calculators/slam:orb_slam_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/image:luminance_calculator",
     ],

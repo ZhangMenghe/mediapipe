@@ -21,7 +21,7 @@ cc_binary(
     srcs = ["proj_debug.cc"],
     visibility = ["//visibility:public"],
     deps = [
-        "//mediapipe/calculators/slam:orb_calculator",
+        "//mediapipe/calculators/slam:orb_slam_calculator",
         "//mediapipe/framework:calculator_graph",
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:parse_text_proto",

@@ -27,12 +27,12 @@ namespace mediapipe {
     input_stream: "in"
     output_stream: "out"
     node {
-      calculator: "OrbCalculator"
+      calculator: "OrbSLAMCalculator"
       input_stream: "in"
       output_stream: "out1"
     }
     node {
-      calculator: "OrbCalculator"
+      calculator: "OrbSLAMCalculator"
       input_stream: "out1"
       output_stream: "out"
     }

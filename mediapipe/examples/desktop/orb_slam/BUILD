@@ -22,6 +22,6 @@ cc_binary(
     name = "orb_slam",
     deps = [
         "//mediapipe/examples/desktop:demo_run_graph_main_gpu",
-        "//mediapipe/graphs/orb_slam:orbslam_calculators",
+        "//mediapipe/graphs/orb_slam:desktop_orbslam_calculators",
     ],
 )

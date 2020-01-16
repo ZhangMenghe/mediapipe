@@ -1,8 +1,10 @@
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/port/canonical_errors.h"
 #include "include/TEST_BAZEL.h"
+// #include "include/System.h"
+
 namespace mediapipe{
-class OrbCalculator : public CalculatorBase{
+class OrbSLAMCalculator : public CalculatorBase{
 public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
     if (!cc->Inputs().TagMap()->SameAs(*cc->Outputs().TagMap())) {
@@ -72,6 +74,6 @@ public:
     return ::mediapipe::OkStatus();
   }
 };
-REGISTER_CALCULATOR(OrbCalculator);
+REGISTER_CALCULATOR(OrbSLAMCalculator);
 } // namespace mediapipe
 
