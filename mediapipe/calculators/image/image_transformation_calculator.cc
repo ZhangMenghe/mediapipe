@@ -272,10 +272,14 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
 
 ::mediapipe::Status ImageTransformationCalculator::Process(
     CalculatorContext* cc) {
+      //todo: get your real thing here
   if (use_gpu_) {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
     return helper_.RunInGlContext(
-        [this, cc]() -> ::mediapipe::Status { return RenderGpu(cc); });
+        [this, cc]() -> ::mediapipe::Status { 
+          // LOG(INFO) << "=============";
+          return RenderGpu(cc); 
+          });
 #endif  //  !MEDIAPIPE_DISABLE_GPU
   } else {
     return RenderCpu(cc);
@@ -358,6 +362,12 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
         .Tag("LETTERBOX_PADDING")
         .Add(padding.release(), cc->InputTimestamp());
   }
+  // if (cc->Outputs().HasTag("CAMERA_POSE")) {
+  //   std::string testmsg = "AAAAAAAAAAAAAAAAAA";
+  //   cc->Outputs()
+  //       .Tag("CAMERA_POSE")
+  //       .Add(&testmsg, cc->InputTimestamp());
+  // }
 
   if (cc->InputSidePackets().HasTag("ROTATION_DEGREES")) {
     rotation_ = DegreesToRotationMode(
@@ -381,12 +391,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
 
 ::mediapipe::Status ImageTransformationCalculator::RenderGpu(
     CalculatorContext* cc) {
-  if (cc->Outputs().HasTag("CAMERA_POSE")) {
-    cc->Outputs()
-        .Tag("CAMERA_POSE")
-        .Add("AAAAAA", cc->InputTimestamp());
-  }
-
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   int input_width = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>().width();
   int input_height = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>().height();
@@ -404,7 +408,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
         .Tag("LETTERBOX_PADDING")
         .Add(padding.release(), cc->InputTimestamp());
   }
-
 
   const auto& input = cc->Inputs().Tag("IMAGE_GPU").Get<GpuBuffer>();
   QuadRenderer* renderer = nullptr;
@@ -478,6 +481,11 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   cc->Outputs().Tag("IMAGE_GPU").Add(output.release(), cc->InputTimestamp());
 
 #endif  //  !MEDIAPIPE_DISABLE_GPU
+
+
+  if (cc->Outputs().HasTag("CAMERA_POSE")) {
+      cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("AAAAA").At(cc->InputTimestamp()));
+  }
 
   return ::mediapipe::OkStatus();
 }
