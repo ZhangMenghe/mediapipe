@@ -163,6 +163,11 @@ new_local_repository(
     path = "/usr",
 )
 
+new_local_repository(
+    name = "orb_slam2",
+    build_file = "orb_slam2.BUILD",
+    path = "/home/menghe/Github/ORB_SLAM2",
+)
 http_archive(
     name = "android_opencv",
     build_file = "@//third_party:opencv_android.BUILD",
