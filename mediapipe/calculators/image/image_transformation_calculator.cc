@@ -218,6 +218,9 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   if (cc->Outputs().HasTag("CAMERA_POSE")) {
     cc->Outputs().Tag("CAMERA_POSE").Set<std::string>();
   }
+  if (cc->Outputs().HasTag("IMAGE_ALIGN")) {
+    cc->Outputs().Tag("IMAGE_ALIGN").Set<ImageFrame>();
+  }
 
   if (use_gpu) {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
@@ -362,12 +365,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
         .Tag("LETTERBOX_PADDING")
         .Add(padding.release(), cc->InputTimestamp());
   }
-  // if (cc->Outputs().HasTag("CAMERA_POSE")) {
-  //   std::string testmsg = "AAAAAAAAAAAAAAAAAA";
-  //   cc->Outputs()
-  //       .Tag("CAMERA_POSE")
-  //       .Add(&testmsg, cc->InputTimestamp());
-  // }
 
   if (cc->InputSidePackets().HasTag("ROTATION_DEGREES")) {
     rotation_ = DegreesToRotationMode(
@@ -478,6 +475,24 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   glFlush();
 
   auto output = dst.GetFrame<GpuBuffer>();
+
+  if (cc->Outputs().HasTag("IMAGE_ALIGN")) {
+    //convert texture dst to imageframe
+    std::unique_ptr<mediapipe::ImageFrame> output_frame;
+    auto gpu_frame = *output;
+    output_frame = absl::make_unique<mediapipe::ImageFrame>(
+                  mediapipe::ImageFormatForGpuBufferFormat(gpu_frame.format()),
+                  gpu_frame.width(), gpu_frame.height(),
+                  mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);
+    helper_.BindFramebuffer(dst);
+    const auto info =
+        mediapipe::GlTextureInfoForGpuBufferFormat(gpu_frame.format(), 0);
+    glReadPixels(0, 0, dst.width(), dst.height(), info.gl_format,
+                  info.gl_type, output_frame->MutablePixelData());
+    glFlush();
+    // dst.Release();
+  }
+
   cc->Outputs().Tag("IMAGE_GPU").Add(output.release(), cc->InputTimestamp());
 
 #endif  //  !MEDIAPIPE_DISABLE_GPU
@@ -485,7 +500,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
 
   if (cc->Outputs().HasTag("CAMERA_POSE")) {
       cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("AAAAA").At(cc->InputTimestamp()));
-
   }
 
   return ::mediapipe::OkStatus();

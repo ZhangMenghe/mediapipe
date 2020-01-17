@@ -8,8 +8,8 @@ node: {
   calculator: "ImageTransformationCalculator"
   input_stream: "IMAGE_GPU:input_video"
   output_stream: "IMAGE_GPU:transformed_input_video"
-  output_stream: "CAMERA_POSE:frame_cam_pose"
-  #output_stream: "IMAGE:transformed_input_video_cpu"
+  output_stream: "CAMERA_POSE:frame_cam_pose_input"
+  output_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
   #output_stream: "LETTERBOX_PADDING:letterbox_padding"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
@@ -27,16 +27,18 @@ node: {
   #output_stream:"output_video"
   output_stream: "transformed_luminance"
 }
+
+# Fuse cpu RGB images to orb calculator
+node: {
+  calculator: "OrbSLAMCalculator"
+  input_stream: "frame_cam_pose_input"
+  #input_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
+  output_stream: "frame_cam_pose_output"
+}
+
 node: {
   calculator: "MergeSLAMCalculator"
-  input_stream:"CAMERA_POSE:frame_cam_pose"
+  input_stream:"CAMERA_POSE:frame_cam_pose_output"
   input_stream:"IMAGE_GPU:transformed_luminance"
   output_stream:"IMAGE_GPU:output_video"
 }
-
-# Fuse cpu RGB images to orb calculator
-#node: {
-#  calculator: "OrbSLAMCalculator"
-#  input_stream: "transformed_input_video_cpu"
-#  output_stream: "output_camera_pose"
-#}
