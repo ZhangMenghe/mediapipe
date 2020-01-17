@@ -485,6 +485,7 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
 
   if (cc->Outputs().HasTag("CAMERA_POSE")) {
       cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("AAAAA").At(cc->InputTimestamp()));
+
   }
 
   return ::mediapipe::OkStatus();

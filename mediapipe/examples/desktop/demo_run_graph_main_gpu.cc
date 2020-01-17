@@ -242,11 +242,11 @@ namespace mediapipe {
                                 .At(mediapipe::Timestamp(updateTimeStamp()))));
           return ::mediapipe::OkStatus();
         }));
-      
       // Get the graph result packet, or stop if that fails.
       mediapipe::Packet packet;
       if (!poller.Next(&packet)) break;
       std::unique_ptr<mediapipe::ImageFrame> output_frame;
+
 
       // LOG(INFO) << "====String info: "<< packet.Get<std::string>();
       // Convert GpuBuffer to ImageFrame.
