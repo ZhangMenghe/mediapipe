@@ -31,9 +31,9 @@ node: {
 # Fuse cpu RGB images to orb calculator
 node: {
   calculator: "OrbSLAMCalculator"
-  input_stream: "frame_cam_pose_input"
-  #input_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
-  output_stream: "frame_cam_pose_output"
+  input_stream: "CAMERA_POSE:frame_cam_pose_input"
+  input_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
+  output_stream: "CAMERA_POSE:frame_cam_pose_output"
 }
 
 node: {

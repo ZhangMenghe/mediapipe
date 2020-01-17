@@ -490,6 +490,7 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
     glReadPixels(0, 0, dst.width(), dst.height(), info.gl_format,
                   info.gl_type, output_frame->MutablePixelData());
     glFlush();
+  cc->Outputs().Tag("IMAGE_ALIGN").Add(output_frame.release(), cc->InputTimestamp());
     // dst.Release();
   }
 
