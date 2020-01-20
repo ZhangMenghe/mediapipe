@@ -8,7 +8,13 @@ cc_library(
     name = "ORB_SLAM2",
     srcs = ["src/TEST_BAZEL.cc"],
     hdrs= glob(["include/*.h"]),
-    includes=["include"],
+    includes=[
+        "include"
+        
+        ],
+    deps = [
+        "@eigen"
+    ],
     visibility = ["//visibility:public"],
     alwayslink = 1,
 )

@@ -8,8 +8,10 @@
 #include "mediapipe/framework/port/status.h"
 
 #include "include/TEST_BAZEL.h"
-// #include "include/System.h"
 
+#include<Eigen/Dense>
+// #include "include/System.h"
+using Eigen::MatrixXd;
 namespace mediapipe{
   namespace{
     constexpr char kInputVideoTag[] = "IMAGE_ALIGN";
@@ -36,7 +38,7 @@ public:
     const auto& input_img = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>();
     cv::Mat input_mat = formats::MatView(&input_img);
 
-    LOG(INFO) << "====size: "<< input_mat.cols<<"=="<<input_mat.rows;
+    // LOG(INFO) << "====size: "<< input_mat.cols<<"=="<<input_mat.rows;
     TESTBazelClass tc;
     cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>(tc.getMsg()).At(cc->InputTimestamp()));
 
