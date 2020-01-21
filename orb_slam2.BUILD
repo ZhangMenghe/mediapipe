@@ -16,7 +16,8 @@ cc_library(
 cc_library(
     name = "ORB_SLAM2",
     srcs = [
-        "lib/libORB_SLAM2.so"
+        #"lib/libORB_SLAM2.so"
+        #"src/System.cc"
         ],
     hdrs= glob([
         "include/*.h",
@@ -30,8 +31,8 @@ cc_library(
         "include"
         ],
     deps = [
-        #":G2O",
-        #":DBoW",
+        ":G2O",
+        ":DBoW",
         #"@pangolin",
         "@eigen",
     ],

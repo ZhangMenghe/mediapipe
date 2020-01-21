@@ -179,7 +179,7 @@ namespace mediapipe {
   bool GPUTask::getFrame(cv::Mat& camera_frame){
     if(load_type == FROM_FRAMES){
       // LOG(INFO) << frame_paths[frame_timestamp];
-      cv::Mat gray_frame = cv::imread(frame_paths[frame_timestamp], CV_LOAD_IMAGE_UNCHANGED);
+      cv::Mat gray_frame = cv::imread(frame_paths[frame_timestamp], -1);
       if(gray_frame.empty())return false;
       cv::cvtColor(gray_frame,camera_frame, cv::COLOR_GRAY2RGB);
     }else{
