@@ -30,7 +30,7 @@ EIGEN_MPL2_HEADER_FILES = glob(
     exclude = [
         # Guarantees that any non-MPL2 file added to the list above will fail to
         # compile.
-        "Eigen/src/Core/util/NonMPL2.h",
+        #"Eigen/src/Core/util/NonMPL2.h",
         "Eigen/**/CMakeLists.txt",
     ],
 )
@@ -41,7 +41,7 @@ cc_library(
     defines = [
         # This define (mostly) guarantees we don't link any problematic
         # code. We use it, but we do not rely on it, as evidenced above.
-        "EIGEN_MPL2_ONLY",
+        #"EIGEN_MPL2_ONLY",
         "EIGEN_MAX_ALIGN_BYTES=64",
         "EIGEN_HAS_TYPE_TRAITS=0",
     ],
