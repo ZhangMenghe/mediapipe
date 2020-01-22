@@ -316,15 +316,7 @@ http_archive(
 )
 
 # more orb_slam deps
-
 # Eigen
-#http_archive(
-#    name = "eigen",
-#    build_file = "//third_party:eigen.BUILD",
-#    sha256 = "3a66f9bfce85aff39bc255d5a341f87336ec6f5911e8d816dd4a3fdc500f8acf",
-#    url = "https://bitbucket.org/eigen/eigen/get/c5e90d9.tar.gz",
-#    strip_prefix="eigen-eigen-c5e90d9e764e"
-#)
 new_local_repository(
     name = "eigen",
     build_file = "//third_party:eigen.BUILD",
@@ -337,6 +329,8 @@ new_local_repository(
     build_file = "//third_party:Pangolin.BUILD",
     path = "/home/menghe/Github/ORB_SLAM2/Thirdparty/pangolin",
 )
+
+#OpenGL
 new_local_repository(
     name = "linux_opengl",
     build_file = "@//third_party:opengl_linux.BUILD",
