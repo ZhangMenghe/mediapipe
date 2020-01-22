@@ -3,6 +3,7 @@ licenses(["notice"])  # Apache 2.0
 package(default_visibility = ["//visibility:private"])
 
 exports_files(["LICENSE"])
+load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library")
 
 cc_library(
     name = "orb_slam_calculator",
@@ -12,6 +13,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":orb_slam_calculator_cc_proto",
         "@orb_slam2//:ORB_SLAM2",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
@@ -30,4 +32,17 @@ cc_library(
         ],
     }),
     alwayslink = 1,
+)
+mediapipe_cc_proto_library(
+    name = "orb_slam_calculator_cc_proto",
+    srcs = ["orb_slam_calculator.proto"],
+    cc_deps = ["//mediapipe/framework:calculator_cc_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":orb_slam_calculator_proto"],
+)
+proto_library(
+    name = "orb_slam_calculator_proto",
+    srcs = ["orb_slam_calculator.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["//mediapipe/framework:calculator_proto"],
 )

@@ -6,6 +6,7 @@
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/calculators/slam/orb_slam_calculator.pb.h"
 
 // #include <Eigen/Dense>
 #include "System.h"
@@ -30,7 +31,9 @@ class OrbSLAMCalculator : public CalculatorBase {
 		::mediapipe::Status Process(CalculatorContext* cc) override;
 		::mediapipe::Status Close(CalculatorContext* cc) override;
 	private:
+		::mediapipe::Status LoadOptions(CalculatorContext* cc);
 
+		ORB_SLAM2::System *SLAM = nullptr;
 };
 REGISTER_CALCULATOR(OrbSLAMCalculator);
 
@@ -45,6 +48,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 
 ::mediapipe::Status OrbSLAMCalculator::Open(CalculatorContext* cc) {
     cc->SetOffset(TimestampDiff(0));
+	MP_RETURN_IF_ERROR(LoadOptions(cc));
     return ::mediapipe::OkStatus();
 }
 
@@ -65,5 +69,29 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
   return ::mediapipe::OkStatus();
 }
 
+::mediapipe::Status OrbSLAMCalculator::LoadOptions(
+    CalculatorContext* cc) {
+  // Get calculator options specified in the graph.
+  const auto& options =
+      cc->Options<::mediapipe::OrbSLAMCalculatorOptions>();
+LOG(INFO) << "===="<<options.voc_path();
+LOG(INFO) << "===="<<options.camera_path();
+
+//   // Get model name.
+//   if (!options.model_path().empty()) {
+//     auto model_path = options.model_path();
+
+//     ASSIGN_OR_RETURN(model_path_, mediapipe::PathToResourceAsFile(model_path));
+//   } else {
+//     LOG(ERROR) << "Must specify path to TFLite model.";
+//     return ::mediapipe::Status(::mediapipe::StatusCode::kNotFound,
+//                                "Must specify path to TFLite model.");
+//   }
+
+//   // Get execution modes.
+//   gpu_inference_ = options.use_gpu();
+
+  return ::mediapipe::OkStatus();
+}
 } // namespace mediapipe
 

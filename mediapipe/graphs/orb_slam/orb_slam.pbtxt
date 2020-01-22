@@ -34,6 +34,12 @@ node: {
   input_stream: "CAMERA_POSE:frame_cam_pose_input"
   input_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
   output_stream: "CAMERA_POSE:frame_cam_pose_output"
+  options {
+    [mediapipe.OrbSLAMCalculatorOptions.ext] {
+      voc_path: "model.tflite"
+      camera_path: "camera.yaml"
+    }
+  }
 }
 
 node: {

@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package mediapipe;
+
+import "mediapipe/framework/calculator.proto";
+
+// Full Example:
+//
+// node {
+//   calculator: "TfLiteInferenceCalculator"
+//   input_stream: "TENSOR_IN:image_tensors"
+//   output_stream: "TENSOR_OUT:result_tensors"
+//   options {
+//     [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
+//       model_path: "model.tflite"
+//       use_gpu: true
+//     }
+//   }
+// }
+//
+message OrbSLAMCalculatorOptions {
+  extend mediapipe.CalculatorOptions {
+    optional OrbSLAMCalculatorOptions ext = 233867213;
+  }
+
+  // Path to the vocabulary file
+  optional string voc_path = 1;
+
+  //path to camera configuration
+  optional string camera_path = 2;
+}
