@@ -47,8 +47,10 @@ cc_library(
         name = "opencv_contrib",
         srcs = glob(
             [
+                "lib/libopencv_calib3d.so",
                 "lib/libopencv_flann.so",
                 "lib/libopencv_xfeatures2d.so",
+                "lib/libopencv_features2d.so",
             ],
         ),
         hdrs = glob(["include/opencv4/opencv2/**/*.h*"]),

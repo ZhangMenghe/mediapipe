@@ -7,13 +7,9 @@
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/calculators/slam/orb_slam_calculator.pb.h"
+#include "mediapipe/util/resource_util.h"
 
-// #include <Eigen/Dense>
 #include "System.h"
-
-// using Eigen::MatrixXd;
-    // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    // ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
 namespace mediapipe{
 namespace{
   constexpr char kInputVideoTag[] = "IMAGE_ALIGN";
@@ -33,7 +29,10 @@ class OrbSLAMCalculator : public CalculatorBase {
 	private:
 		::mediapipe::Status LoadOptions(CalculatorContext* cc);
 
-		ORB_SLAM2::System *SLAM = nullptr;
+		    // Create SLAM system. It initializes all system threads and gets ready to process frames.
+    	ORB_SLAM2::System *SLAM = nullptr;
+		std::string camera_config_file_;
+		std::string voc_file_;
 };
 REGISTER_CALCULATOR(OrbSLAMCalculator);
 
@@ -49,6 +48,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 ::mediapipe::Status OrbSLAMCalculator::Open(CalculatorContext* cc) {
     cc->SetOffset(TimestampDiff(0));
 	MP_RETURN_IF_ERROR(LoadOptions(cc));
+	SLAM = new ORB_SLAM2::System(voc_file_,camera_config_file_,ORB_SLAM2::System::MONOCULAR,false);
     return ::mediapipe::OkStatus();
 }
 
@@ -66,33 +66,29 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status OrbSLAMCalculator::Close(CalculatorContext* cc) {
-  return ::mediapipe::OkStatus();
+	return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status OrbSLAMCalculator::LoadOptions(
     CalculatorContext* cc) {
   // Get calculator options specified in the graph.
-  const auto& options =
-      cc->Options<::mediapipe::OrbSLAMCalculatorOptions>();
-LOG(INFO) << "===="<<options.voc_path();
-LOG(INFO) << "===="<<options.camera_path();
+	const auto& options = cc->Options<::mediapipe::OrbSLAMCalculatorOptions>();
+	// LOG(INFO) << "===="<<options.voc_path();
+	// LOG(INFO) << "===="<<options.camera_path();
 
-  // Get model name.
-//   if (!options.camera_path().empty()) {
-//     auto camera_config_file = options.camera_path();
+	// Get model name.
+	if (!options.camera_path().empty()) {
+		auto camera_config_file = options.camera_path();
+		auto voc_file = options.voc_path();
+		ASSIGN_OR_RETURN(camera_config_file_, mediapipe::PathToResourceAsFile(camera_config_file));
+		ASSIGN_OR_RETURN(voc_file_, mediapipe::PathToResourceAsFile(voc_file));
+	} else {
+		LOG(ERROR) << "Must specify path to camera configs and vocabulary file.";
+		return ::mediapipe::Status(::mediapipe::StatusCode::kNotFound,
+								"Must specify path to TFLite model.");
+	}
 
-//     ASSIGN_OR_RETURN(camera_config_file, mediapipe::PathToResourceAsFile(camera_config_file));
-// 	LOG(INFO) << "===="<<camera_config_file;
-//   } else {
-//     LOG(ERROR) << "Must specify path to camera configs.";
-//     return ::mediapipe::Status(::mediapipe::StatusCode::kNotFound,
-//                                "Must specify path to TFLite model.");
-//   }
-
-//   // Get execution modes.
-//   gpu_inference_ = options.use_gpu();
-
-  return ::mediapipe::OkStatus();
+	return ::mediapipe::OkStatus();
 }
 } // namespace mediapipe
 

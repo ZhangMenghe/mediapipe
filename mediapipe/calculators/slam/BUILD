@@ -13,7 +13,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        # ":util",
+        "//mediapipe/util:resource_util",
         ":orb_slam_calculator_cc_proto",
         "@orb_slam2//:ORB_SLAM2",
         "//mediapipe/framework:calculator_framework",
@@ -47,8 +47,3 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = ["//mediapipe/framework:calculator_proto"],
 )
-# cc_library(
-#     name = "util",
-#     hdrs = ["util.h"],
-#     alwayslink = 1,
-# )
