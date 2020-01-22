@@ -331,9 +331,15 @@ new_local_repository(
     build_file = "//third_party:eigen.BUILD",
     path = "/home/menghe/PACKAGES/eigen-3.7",
 )
+
 #Pangolin
 # new_local_repository(
 #     name = "pangolin",
 #     build_file = "//third_party:Pangolin.BUILD",
 #     path = "/home/menghe/PACKAGES/Pangolin",
 # )
+new_local_repository(
+    name = "linux_opengl",
+    build_file = "@//third_party:opengl_linux.BUILD",
+    path = "/usr",
+)

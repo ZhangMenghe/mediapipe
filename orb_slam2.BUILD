@@ -31,6 +31,7 @@ cc_library(
         "include"
         ],
     deps = [
+        "@linux_opengl//:opengl",
         ":G2O",
         ":DBoW",
         #"@pangolin",
