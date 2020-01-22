@@ -36,8 +36,8 @@ node: {
   output_stream: "CAMERA_POSE:frame_cam_pose_output"
   options {
     [mediapipe.OrbSLAMCalculatorOptions.ext] {
-      voc_path: "model.tflite"
-      camera_path: "camera.yaml"
+      voc_path: "../data/slam/camera.yaml"
+      camera_path: "../data/slam/vocabulary.txt"
     }
   }
 }

@@ -77,13 +77,14 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 LOG(INFO) << "===="<<options.voc_path();
 LOG(INFO) << "===="<<options.camera_path();
 
-//   // Get model name.
-//   if (!options.model_path().empty()) {
-//     auto model_path = options.model_path();
+  // Get model name.
+//   if (!options.camera_path().empty()) {
+//     auto camera_config_file = options.camera_path();
 
-//     ASSIGN_OR_RETURN(model_path_, mediapipe::PathToResourceAsFile(model_path));
+//     ASSIGN_OR_RETURN(camera_config_file, mediapipe::PathToResourceAsFile(camera_config_file));
+// 	LOG(INFO) << "===="<<camera_config_file;
 //   } else {
-//     LOG(ERROR) << "Must specify path to TFLite model.";
+//     LOG(ERROR) << "Must specify path to camera configs.";
 //     return ::mediapipe::Status(::mediapipe::StatusCode::kNotFound,
 //                                "Must specify path to TFLite model.");
 //   }
