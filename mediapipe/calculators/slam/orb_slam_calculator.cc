@@ -10,7 +10,7 @@
 #include "include/TEST_BAZEL.h"
 
 #include<Eigen/Dense>
-// #include "include/System.h"
+#include "System.h"
 using Eigen::MatrixXd;
 namespace mediapipe{
   namespace{

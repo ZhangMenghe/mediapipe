@@ -42,4 +42,17 @@ cc_library(
         includes = ["include/opencv4"],
         linkstatic = 1,
         visibility = ["//visibility:public"],
-    )
+)
+cc_library(
+        name = "opencv_contrib",
+        srcs = glob(
+            [
+                "lib/libopencv_flann.so",
+                "lib/libopencv_xfeatures2d.so",
+            ],
+        ),
+        hdrs = glob(["include/opencv4/opencv2/**/*.h*"]),
+        includes = ["include/opencv4"],
+        linkstatic = 1,
+        visibility = ["//visibility:public"],
+)

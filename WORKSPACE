@@ -143,7 +143,6 @@ new_local_repository(
     build_file = "@//third_party:opencv_linux.BUILD",
     path = "/usr/local",
 )
-
 new_local_repository(
     name = "linux_ffmpeg",
     build_file = "@//third_party:ffmpeg_linux.BUILD",
@@ -333,11 +332,11 @@ new_local_repository(
 )
 
 #Pangolin
-# new_local_repository(
-#     name = "pangolin",
-#     build_file = "//third_party:Pangolin.BUILD",
-#     path = "/home/menghe/PACKAGES/Pangolin",
-# )
+new_local_repository(
+    name = "pangolin",
+    build_file = "//third_party:Pangolin.BUILD",
+    path = "/home/menghe/Github/ORB_SLAM2/Thirdparty/pangolin",
+)
 new_local_repository(
     name = "linux_opengl",
     build_file = "@//third_party:opengl_linux.BUILD",

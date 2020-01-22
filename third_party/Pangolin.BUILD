@@ -21,6 +21,7 @@ cc_library(
             "include/**/*.hpp"
         ]
     ),
+    deps = ["@linux_opengl//:opengl",],
     includes = ["include","build/src/include"],
     linkstatic = 1,
     visibility = ["//visibility:public"],

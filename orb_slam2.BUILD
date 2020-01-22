@@ -16,8 +16,26 @@ cc_library(
 cc_library(
     name = "ORB_SLAM2",
     srcs = [
-        #"lib/libORB_SLAM2.so"
-        #"src/System.cc"
+        # "lib/libORB_SLAM2.so",
+        "src/System.cc",
+        "src/Tracking.cc",
+        "src/LocalMapping.cc",
+        "src/LoopClosing.cc",
+        "src/ORBextractor.cc",
+        "src/ORBmatcher.cc",
+        "src/FrameDrawer.cc",
+        "src/Converter.cc",
+        "src/MapPoint.cc",
+        "src/KeyFrame.cc",
+        "src/Map.cc",
+        "src/MapDrawer.cc",
+        "src/Optimizer.cc",
+        "src/PnPsolver.cc",
+        "src/Frame.cc",
+        "src/KeyFrameDatabase.cc",
+        "src/Sim3Solver.cc",
+        "src/Initializer.cc",
+        "src/Viewer.cc",
         ],
     hdrs= glob([
         "include/*.h",
@@ -31,10 +49,10 @@ cc_library(
         "include"
         ],
     deps = [
-        "@linux_opengl//:opengl",
+        "@linux_opencv//:opencv_contrib",
         ":G2O",
         ":DBoW",
-        #"@pangolin",
+        "@pangolin",
         "@eigen",
     ],
     visibility = ["//visibility:public"],
