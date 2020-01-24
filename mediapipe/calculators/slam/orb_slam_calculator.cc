@@ -48,7 +48,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 ::mediapipe::Status OrbSLAMCalculator::Open(CalculatorContext* cc) {
     cc->SetOffset(TimestampDiff(0));
 	MP_RETURN_IF_ERROR(LoadOptions(cc));
-	// SLAM = new ORB_SLAM2::System(voc_file_,camera_config_file_,ORB_SLAM2::System::MONOCULAR,false);
+	SLAM = new ORB_SLAM2::System(voc_file_,camera_config_file_,ORB_SLAM2::System::MONOCULAR,false);
     return ::mediapipe::OkStatus();
 }
 
@@ -60,19 +60,19 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	cv::Mat input_mat = formats::MatView(&input_img);
 
 	// Pass the image to the SLAM system
-    // cv::Mat pose = SLAM->TrackMonocular(input_mat, cc->InputTimestamp().Seconds());
-	// LOG(INFO) << pose;
-	// TESTBazelClass tc;
-	// cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>(tc.getMsg()).At(cc->InputTimestamp()));
+    cv::Mat pose = SLAM->TrackMonocular(input_mat, cc->InputTimestamp().Seconds());
+	LOG(INFO) << pose;
+	// TESTBazelClass tc;tc.getMsg()
+	cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("test").At(cc->InputTimestamp()));
 
 	return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status OrbSLAMCalculator::Close(CalculatorContext* cc) {
 	 // Stop all threads
-    // SLAM->Shutdown();
-	// LOG(INFO)<<"shutting down....";
-	// // Save camera trajectory
-    // SLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM->Shutdown();
+	LOG(INFO)<<"shutting down....";
+	// Save camera trajectory
+    SLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 	return ::mediapipe::OkStatus();
 }
 

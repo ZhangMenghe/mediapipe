@@ -320,7 +320,7 @@ http_archive(
 new_local_repository(
     name = "eigen",
     build_file = "//third_party:eigen.BUILD",
-    path = "/home/menghe/PACKAGES/eigen-3.7",
+    path = "/usr/local/include/eigen3",
 )
 
 #Pangolin

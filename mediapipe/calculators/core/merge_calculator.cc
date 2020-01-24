@@ -55,9 +55,9 @@ class MergeCalculator : public CalculatorBase {
              "unnecessary overhead.";
     }
 
-    for (int i = 0; i < cc->Inputs().NumEntries(); ++i) {
+    for (int i = 0; i < cc->Inputs().NumEntries(); ++i)
       cc->Inputs().Index(i).SetAny();
-    }
+    
     cc->Outputs().Index(0).SetAny();
 
     return ::mediapipe::OkStatus();
