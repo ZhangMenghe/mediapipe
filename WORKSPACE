@@ -167,6 +167,12 @@ new_local_repository(
     build_file = "orb_slam2.BUILD",
     path = "/home/menghe/Github/ORB_SLAM2",
 )
+new_local_repository(
+    name = "ipc_cpp",
+    build_file = "ipc_cpp.BUILD",
+    path = "/home/menghe/Github/ipc/cpp-ipc",
+)
+
 http_archive(
     name = "android_opencv",
     build_file = "@//third_party:opencv_android.BUILD",
@@ -335,4 +341,9 @@ new_local_repository(
     name = "linux_opengl",
     build_file = "@//third_party:opengl_linux.BUILD",
     path = "/usr",
+)
+new_local_repository(
+    name = "linux_rt",
+    build_file = "@//third_party:rt_linux.BUILD",
+    path="/usr"
 )
