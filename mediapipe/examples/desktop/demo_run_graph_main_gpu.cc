@@ -67,7 +67,7 @@ private:
   std::vector<size_t> frame_timestamp_vec;
   size_t frame_nums;
 
-  ::mediapipe::Status init_capture_src();
+  Status init_capture_src();
   bool postProcessVideo(cv::Mat frame);
   cv::Size getFrameSize();
   size_t updateTimeStamp();
@@ -75,17 +75,20 @@ private:
   bool getFrame(cv::Mat& camera_frame);
 
 public:
-  ::mediapipe::Status Initilization();
-  ::mediapipe::Status Run();
+  Status Initilization();
+  Status Run();
 };
 
   size_t GPUTask::updateTimeStamp(){
     frame_timestamp++;
-    // if(load_type == FROM_FRAMES) return frame_timestamp_vec[frame_timestamp];
+    if(load_type == FROM_FRAMES){
+      // LOG(INFO)<<frame_timestamp_vec[frame_timestamp];
+      return frame_timestamp_vec[frame_timestamp];
+    } 
     return frame_timestamp;
   }
 
-::mediapipe::Status GPUTask::init_capture_src(){
+Status GPUTask::init_capture_src(){
   LOG(INFO) << "Initialize the camera or load the video.";
   if(!FLAGS_input_video_path.empty()) load_type = FROM_VIDEO;
   else if(!FLAGS_input_frames_path.empty()) load_type = FROM_FRAMES;
@@ -98,13 +101,15 @@ public:
     frame_timestamp_vec.reserve(5000);
     frame_paths.reserve(5000);
     while(!fTimes.eof()){
-        std::string s;getline(fTimes,s);
-        if(!s.empty()){
-            std::stringstream ss; ss << s;
-            frame_paths.push_back(FLAGS_input_frames_path + "/" + ss.str() + ".png");
-            double t;ss >> t;
-            frame_timestamp_vec.push_back(t/1e9);
-        }
+      std::string s;getline(fTimes,s);
+      if(!s.empty()){
+          std::stringstream ss; ss << s;
+          frame_paths.push_back(FLAGS_input_frames_path + "/" + ss.str() + ".png");
+          double t;ss >> t;
+          // t = t / 1e9;
+          frame_timestamp_vec.push_back(t);
+          // LOG(INFO)<<"=="<<s;
+      }
     }
     frame_nums = frame_paths.size();
     RET_CHECK(frame_nums > 0);
@@ -113,10 +118,10 @@ public:
     else capture.open(FLAGS_input_video_path);
     RET_CHECK(capture.isOpened());
   }
-  return ::mediapipe::OkStatus();
+  return OkStatus();
 }
 
-::mediapipe::Status GPUTask::Initilization(){
+Status GPUTask::Initilization(){
   //init config
   std::string calculator_graph_config_contents;
   MP_RETURN_IF_ERROR(mediapipe::file::GetContents(
@@ -154,7 +159,7 @@ public:
     cv::namedWindow(kWindowName, /*flags=WINDOW_AUTOSIZE*/ 1);
   }
 
-  return ::mediapipe::OkStatus();
+  return OkStatus();
 }
 cv::Size GPUTask::getFrameSize(){
   if(frame_size.width == 0){
@@ -199,7 +204,7 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
     }
     return true;
 }
-::mediapipe::Status GPUTask::Run(){
+Status GPUTask::Run(){
   LOG(INFO) << "Start running the calculator graph.";
   ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller,
                   graph.AddOutputStreamPoller(kOutputStream));
@@ -225,7 +230,7 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
 
     // Prepare and add graph input packet.
     MP_RETURN_IF_ERROR(
-      gpu_helper.RunInGlContext([this, &input_frame]() -> ::mediapipe::Status {
+      gpu_helper.RunInGlContext([this, &input_frame]() -> Status {
         // Convert ImageFrame to GpuBuffer.
         auto texture = gpu_helper.CreateSourceTexture(*input_frame.get());
         auto gpu_frame = texture.GetFrame<mediapipe::GpuBuffer>();
@@ -235,7 +240,7 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
         MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
             kInputStream, mediapipe::Adopt(gpu_frame.release())
                               .At(mediapipe::Timestamp(updateTimeStamp()))));
-        return ::mediapipe::OkStatus();
+        return OkStatus();
       }));
     // Get the graph result packet, or stop if that fails.
     mediapipe::Packet packet;
@@ -246,7 +251,7 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
     // LOG(INFO) << "====String info: "<< packet.Get<std::string>();
     // Convert GpuBuffer to ImageFrame.
     /*MP_RETURN_IF_ERROR(gpu_helper.RunInGlContext(
-      [this,&packet,&output_frame]() -> ::mediapipe::Status {
+      [this,&packet,&output_frame]() -> Status {
         auto& gpu_frame = packet.Get<mediapipe::GpuBuffer>();
         auto texture = gpu_helper.CreateSourceTexture(gpu_frame);
         output_frame = absl::make_unique<mediapipe::ImageFrame>(
@@ -260,7 +265,7 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
                       info.gl_type, output_frame->MutablePixelData());
         glFlush();
         texture.Release();
-        return ::mediapipe::OkStatus();
+        return OkStatus();
       }));
 
     // Convert back to opencv for display or saving.

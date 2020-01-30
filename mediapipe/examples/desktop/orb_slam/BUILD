@@ -21,7 +21,9 @@ package(default_visibility = ["//mediapipe/examples:__subpackages__"])
 cc_binary(
     name = "orb_slam",
     deps = [
-        "//mediapipe/examples/desktop:demo_run_graph_main_gpu",
+        #"//mediapipe/examples/desktop:demo_run_graph_main_gpu",
+         "//mediapipe/examples/desktop:demo_run_graph_main",
+        # "//mediapipe/graphs/hand_tracking:desktop_tflite_calculators",
         "//mediapipe/graphs/orb_slam:desktop_orbslam_calculators",
     ],
 )

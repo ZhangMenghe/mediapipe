@@ -382,7 +382,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   cv::Mat output_mat = formats::MatView(output_frame.get());
   rotated_mat.copyTo(output_mat);
   cc->Outputs().Tag("IMAGE").Add(output_frame.release(), cc->InputTimestamp());
-
   return ::mediapipe::OkStatus();
 }
 
