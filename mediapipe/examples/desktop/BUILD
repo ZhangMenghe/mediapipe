@@ -37,6 +37,7 @@ cc_library(
 cc_library(
     name = "demo_run_graph_main",
     srcs = ["demo_run_graph_main.cc"],
+    hdrs = ["DemoTask.h"],
     deps = [
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",

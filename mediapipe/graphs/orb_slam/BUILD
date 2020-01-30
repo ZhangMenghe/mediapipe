@@ -11,7 +11,6 @@ cc_library(
     name = "desktop_orbslam_calculators",
     deps = [
         "//mediapipe/calculators/slam:orb_slam_calculator",
-        # "//mediapipe/calculators/image:scale_image_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         # "//mediapipe/calculators/image:luminance_calculator",
     ],
