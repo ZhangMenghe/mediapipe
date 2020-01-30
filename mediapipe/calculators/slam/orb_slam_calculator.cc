@@ -38,10 +38,18 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 
 ::mediapipe::Status OrbSLAMCalculator::GetContract(
     CalculatorContract* cc) {
+
+	if (cc->Outputs().HasTag("IMAGE")) {
+		RET_CHECK(cc->Outputs().HasTag("IMAGE"));
+		cc->Inputs().Tag("IMAGE").Set<ImageFrame>();
+		cc->Outputs().Tag("IMAGE").Set<ImageFrame>();
+  	}else{
     RET_CHECK(cc->Inputs().HasTag(kInputVideoTag));
     cc->Inputs().Tag(kInputVideoTag).Set<ImageFrame>();
-    cc->Inputs().Tag("CAMERA_POSE").Set<std::string>();
-    cc->Outputs().Tag("CAMERA_POSE").Set<std::string>();
+	}
+
+    // cc->Inputs().Tag("CAMERA_POSE").Set<std::string>();
+    // cc->Outputs().Tag("CAMERA_POSE").Set<std::string>();
     return ::mediapipe::OkStatus();
 }
 
@@ -56,15 +64,21 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	// int input_width = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>().Width();
 	// int input_height = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>().Height();
 
-	const auto& input_img = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>();
+
+	const auto& input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
 	cv::Mat input_mat = formats::MatView(&input_img);
 
 	// Pass the image to the SLAM system
     cv::Mat pose = SLAM->TrackMonocular(input_mat, cc->InputTimestamp().Seconds());
 	LOG(INFO) << pose;
 	// TESTBazelClass tc;tc.getMsg()
-	cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("test").At(cc->InputTimestamp()));
+	// cc->Outputs().Tag("CAMERA_POSE").AddPacket(MakePacket<std::string>("test").At(cc->InputTimestamp()));
+	std::unique_ptr<ImageFrame> output_frame(
+    	new ImageFrame(input_img.Format(), input_img.Width(), input_img.Height()));
+	cv::Mat output_mat = formats::MatView(output_frame.get());
+	input_mat.copyTo(output_mat);
 
+  	cc->Outputs().Tag("IMAGE").Add(output_frame.release(), cc->InputTimestamp());
 	return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status OrbSLAMCalculator::Close(CalculatorContext* cc) {

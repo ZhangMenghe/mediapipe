@@ -381,6 +381,9 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
       new ImageFrame(input_img.Format(), output_width, output_height));
   cv::Mat output_mat = formats::MatView(output_frame.get());
   rotated_mat.copyTo(output_mat);
+  if (cc->Outputs().HasTag("IMAGE_ALIGN")) {
+    cc->Outputs().Tag("IMAGE_ALIGN").Add(output_frame.get(), cc->InputTimestamp());
+  }
   cc->Outputs().Tag("IMAGE").Add(output_frame.release(), cc->InputTimestamp());
   return ::mediapipe::OkStatus();
 }
