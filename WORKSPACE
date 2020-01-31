@@ -326,7 +326,8 @@ http_archive(
 new_local_repository(
     name = "eigen",
     build_file = "//third_party:eigen.BUILD",
-    path = "/usr/local/include/eigen3",
+    # path = "/usr/local/include/eigen3",
+    path = "/usr"
 )
 
 #Pangolin
@@ -345,5 +346,10 @@ new_local_repository(
 new_local_repository(
     name = "linux_rt",
     build_file = "@//third_party:rt_linux.BUILD",
+    path="/usr"
+)
+new_local_repository(
+    name = "linux_pthread",
+    build_file = "@//third_party:pthread_linux.BUILD",
     path="/usr"
 )

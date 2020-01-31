@@ -20,6 +20,7 @@ cc_library(
         "src/memory"
         ],
     deps = [
+        "@linux_pthread//:pthread",
         "@linux_rt//:rt"
     ],
     visibility = ["//visibility:public"],

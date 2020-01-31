@@ -10,6 +10,25 @@ cc_library(
 )
 cc_library(
     name = "G2O",
+    srcs = glob(["Thirdparty/g2o/g2o/**/*.cpp",
+            "Thirdparty/g2o/g2o/*/*.cpp",
+        "Thirdparty/g2o/*.cpp",]),
+    hdrs= glob([
+        "Thirdparty/g2o/g2o/**/*.h",
+        "Thirdparty/g2o/g2o/*/*.h",
+        "Thirdparty/g2o/g2o/*/*.hpp",
+        "Thirdparty/g2o/*.h",
+    ]),
+includes=[
+    "include"
+    ],
+deps = [
+    "@eigen",
+],
+    visibility = ["//visibility:public"],
+)
+cc_library(
+    name = "G2O_old",
     srcs = [
         "Thirdparty/g2o/lib/libg2o.so",
         # "Thirdparty/g2o/lib/libg2o_types_sba.so",
@@ -50,7 +69,7 @@ cc_library(
         "Thirdparty/g2o/g2o/*/*.hpp",        
         ]),
     includes=[
-         "Thirdparty/g2o/build",
+        "Thirdparty/g2o/build",
         "Thirdparty/g2o"
         ],
     visibility = ["//visibility:public"],
@@ -83,10 +102,10 @@ cc_library(
         "include/*.h",
         "Thirdparty/DBoW2/DBoW2/*.h",
         "Thirdparty/DBoW2/DUtils/*.h",
-        "Thirdparty/g2o/g2o/**/*.h",
-        "Thirdparty/g2o/g2o/*/*.h",
-        "Thirdparty/g2o/g2o/*/*.hpp",
-        "Thirdparty/g2o/*.h",
+        # "Thirdparty/g2o/g2o/**/*.h",
+        # "Thirdparty/g2o/g2o/*/*.h",
+        # "Thirdparty/g2o/g2o/*/*.hpp",
+        # "Thirdparty/g2o/*.h",
         ]),
     includes=[
         "include"
