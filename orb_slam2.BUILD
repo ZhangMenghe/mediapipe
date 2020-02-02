@@ -3,81 +3,60 @@ licenses(["notice"])  # Apache 2.0
 package(default_visibility = ["//visibility:private"])
 
 exports_files(["LICENSE"])
+
+#DBoW
 cc_library(
     name = "DBoW",
     srcs = ["Thirdparty/DBoW2/lib/libDBoW2.so"],
     visibility = ["//visibility:public"],
 )
+#G2O
 cc_library(
     name = "G2O",
-    srcs = glob(["Thirdparty/g2o/g2o/**/*.cpp",
-            "Thirdparty/g2o/g2o/*/*.cpp",
-        "Thirdparty/g2o/*.cpp",]),
-    hdrs= glob([
+    srcs = glob([
+        "Thirdparty/g2o/g2o/**/*.cpp",
+        "Thirdparty/g2o/g2o/*/*.cpp",
+        "Thirdparty/g2o/*.cpp",
+    ]),
+    hdrs = glob([
         "Thirdparty/g2o/g2o/**/*.h",
         "Thirdparty/g2o/g2o/*/*.h",
         "Thirdparty/g2o/g2o/*/*.hpp",
         "Thirdparty/g2o/*.h",
     ]),
-includes=[
-    "include"
+    includes=["include"],
+    deps = [
+        "@linux_usr//:eigen",
     ],
-deps = [
-    "@eigen",
-],
     visibility = ["//visibility:public"],
 )
+
+#pangolin
 cc_library(
-    name = "G2O_old",
-    srcs = [
-        "Thirdparty/g2o/lib/libg2o.so",
-        # "Thirdparty/g2o/lib/libg2o_types_sba.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_structure_only.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_slam2d_linear.so",
-        # "Thirdparty/g2o/lib/libg2o_types_icp.so",
-        # "Thirdparty/g2o/lib/libg2o_types_slam2d_addons.so",
-        # "Thirdparty/g2o/lib/libg2o_interface.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_eigen.so",
-        # "Thirdparty/g2o/lib/libg2o_tutorial_slam2d.so",
-        # "Thirdparty/g2o/lib/libg2o_calibration_odom_laser.so",
-        # "Thirdparty/g2o/lib/libg2o_core.so",
-        # "Thirdparty/g2o/lib/libg2o_cli.so",
-        # "Thirdparty/g2o/lib/libg2o_types_slam3d_addons.so",
-        # "Thirdparty/g2o/lib/libg2o_stuff.so",
-        # "Thirdparty/g2o/lib/libg2o_types_data.so",
-        # "Thirdparty/g2o/lib/libg2o_ext_csparse.so",
-        # "Thirdparty/g2o/lib/libg2o_ext_freeglut_minimal.so",
-        # "Thirdparty/g2o/lib/libg2o_hierarchical.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_dense.so",
-        # "Thirdparty/g2o/lib/libg2o_types_slam3d.so",
-        # "Thirdparty/g2o/lib/libg2o_csparse_extension.so",
-        # "Thirdparty/g2o/lib/libg2o_types_sclam2d.so",
-        # "Thirdparty/g2o/lib/libg2o_opengl_helper.so",
-        # "Thirdparty/g2o/lib/libg2o_types_sim3.so",
-        # "Thirdparty/g2o/lib/libg2o_types_slam2d.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_pcg.so",
-        # "Thirdparty/g2o/lib/libg2o_solver_csparse.so",
-        # "Thirdparty/g2o/lib/libg2o_parser.so",
-        # "Thirdparty/g2o/lib/libg2o_simulator.so",
+    name = "pangolin",
+    srcs = glob(
+        [
+            "Thirdparty/pangolin/build/src/libpangolin.so"
         ],
-    hdrs= glob([
-        "Thirdparty/g2o/build/g2o/*.h",
-        "Thirdparty/g2o/*.h",
-        "Thirdparty/g2o/g2o/*/*.h",
-        "Thirdparty/g2o/g2o/**/*.h",
-        "Thirdparty/g2o/g2o/**/*.hpp",
-        "Thirdparty/g2o/g2o/*/*.hpp",        
-        ]),
-    includes=[
-        "Thirdparty/g2o/build",
-        "Thirdparty/g2o"
-        ],
+    ),
+    hdrs = glob(
+        [
+            "Thirdparty/pangolin/build/src/include/pangolin/*.h",
+            "Thirdparty/pangolin/include/pangolin/*/*.h",
+            "Thirdparty/pangolin/include/pangolin/*.h",
+            "Thirdparty/pangolin/include/**/*.h",
+            "Thirdparty/pangolin/include/**/*.hpp"
+        ]
+    ),
+    deps = ["@linux_usr//:opengl",],
+    includes = ["Thirdparty/pangolin/include","Thirdparty/pangolin/build/src/include"],
+    linkstatic = 1,
     visibility = ["//visibility:public"],
 )
+
 cc_library(
     name = "ORB_SLAM2",
     srcs = [
-        # "lib/libORB_SLAM2.so",
         "src/System.cc",
         "src/Tracking.cc",
         "src/LocalMapping.cc",
@@ -89,7 +68,6 @@ cc_library(
         "src/MapPoint.cc",
         "src/KeyFrame.cc",
         "src/Map.cc",
-        # "src/MapDrawer.cc",
         "src/Optimizer.cc",
         "src/PnPsolver.cc",
         "src/Frame.cc",
@@ -102,21 +80,17 @@ cc_library(
         "include/*.h",
         "Thirdparty/DBoW2/DBoW2/*.h",
         "Thirdparty/DBoW2/DUtils/*.h",
-        # "Thirdparty/g2o/g2o/**/*.h",
-        # "Thirdparty/g2o/g2o/*/*.h",
-        # "Thirdparty/g2o/g2o/*/*.hpp",
-        # "Thirdparty/g2o/*.h",
         ]),
     includes=[
         "include"
         ],
     deps = [
         ":DBoW",
-        "@pangolin",
+        ":pangolin",
         ":G2O",
-        "@linux_opengl//:opengl",
+        "@linux_usr//:opengl",
         "@linux_opencv//:opencv_contrib",
-        "@eigen",
+        "@linux_usr//:eigen",
     ],
     visibility = ["//visibility:public"],
     alwayslink = 1,

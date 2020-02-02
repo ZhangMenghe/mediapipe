@@ -16,7 +16,7 @@ cc_library(
         "//mediapipe/util:resource_util",
         ":orb_slam_calculator_cc_proto",
         "@orb_slam2//:ORB_SLAM2",
-        "@ipc_cpp//:IPC_CPP",
+        # "@ipc_cpp//:IPC_CPP",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
         "//mediapipe/framework/formats:image_frame_opencv",
