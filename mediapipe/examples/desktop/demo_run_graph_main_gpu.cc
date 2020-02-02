@@ -60,7 +60,7 @@ private:
   mediapipe::GlCalculatorHelper gpu_helper;
 
   const char kInputStream[12] = "input_video";
-  const char kOutputStream[22] = "frame_cam_pose_output";//13 "output_video";
+  const char kOutputStream[13] = "output_video";
   const char kWindowName[10] = "MediaPipe";
   const int write_fps = 30;//capture.get(cv::CAP_PROP_FPS)
   std::vector<std::string> frame_paths;
@@ -246,11 +246,11 @@ Status GPUTask::Run(){
     mediapipe::Packet packet;
     if (!poller.Next(&packet)) break;
     std::unique_ptr<mediapipe::ImageFrame> output_frame;
-    LOG(INFO) << packet.Get<std::string>();
+    // LOG(INFO) << packet.Get<std::string>();
 
     // LOG(INFO) << "====String info: "<< packet.Get<std::string>();
     // Convert GpuBuffer to ImageFrame.
-    /*MP_RETURN_IF_ERROR(gpu_helper.RunInGlContext(
+    MP_RETURN_IF_ERROR(gpu_helper.RunInGlContext(
       [this,&packet,&output_frame]() -> Status {
         auto& gpu_frame = packet.Get<mediapipe::GpuBuffer>();
         auto texture = gpu_helper.CreateSourceTexture(gpu_frame);
@@ -272,7 +272,7 @@ Status GPUTask::Run(){
     cv::Mat output_frame_mat = mediapipe::formats::MatView(output_frame.get());
     cv::cvtColor(output_frame_mat, output_frame_mat, cv::COLOR_RGB2BGR);
     // LOG(INFO) << "==="<<output_frame_mat.cols;
-    if(!postProcessVideo(output_frame_mat)) grab_frames = false;*/
+    if(!postProcessVideo(output_frame_mat)) grab_frames = false;
   }
 
   //finalize

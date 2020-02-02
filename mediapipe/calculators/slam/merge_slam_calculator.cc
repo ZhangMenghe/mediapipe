@@ -3,6 +3,7 @@
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/gpu/gpu_buffer.h"
+#include "mediapipe/gpu/gl_quad_renderer.h"
 
 //gpu
 #include "mediapipe/gpu/gl_calculator_helper.h"
@@ -15,6 +16,40 @@ namespace {
 class MergeSLAMCalculator : public CalculatorBase {
 private:
     GlCalculatorHelper gpu_helper;
+    std::unique_ptr<QuadRenderer> rgb_renderer_;
+
+    Status RenderGpu(CalculatorContext* cc){
+      auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
+      GlTexture src1 = gpu_helper.CreateSourceTexture(input);
+
+      int output_width = input.width(), output_height = input.height();
+      auto dst = gpu_helper.CreateDestinationTexture(output_width, output_height,
+                                              input.format());
+      gpu_helper.BindFramebuffer(dst);  // GL_TEXTURE0
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(src1.target(), src1.name());
+      LOG(INFO)<<"BEFORE";
+      if(!rgb_renderer_){
+          rgb_renderer_ = absl::make_unique<QuadRenderer>();
+          MP_RETURN_IF_ERROR(rgb_renderer_->GlSetup());
+      }
+      QuadRenderer* renderer = rgb_renderer_.get();
+      MP_RETURN_IF_ERROR(renderer->GlRender(
+        src1.width(), src1.height(), dst.width(), dst.height(), FrameScaleMode::kFit,
+        FrameRotation::kNone, false, false, false));
+      
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(src1.target(), 0);
+
+      // Execute GL commands, before getting result.
+      glFlush();
+
+LOG(INFO) <<"AFTER";
+      auto output = dst.GetFrame<GpuBuffer>();
+      cc->Outputs().Tag("IMAGE_GPU").Add(output.release(), cc->InputTimestamp());
+LOG(INFO) <<"AFTER2";
+return ::mediapipe::OkStatus();
+    }
  public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
     cc->Inputs().Tag(kCameraPoseTag).Set<std::string>();
@@ -31,35 +66,14 @@ private:
   }
 
   ::mediapipe::Status Process(CalculatorContext* cc) override {
+    LOG(INFO)<<"ASDFASDFASDFASDF";
     auto frame = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
 
-    MP_RETURN_IF_ERROR(gpu_helper.RunInGlContext(
-            [this, cc]() -> ::mediapipe::Status {
-      auto& input_gpu_frame = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
-      auto src_tex = gpu_helper.CreateSourceTexture(input_gpu_frame);
-
-      std::unique_ptr<mediapipe::ImageFrame> output_frame;
-      output_frame = absl::make_unique<mediapipe::ImageFrame>(
-              mediapipe::ImageFormatForGpuBufferFormat(input_gpu_frame.format()),
-              input_gpu_frame.width(), input_gpu_frame.height(),
-              mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);
-      gpu_helper.BindFramebuffer(src_tex); 
-      const auto info =
-          mediapipe::GlTextureInfoForGpuBufferFormat(input_gpu_frame.format(), 0);
-      glReadPixels(0, 0, src_tex.width(), src_tex.height(), info.gl_format,
-                    info.gl_type, output_frame->MutablePixelData());
-      glFlush();
-      src_tex.Release();
-
-
-      auto dst_tex = gpu_helper.CreateSourceTexture(*output_frame.get());
-      auto output_gpu_frame = dst_tex.GetFrame<mediapipe::GpuBuffer>();
-      glFlush();
-      dst_tex.Release();
-
-      cc->Outputs().Tag("IMAGE_GPU").Add(output_gpu_frame.release(), cc->InputTimestamp());
-    }));
-    return ::mediapipe::OkStatus();
+    return gpu_helper.RunInGlContext(
+        [this, cc]() -> ::mediapipe::Status { 
+          // LOG(INFO) << "=============";
+          return RenderGpu(cc); 
+          });
   }
 };
 REGISTER_CALCULATOR(MergeSLAMCalculator);

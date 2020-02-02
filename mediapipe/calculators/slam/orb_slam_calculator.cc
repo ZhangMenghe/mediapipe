@@ -13,8 +13,10 @@
 
 namespace mediapipe{
 namespace{
-  constexpr char kInputVideoTag[] = "IMAGE_ALIGN";
-  }
+  constexpr char kInputVideoTag[] = "IMAGE";
+  constexpr char kOutputVideoTag[] = "IMAGE";
+  constexpr char kOutputCamPoseTag[] = "CAMERA_POSE";
+}
 
 class OrbSLAMCalculator : public CalculatorBase {
 	public:
@@ -40,17 +42,14 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 ::mediapipe::Status OrbSLAMCalculator::GetContract(
     CalculatorContract* cc) {
 
-	if (cc->Outputs().HasTag("IMAGE")) {
-		RET_CHECK(cc->Outputs().HasTag("IMAGE"));
-		cc->Inputs().Tag("IMAGE").Set<ImageFrame>();
-		cc->Outputs().Tag("IMAGE").Set<ImageFrame>();
-  	}else{
-    RET_CHECK(cc->Inputs().HasTag(kInputVideoTag));
-    cc->Inputs().Tag(kInputVideoTag).Set<ImageFrame>();
-	}
+	cc->Inputs().Tag(kInputVideoTag).Set<ImageFrame>();
 
-    // cc->Inputs().Tag("CAMERA_POSE").Set<std::string>();
-    // cc->Outputs().Tag("CAMERA_POSE").Set<std::string>();
+	if (cc->Outputs().HasTag(kOutputCamPoseTag)){
+		cc->Outputs().Tag(kOutputCamPoseTag).Set<std::string>();
+	}
+	if(cc->Outputs().HasTag(kOutputVideoTag)){
+		cc->Outputs().Tag("IMAGE").Set<ImageFrame>();
+	}
     return ::mediapipe::OkStatus();
 }
 
@@ -80,7 +79,15 @@ void slam_thread(ORB_SLAM2::System* sys, cv::Mat img, double stamp){
 	cv::Mat output_mat = formats::MatView(output_frame.get());
 	input_mat.copyTo(output_mat);
 
-  	cc->Outputs().Tag("IMAGE").Add(output_frame.release(), cc->InputTimestamp());
+	if (cc->Outputs().HasTag(kOutputCamPoseTag)){
+		cc->Outputs().Tag(kOutputCamPoseTag).AddPacket(MakePacket<std::string>("AAAAA").At(cc->InputTimestamp()));
+	} 
+	if(cc->Outputs().HasTag(kOutputVideoTag)){
+		cc->Outputs().Tag(kOutputVideoTag).Add(output_frame.release(), cc->InputTimestamp());
+	}
+
+  	
+
 	return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status OrbSLAMCalculator::Close(CalculatorContext* cc) {

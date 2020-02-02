@@ -1,16 +1,16 @@
-input_stream: "IMAGE:input_video"
-output_stream:"output_video"
-# output_stream: "frame_cam_pose_output"
+input_stream: "IMAGE_GPU:input_video"
+output_stream: "output_video"
 
 # Transforms the input image on GPU to a 256x256 image. To scale the input
 # image, the scale_mode option is set to FIT to preserve the aspect ratio,
 # resulting in potential letterboxing in the transformed image.
 node: {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE:input_video"
-  # output_stream: "IMAGE:output_video"
-  # output_stream: "CAMERA_POSE:frame_cam_pose_input"
-  output_stream: "IMAGE:transformed_input_video_cpu"
+  input_stream: "IMAGE_GPU:input_video"
+  output_stream: "IMAGE_GPU:transformed_input_video"
+
+  #output_stream: "CAMERA_POSE:frame_cam_pose_input"
+  #output_stream: "IMAGE_ALIGN:transformed_input_video_cpu"
   #output_stream: "LETTERBOX_PADDING:letterbox_padding"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
@@ -21,21 +21,20 @@ node: {
   }
 }
 
-# # Converts RGB images into luminance images, still stored in RGB format.
-# node: {
-#   calculator: "LuminanceCalculator"
-#   input_stream: "transformed_input_video"
-#   #output_stream:"output_video"
-#   output_stream: "transformed_luminance"
-# }
+# Converts RGB images into luminance images, still stored in RGB format.
+node: {
+  calculator: "LuminanceCalculator"
+  input_stream: "transformed_input_video"
+  #output_stream:"output_video"
+  output_stream: "transformed_luminance"
+}
 
 # Fuse cpu RGB images to orb calculator
 node: {
   calculator: "OrbSLAMCalculator"
-  # input_stream: "CAMERA_POSE:frame_cam_pose_input"
-  input_stream: "IMAGE:transformed_input_video_cpu"
-  output_stream: "IMAGE:output_video"
-  # output_stream: "CAMERA_POSE:frame_cam_pose_output"
+  #input_stream: "CAMERA_POSE:frame_cam_pose_input"
+  input_stream: "IMAGE:transformed_luminance_cpu"
+  output_stream: "CAMERA_POSE:frame_cam_pose_output"
   options {
     [mediapipe.OrbSLAMCalculatorOptions.ext] {
       voc_path: "../data/slam/vocabulary.txt"
@@ -44,9 +43,19 @@ node: {
   }
 }
 
-# node: {
-#   calculator: "MergeSLAMCalculator"
-#   input_stream:"CAMERA_POSE:frame_cam_pose_output"
-#   input_stream:"IMAGE_GPU:transformed_luminance"
-#   output_stream:"IMAGE_GPU:output_video"
-# }
+node: {
+  calculator: "MergeSLAMCalculator"
+  input_stream:"CAMERA_POSE:frame_cam_pose_output"
+  input_stream:"IMAGE_GPU:transformed_input_video"
+  output_stream:"IMAGE_GPU:output_video"
+}
+
+# Transfers the input image from GPU to CPU memory for the purpose of
+# demonstrating a CPU-based pipeline. Note that the input image on GPU has the
+# origin defined at the bottom-left corner (OpenGL convention). As a result,
+# the transferred image on CPU also shares the same representation.
+node: {
+  calculator: "GpuBufferToImageFrameCalculator"
+  input_stream: "transformed_luminance"
+  output_stream: "transformed_luminance_cpu"
+}
