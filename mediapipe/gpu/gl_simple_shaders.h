@@ -18,7 +18,8 @@
 #include "mediapipe/gpu/gl_base.h"
 
 namespace mediapipe {
-
+    
+extern const GLchar* const kNoTextureVertexShader;
 // Leaves vertex and texture coordinates as they are.
 // Input attributes:
 //   vec4 position - vertex position in clip space (-1..1)

@@ -51,6 +51,17 @@ namespace mediapipe {
 const GLchar* const kMediaPipeVertexShaderPreamble = VERTEX_PREAMBLE;
 const GLchar* const kMediaPipeFragmentShaderPreamble = FRAGMENT_PREAMBLE;
 
+//vertext shader no texture
+const GLchar* const kNoTextureVertexShader = VERTEX_PREAMBLE _STRINGIFY(
+    // vertex position in clip space (-1..1)
+    in vec4 position;
+    uniform float point_size;
+    void main() {
+      gl_PointSize = point_size;
+      gl_Position = position;
+    }
+);
+
 const GLchar* const kBasicVertexShader = VERTEX_PREAMBLE _STRINGIFY(
     // vertex position in clip space (-1..1)
     in vec4 position;
