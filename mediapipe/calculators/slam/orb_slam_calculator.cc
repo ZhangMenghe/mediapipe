@@ -16,6 +16,7 @@ namespace{
   constexpr char kInputVideoTag[] = "IMAGE";
   constexpr char kOutputVideoTag[] = "IMAGE";
   constexpr char kOutputCamPoseTag[] = "CAMERA_POSE";
+  constexpr char kOutputKeyPoints[] = "KEY_POINTS";
 }
 
 class OrbSLAMCalculator : public CalculatorBase {
@@ -34,8 +35,10 @@ class OrbSLAMCalculator : public CalculatorBase {
 
 		    // Create SLAM system. It initializes all system threads and gets ready to process frames.
     	ORB_SLAM2::System *SLAM = nullptr;
+
 		std::string camera_config_file_;
 		std::string voc_file_;
+		float img_width = .0f, img_height = .0f;
 };
 REGISTER_CALCULATOR(OrbSLAMCalculator);
 
@@ -47,6 +50,13 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	if (cc->Outputs().HasTag(kOutputCamPoseTag)){
 		cc->Outputs().Tag(kOutputCamPoseTag).Set<std::string>();
 	}
+
+	if (cc->Outputs().HasTag(kOutputKeyPoints)){
+		cc->Outputs().Tag(kOutputKeyPoints).Set<std::vector<float>>();
+
+		// cc->Outputs().Tag(kOutputKeyPoints).Set<std::vector<cv::KeyPoint>>();
+	}
+	
 	if(cc->Outputs().HasTag(kOutputVideoTag)){
 		cc->Outputs().Tag("IMAGE").Set<ImageFrame>();
 	}
@@ -56,24 +66,24 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 ::mediapipe::Status OrbSLAMCalculator::Open(CalculatorContext* cc) {
     cc->SetOffset(TimestampDiff(0));
 	MP_RETURN_IF_ERROR(LoadOptions(cc));
-	SLAM = new ORB_SLAM2::System(voc_file_,camera_config_file_,ORB_SLAM2::System::MONOCULAR,false);
+	SLAM = new ORB_SLAM2::System(
+		voc_file_,camera_config_file_,
+		ORB_SLAM2::System::MONOCULAR, 
+		/*use viewer*/false);
     return ::mediapipe::OkStatus();
 }
-void slam_thread(ORB_SLAM2::System* sys, cv::Mat img, double stamp){
-    cv::Mat pose = sys->TrackMonocular(img, stamp);
-	LOG(INFO) << pose;
-
-}
 ::mediapipe::Status OrbSLAMCalculator::Process(CalculatorContext* cc) {
-	// int input_width = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>().Width();
-	// int input_height = cc->Inputs().Tag(kInputVideoTag).Get<ImageFrame>().Height();
-
 	const auto& input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
+	if(img_width == 0){
+		img_width = (float)input_img.Width();
+		img_height = (float)input_img.Height();
+	}
 	cv::Mat input_mat = formats::MatView(&input_img);
 
 	// Pass the image to the SLAM system
     cv::Mat pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
 	LOG(INFO) << pose;
+
 	std::unique_ptr<ImageFrame> output_frame(
     	new ImageFrame(input_img.Format(), input_img.Width(), input_img.Height()));
 	cv::Mat output_mat = formats::MatView(output_frame.get());
@@ -85,8 +95,23 @@ void slam_thread(ORB_SLAM2::System* sys, cv::Mat img, double stamp){
 	if(cc->Outputs().HasTag(kOutputVideoTag)){
 		cc->Outputs().Tag(kOutputVideoTag).Add(output_frame.release(), cc->InputTimestamp());
 	}
+	if (cc->Outputs().HasTag(kOutputKeyPoints)){
+		auto kps = SLAM->GetTrackedKeyPointsUn();
+		int point_num = kps.size();
+		
+		std::vector<float>data(4 * point_num, 1.0f);
+        
+		for(int i=0; i<point_num; i++){
+        //   LOG(INFO)<<kps[i].pt.x<<"~~"<<kps[i].pt.y;
 
-  	
+          data[4*i] = (kps[i].pt.x / img_width) * 2.0f - 1.0f; data[4*i+1] = kps[i].pt.y / img_height* 2.0f - 1.0f;
+        //   LOG(INFO)<<data[4*i]<<"~~"<<data[4*i+1];
+          data[4*i+2] = .0f;
+        }
+		 cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<float>>(data).At(cc->InputTimestamp()));
+		
+		// cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<cv::KeyPoint>>(SLAM->GetTrackedKeyPointsUn()).At(cc->InputTimestamp()));
+	} 
 
 	return ::mediapipe::OkStatus();
 }

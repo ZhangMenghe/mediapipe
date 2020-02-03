@@ -13,6 +13,8 @@ namespace {
     constexpr char kCameraPoseTag[] = "CAMERA_POSE";
     constexpr char kInputVideoTag[] = "IMAGE_GPU";
     constexpr char kOutputVideoTag[] = "IMAGE_GPU";
+    constexpr char kInputKeyPoints[] = "KEY_POINTS";
+
 }  
 class MergeSLAMCalculator : public CalculatorBase {
 private:
@@ -22,7 +24,8 @@ private:
 
     float* point_cloud;
     int point_num;
-
+    bool b_render_point = false;
+    
     Status RenderGpu(CalculatorContext* cc){
       auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
       GlTexture src1 = gpu_helper.CreateSourceTexture(input);
@@ -33,39 +36,45 @@ private:
       gpu_helper.BindFramebuffer(dst);  // GL_TEXTURE0
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(src1.target(), src1.name());
-      LOG(INFO)<<"BEFORE";
-      if(!point_renderer_){
-          point_renderer_ = absl::make_unique<PointRenderer>();
-          MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
-      }
+
+      
       if(!quad_renderer_){
           quad_renderer_ = absl::make_unique<QuadRenderer>();
           MP_RETURN_IF_ERROR(quad_renderer_->GlSetup());
       }
-      PointRenderer* prenderer = point_renderer_.get();
       QuadRenderer* qrenderer = quad_renderer_.get();
       
       MP_RETURN_IF_ERROR(qrenderer->GlRender(
         src1.width(), src1.height(), dst.width(), dst.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
-      MP_RETURN_IF_ERROR(prenderer->GlRender(point_cloud, point_num));  
-      
+        if(b_render_point){
+        if(!point_renderer_){
+            point_renderer_ = absl::make_unique<PointRenderer>();
+            MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
+        }
+        PointRenderer* prenderer = point_renderer_.get();
+        auto kps =  cc->Inputs().Tag(kInputKeyPoints).Get<std::vector<float>>();
+
+        MP_RETURN_IF_ERROR(prenderer->GlRender(&kps[0], kps.size() / 4));  
+      }
+
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(src1.target(), 0);
 
       // Execute GL commands, before getting result.
       glFlush();
 
-LOG(INFO) <<"AFTER";
       auto output = dst.GetFrame<GpuBuffer>();
       cc->Outputs().Tag("IMAGE_GPU").Add(output.release(), cc->InputTimestamp());
-LOG(INFO) <<"AFTER2";
-return ::mediapipe::OkStatus();
+      return ::mediapipe::OkStatus();
     }
  public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
     cc->Inputs().Tag(kCameraPoseTag).Set<std::string>();
     cc->Inputs().Tag(kInputVideoTag).Set<GpuBuffer>();
     cc->Outputs().Tag(kOutputVideoTag).Set<GpuBuffer>();
+    if (cc->Inputs().HasTag(kInputKeyPoints)){
+		    cc->Inputs().Tag(kInputKeyPoints).Set<std::vector<float>>();
+	  }
     MP_RETURN_IF_ERROR(GlCalculatorHelper::UpdateContract(cc));
     return ::mediapipe::OkStatus();
   }
@@ -74,6 +83,8 @@ return ::mediapipe::OkStatus();
     cc->SetOffset(TimestampDiff(0));
     MP_RETURN_IF_ERROR(gpu_helper.Open(cc));
     //debug
+    if(cc->Inputs().HasTag(kInputKeyPoints)) b_render_point = true;
+
     point_num = 5;
     float tmp_point_cloud[20] = {
       -0.8f, -0.8f, .0f, 1.0f,
@@ -88,7 +99,6 @@ return ::mediapipe::OkStatus();
   }
 
   ::mediapipe::Status Process(CalculatorContext* cc) override {
-    LOG(INFO)<<"ASDFASDFASDFASDF";
     auto frame = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
 
     return gpu_helper.RunInGlContext(

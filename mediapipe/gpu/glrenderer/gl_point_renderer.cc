@@ -58,6 +58,7 @@ void PointRenderer::GlTeardown() {
 }
 
 ::mediapipe::Status PointRenderer::GlRender(float* pointCloudData, int num) {
+  num = std::min(MAX_POINTS, num);
   // update data
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
   glBufferSubData(GL_ARRAY_BUFFER, 0,  num* 4 * sizeof(float), pointCloudData);
