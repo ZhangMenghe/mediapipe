@@ -8,6 +8,7 @@ load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library"
 cc_library(
     name = "merge_slam_calculator",
     srcs = ["merge_slam_calculator.cc",],
+    hdrs = ["slam_calculators.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:calculator_framework",
@@ -20,6 +21,7 @@ cc_library(
     ]+ select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
+            "@linux_usr//:glm",
             "//mediapipe/gpu:gl_calculator_helper",
             "//mediapipe/gpu:gl_simple_shaders",
             "//mediapipe/gpu/glrenderer:gl_point_renderer",
@@ -33,6 +35,7 @@ cc_library(
 cc_library(
     name = "orb_slam_calculator",
     srcs = ["orb_slam_calculator.cc"],
+    hdrs = ["slam_calculators.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/util:resource_util",

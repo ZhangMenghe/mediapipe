@@ -8,13 +8,12 @@
 #include "mediapipe/gpu/gpu_buffer.h"
 #include "mediapipe/gpu/gl_quad_renderer.h"
 #include "mediapipe/gpu/glrenderer/gl_point_renderer.h"
+#include "mediapipe/calculators/slam/slam_calculators.h"
 namespace mediapipe {
 namespace {
-    constexpr char kCameraPoseTag[] = "CAMERA_POSE";
     constexpr char kInputVideoTag[] = "IMAGE_GPU";
     constexpr char kOutputVideoTag[] = "IMAGE_GPU";
-    constexpr char kInputKeyPoints[] = "KEY_POINTS";
-
+    constexpr char kInputSLAMTag[] = "SLAM_OUT";
 }  
 class MergeSLAMCalculator : public CalculatorBase {
 private:
@@ -24,7 +23,7 @@ private:
 
     float* point_cloud;
     int point_num;
-    bool b_render_point = false;
+    bool b_render_point = true;
     
     Status RenderGpu(CalculatorContext* cc){
       auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
@@ -52,9 +51,9 @@ private:
             MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
         }
         PointRenderer* prenderer = point_renderer_.get();
-        auto kps =  cc->Inputs().Tag(kInputKeyPoints).Get<std::vector<float>>();
+        auto slam_data =  cc->Inputs().Tag(kInputSLAMTag).Get<SLAMData*>();
 
-        MP_RETURN_IF_ERROR(prenderer->GlRender(&kps[0], kps.size() / 4));  
+        MP_RETURN_IF_ERROR(prenderer->GlRender(&slam_data->kpoints[0], slam_data->kp_num));  
       }
 
       glActiveTexture(GL_TEXTURE1);
@@ -69,12 +68,11 @@ private:
     }
  public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
-    cc->Inputs().Tag(kCameraPoseTag).Set<std::string>();
     cc->Inputs().Tag(kInputVideoTag).Set<GpuBuffer>();
     cc->Outputs().Tag(kOutputVideoTag).Set<GpuBuffer>();
-    if (cc->Inputs().HasTag(kInputKeyPoints)){
-		    cc->Inputs().Tag(kInputKeyPoints).Set<std::vector<float>>();
-	  }
+    if (cc->Inputs().HasTag(kInputSLAMTag)){
+      cc->Inputs().Tag(kInputSLAMTag).Set<SLAMData*>();
+    }
     MP_RETURN_IF_ERROR(GlCalculatorHelper::UpdateContract(cc));
     return ::mediapipe::OkStatus();
   }
@@ -83,7 +81,7 @@ private:
     cc->SetOffset(TimestampDiff(0));
     MP_RETURN_IF_ERROR(gpu_helper.Open(cc));
     //debug
-    if(cc->Inputs().HasTag(kInputKeyPoints)) b_render_point = true;
+    // if(cc->Inputs().HasTag(kInputKeyPoints)) b_render_point = true;
 
     point_num = 5;
     float tmp_point_cloud[20] = {

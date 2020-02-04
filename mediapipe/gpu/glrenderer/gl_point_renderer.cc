@@ -39,12 +39,14 @@ namespace{
   //uniform
   u_point_size = glGetUniformLocation(program_, "point_size");
   u_point_color = glGetUniformLocation(program_, "color");
-  RET_CHECK(u_point_size != -1 && u_point_size!=-1)
+  u_mvp = glGetUniformLocation(program_, "mvp");
+  RET_CHECK(u_point_size != -1 && u_point_size!=-1 && u_mvp!=-1)
           << "could not find uniform in point drawing" ;
   
   glUseProgram(program_);
   glUniform3fv(u_point_color, 1, point_color);
   glUniform1f(u_point_size, point_size);
+  glUniformMatrix4fv(u_mvp, 1, GL_FALSE, glm::value_ptr(mvp_));
   glUseProgram(0);
 
   return ::mediapipe::OkStatus();
@@ -66,11 +68,17 @@ void PointRenderer::GlTeardown() {
 
   // Draw.
   glUseProgram(program_);
-  // glUniformMatrix4fv(_uniform_arMVP_mat, 1, GL_FALSE, _mvpMat.ptr());
+  glUniformMatrix4fv(u_mvp, 1, GL_FALSE, glm::value_ptr(mvp_));
   glBindVertexArray(vao_);
   glDrawArrays(GL_POINTS, 0, num);
   glBindVertexArray(0);
   glUseProgram(0);
   return ::mediapipe::OkStatus();
 }
+::mediapipe::Status PointRenderer::GlRender(glm::mat4 mvp, float* pointCloudData, int num) {
+  mvp_ = mvp;
+  return GlRender(pointCloudData,num);
+}
+
+
 }  // namespace mediapipe

@@ -4,6 +4,8 @@
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/gpu/gl_base.h"
 #include "mediapipe/gpu/scale_mode.pb.h"
+#include <glm/glm.hpp> 
+#include <glm/gtc/type_ptr.hpp>
 
 namespace mediapipe {
 
@@ -20,6 +22,8 @@ class PointRenderer {
     const std::vector<const GLchar*>& custom_frame_uniforms);
 
   ::mediapipe::Status GlRender(float* pointCloudData, int num);
+  ::mediapipe::Status GlRender(glm::mat4 mvp, float* pointCloudData, int num);
+
   // Deletes the rendering program. Must be called withn the GL context where it was created.
   void GlTeardown();
 
@@ -30,8 +34,9 @@ class PointRenderer {
   const int MAX_POINTS = 600;
   float point_size = 5.0f;
   GLfloat point_color[3] = {1.0f, 0.5f, .0f};
+  glm::mat4 mvp_ = glm::mat4(1.0f);
   
-  GLuint u_point_color, u_point_size;
+  GLuint u_point_color, u_point_size, u_mvp;
 };
 
 }  // namespace mediapipe

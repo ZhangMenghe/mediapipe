@@ -4,7 +4,7 @@ output_stream: "output_video"
 node {
   calculator: "FlowLimiterCalculator"
   input_stream: "input_video"
-  input_stream: "FINISHED:frame_cam_pose_output"
+  input_stream: "FINISHED:slam_output"
   input_stream_info: {
     tag_index: "FINISHED"
     back_edge: true
@@ -46,8 +46,9 @@ node: {
   calculator: "OrbSLAMCalculator"
   #input_stream: "CAMERA_POSE:frame_cam_pose_input"
   input_stream: "IMAGE:transformed_luminance_cpu"
-  output_stream: "CAMERA_POSE:frame_cam_pose_output"
-  output_stream:"KEY_POINTS:key_points"
+  output_stream:"SLAM_OUT:slam_output"
+  #output_stream: "CAMERA_POSE:frame_cam_pose_output"
+  #output_stream:"KEY_POINTS:key_points"
   options {
     [mediapipe.OrbSLAMCalculatorOptions.ext] {
       voc_path: "../data/slam/vocabulary.txt"
@@ -58,8 +59,9 @@ node: {
 
 node: {
   calculator: "MergeSLAMCalculator"
-  input_stream:"CAMERA_POSE:frame_cam_pose_output"
-  input_stream:"KEY_POINTS:key_points"
+  #input_stream:"CAMERA_POSE:frame_cam_pose_output"
+  #input_stream:"KEY_POINTS:key_points"
+  input_stream:"SLAM_OUT:slam_output"
   input_stream:"IMAGE_GPU:transformed_input_video"
   output_stream:"IMAGE_GPU:output_video"
 }
