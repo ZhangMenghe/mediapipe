@@ -1,12 +1,24 @@
-input_stream: "IMAGE_GPU:input_video"
+input_stream: "input_video"
 output_stream: "output_video"
+
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "input_video"
+  input_stream: "FINISHED:frame_cam_pose_output"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  output_stream: "throttled_input_video"
+}
 
 # Transforms the input image on GPU to a 256x256 image. To scale the input
 # image, the scale_mode option is set to FIT to preserve the aspect ratio,
 # resulting in potential letterboxing in the transformed image.
 node: {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE_GPU:input_video"
+  # input_stream: "IMAGE_GPU:input_video"
+  input_stream: "IMAGE_GPU:throttled_input_video"
   output_stream: "IMAGE_GPU:transformed_input_video"
 
   #output_stream: "CAMERA_POSE:frame_cam_pose_input"

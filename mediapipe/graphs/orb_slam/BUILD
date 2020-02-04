@@ -12,6 +12,7 @@ cc_library(
     deps = [
         "//mediapipe/calculators/slam:merge_slam_calculator",
         "//mediapipe/calculators/slam:orb_slam_calculator",
+        "//mediapipe/calculators/core:flow_limiter_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/image:luminance_calculator",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
