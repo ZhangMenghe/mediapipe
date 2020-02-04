@@ -28,7 +28,7 @@ class PointRenderer {
   GLuint vao_, vbo_;
 
   const int MAX_POINTS = 600;
-  float point_size = 2.0f;
+  float point_size = 5.0f;
   GLfloat point_color[3] = {1.0f, 0.5f, .0f};
   
   GLuint u_point_color, u_point_size;

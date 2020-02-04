@@ -10,6 +10,9 @@
 #include "mediapipe/util/resource_util.h"
 
 #include "System.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp> 
+#include <glm/gtc/type_ptr.hpp>
 
 namespace mediapipe{
 namespace{
@@ -72,6 +75,35 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		/*use viewer*/false);
     return ::mediapipe::OkStatus();
 }
+void fromCV2GLM(const cv::Mat& cvmat, glm::mat4* glmmat) {
+    // if (cvmat.cols != 4 || cvmat.rows != 4 || cvmat.type() != CV_32FC1) {
+    //     cout << "Matrix conversion error!" << endl;
+    //     return;
+    // }
+    // memcpy(glm::value_ptr(*glmmat), cvmat.data, 16 * sizeof(float));
+
+}
+void fromCVCamPose2ViewMat(const cv::Mat& mCameraPose, glm::mat4*view_mat){
+	cv::Mat Rwc(3,3,CV_32FC1);
+	cv::Mat twc(3,1,CV_32FC1);
+	{
+		Rwc = mCameraPose.rowRange(0,3).colRange(0,3).t();
+		twc = -Rwc*mCameraPose.rowRange(0,3).col(3);
+	}
+	float data[16]={
+		Rwc.at<float>(0,0), Rwc.at<float>(0,1), Rwc.at<float>(0,2), twc.at<float>(0),
+        Rwc.at<float>(1,0), Rwc.at<float>(1,1), Rwc.at<float>(1,2), twc.at<float>(1),
+        Rwc.at<float>(2,0), Rwc.at<float>(2,1), Rwc.at<float>(2,2), twc.at<float>(2),
+        0.0, .0f,.0f,1.0f
+	};
+	// 	float data[16]={
+	// 	Rwc.at<float>(0,0), Rwc.at<float>(1,0), Rwc.at<float>(2,0), twc.at<float>(0),
+    //     Rwc.at<float>(0,1), Rwc.at<float>(1,1), Rwc.at<float>(2,1), twc.at<float>(1),
+    //     Rwc.at<float>(0,2), Rwc.at<float>(1,2), Rwc.at<float>(2,2), twc.at<float>(2),
+    //     0.0, .0f,.0f,1.0f
+	// };
+	memcpy(glm::value_ptr(*view_mat), &data[0], 16 * sizeof(float));
+}
 ::mediapipe::Status OrbSLAMCalculator::Process(CalculatorContext* cc) {
 	const auto& input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
 	if(img_width == 0){
@@ -95,18 +127,62 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	if(cc->Outputs().HasTag(kOutputVideoTag)){
 		cc->Outputs().Tag(kOutputVideoTag).Add(output_frame.release(), cc->InputTimestamp());
 	}
-	if (cc->Outputs().HasTag(kOutputKeyPoints)){
-		auto kps = SLAM->GetTrackedKeyPointsUn();
-		int point_num = kps.size();
-		
-		std::vector<float>data(4 * point_num, 1.0f);
-        
-		for(int i=0; i<point_num; i++){
-        //   LOG(INFO)<<kps[i].pt.x<<"~~"<<kps[i].pt.y;
+	if (cc->Outputs().HasTag(kOutputKeyPoints) ){
+		if(pose.empty()){
+			std::vector<float> data;
+		 cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<float>>(data).At(cc->InputTimestamp()));
+	return ::mediapipe::OkStatus();
 
+		}
+		auto kps = SLAM->GetTrackedKeyPointsUn();
+		
+		//real-world points
+		
+		ORB_SLAM2::Map* mpMap = SLAM->GetMap();
+		if(!mpMap) LOG(ERROR)<<"MAP ERROR";
+		const std::vector<ORB_SLAM2::MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
+    	const std::vector<ORB_SLAM2::MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
+		std::set<ORB_SLAM2::MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+
+		LOG(INFO)<<"SIZE: "<< vpMPs.size() <<"  "<< vpRefMPs.size() << "  "<<kps.size();
+		
+
+		glm::mat4 Projection = glm::perspective(glm::radians(45.0f), img_width/img_height, 0.1f, 100.0f);
+
+		// Camera matrix
+		// glm::mat4 View = glm::lookAt(
+		// 	glm::vec3(4,3,3), // Camera is at (4,3,3), in World Space
+		// 	glm::vec3(0,0,0), // and looks at the origin
+		// 	glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
+		// 	);
+
+		// int point_num = vpMPs.size();//kps.size();
+		int point_num = kps.size();
+
+		// glm::mat4 view_mat;
+		// fromCVCamPose2ViewMat(pose, &view_mat);
+		// glm::mat4 mvp = Projection * view_mat;
+
+		// std::vector<float>data;//(4 * point_num, 1.0f);
+        
+		std::vector<float>data(4 * point_num, 1.0f);
+
+		for(int i=0; i<point_num; i++){
           data[4*i] = (kps[i].pt.x / img_width) * 2.0f - 1.0f; data[4*i+1] = kps[i].pt.y / img_height* 2.0f - 1.0f;
-        //   LOG(INFO)<<data[4*i]<<"~~"<<data[4*i+1];
           data[4*i+2] = .0f;
+
+
+		// if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
+		// continue;
+        // cv::Mat pos = vpMPs[i]->GetWorldPos();
+        // glm::vec4 pw(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2), 1.0f);
+		
+		  
+		// glm::vec4 pt = mvp * pw;
+		// pt = pt/ pt.w;
+		// LOG(INFO)<<"pt: "<< pos.at<float>(0)<<" "<< pos.at<float>(1)<<" "<< pos.at<float>(2)<<" "<<pt.x <<" "<<pt.y<<" "<<pt.z;
+		// data.push_back(pt.x);data.push_back(pt.y);data.push_back(pt.z);data.push_back(1.0f);
+		  
         }
 		 cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<float>>(data).At(cc->InputTimestamp()));
 		
@@ -128,8 +204,6 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
     CalculatorContext* cc) {
   // Get calculator options specified in the graph.
 	const auto& options = cc->Options<::mediapipe::OrbSLAMCalculatorOptions>();
-	// LOG(INFO) << "===="<<options.voc_path();
-	// LOG(INFO) << "===="<<options.camera_path();
 
 	// Get model name.
 	if (!options.camera_path().empty()) {

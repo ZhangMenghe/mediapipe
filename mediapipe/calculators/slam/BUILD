@@ -48,6 +48,7 @@ cc_library(
     ]+ select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
+            "@linux_usr//:glm",
             "//mediapipe/gpu:gl_calculator_helper",
             "//mediapipe/gpu:gl_simple_shaders",
             "//mediapipe/gpu:gl_quad_renderer",

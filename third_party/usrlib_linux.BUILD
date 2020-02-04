@@ -49,6 +49,19 @@ cc_library(
     linkstatic = 1,
     visibility = ["//visibility:public"],
 )
+#glm
+cc_library(
+    name = "glm",
+    hdrs = glob([
+        "include/glm/*.h*",
+        "include/glm/*.inl",
+        "include/glm/*/*.h*",
+        "include/glm/*/*.inl"
+        ]),
+    includes = ["include/glm"],
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+)
 
 #OpenGL
 cc_library(
