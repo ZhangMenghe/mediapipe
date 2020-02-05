@@ -120,10 +120,11 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		auto pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
 
 		if(pose.empty()){
-			std::vector<float> data;
+			slam_data_out->b_tracking_valid = false;
 		 	cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 			return ::mediapipe::OkStatus();
 		}
+		slam_data_out->b_tracking_valid = true;
 		slam_data_out->camera_pose_mat = pose;
 		auto kps = SLAM->GetTrackedKeyPointsUn();
 		slam_data_out->kp_num = kps.size();
@@ -142,7 +143,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 
 		slam_data_out->vp_num = 0;
 		for(size_t i=0, iend=vpMPs.size(); i<iend;i++){
-			if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
+			if(vpMPs[i]->isBad() )//|| spRefMPs.count(vpMPs[i]))
 				continue;
 			cv::Mat pos = vpMPs[i]->GetWorldPos();
 			slam_data_out->vp_mpoints[4*i] = pos.at<float>(0); 
