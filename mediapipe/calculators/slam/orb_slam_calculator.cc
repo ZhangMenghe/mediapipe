@@ -69,35 +69,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	
     return ::mediapipe::OkStatus();
 }
-// void fromCV2GLM(const cv::Mat& cvmat, glm::mat4* glmmat) {
-    // if (cvmat.cols != 4 || cvmat.rows != 4 || cvmat.type() != CV_32FC1) {
-    //     cout << "Matrix conversion error!" << endl;
-    //     return;
-    // }
-    // memcpy(glm::value_ptr(*glmmat), cvmat.data, 16 * sizeof(float));
-// 
-// }
-// void fromCVCamPose2ViewMat(const cv::Mat& mCameraPose, glm::mat4*view_mat){
-// 	cv::Mat Rwc(3,3,CV_32FC1);
-// 	cv::Mat twc(3,1,CV_32FC1);
-// 	{
-// 		Rwc = mCameraPose.rowRange(0,3).colRange(0,3).t();
-// 		twc = -Rwc*mCameraPose.rowRange(0,3).col(3);
-// 	}
-// 	float data[16]={
-// 		Rwc.at<float>(0,0), Rwc.at<float>(0,1), Rwc.at<float>(0,2), twc.at<float>(0),
-//         Rwc.at<float>(1,0), Rwc.at<float>(1,1), Rwc.at<float>(1,2), twc.at<float>(1),
-//         Rwc.at<float>(2,0), Rwc.at<float>(2,1), Rwc.at<float>(2,2), twc.at<float>(2),
-//         0.0, .0f,.0f,1.0f
-// 	};
-// 	// 	float data[16]={
-// 	// 	Rwc.at<float>(0,0), Rwc.at<float>(1,0), Rwc.at<float>(2,0), twc.at<float>(0),
-//     //     Rwc.at<float>(0,1), Rwc.at<float>(1,1), Rwc.at<float>(2,1), twc.at<float>(1),
-//     //     Rwc.at<float>(0,2), Rwc.at<float>(1,2), Rwc.at<float>(2,2), twc.at<float>(2),
-//     //     0.0, .0f,.0f,1.0f
-// 	// };
-// 	memcpy(glm::value_ptr(*view_mat), &data[0], 16 * sizeof(float));
-// }
+
 ::mediapipe::Status OrbSLAMCalculator::Process(CalculatorContext* cc) {
 	const auto& input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
 	if(img_width == 0){
@@ -106,7 +78,6 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 	}
 	cv::Mat input_mat = formats::MatView(&input_img);
 
-	
 	//output an image
 	if(cc->Outputs().HasTag(kOutputVideoTag)){
 		std::unique_ptr<ImageFrame> output_frame(
@@ -116,6 +87,9 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		cc->Outputs().Tag(kOutputVideoTag).Add(output_frame.release(), cc->InputTimestamp());
 	}
 	if (cc->Outputs().HasTag(kOutputSLAMTag) ){
+		//calibration
+		SLAM->GetTracking()->GetCalibration(slam_data_out->camera_intrinsic, slam_data_out->camera_mDistCoef);
+
 		// Pass the image to the SLAM system
 		auto pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
 
@@ -124,14 +98,17 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		 	cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 			return ::mediapipe::OkStatus();
 		}
+
 		slam_data_out->b_tracking_valid = true;
 		slam_data_out->camera_pose_mat = pose;
+
+		//keypoints
 		auto kps = SLAM->GetTrackedKeyPointsUn();
 		slam_data_out->kp_num = kps.size();
 		for(int i=0; i<slam_data_out->kp_num; i++){
-			slam_data_out->kpoints[4*i] = (kps[i].pt.x / img_width) * 2.0f - 1.0f; 
-			slam_data_out->kpoints[4*i+1] = kps[i].pt.y / img_height* 2.0f - 1.0f;
-          	slam_data_out->kpoints[4*i+2] = .0f;slam_data_out->kpoints[4*i+3] = 1.0f;
+			slam_data_out->keyPoints[4*i] = (kps[i].pt.x / img_width) * 2.0f - 1.0f; 
+			slam_data_out->keyPoints[4*i+1] = kps[i].pt.y / img_height* 2.0f - 1.0f;
+          	slam_data_out->keyPoints[4*i+2] = .0f;slam_data_out->keyPoints[4*i+3] = 1.0f;
 		}
 
 		//real-world points
@@ -141,75 +118,29 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
     	const std::vector<ORB_SLAM2::MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 		std::set<ORB_SLAM2::MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
-		slam_data_out->vp_num = 0;
-		for(size_t i=0, iend=vpMPs.size(); i<iend;i++){
+		slam_data_out->mp_num = 0;
+        //   LOG(INFO)<<"CHECK 1";
+		
+		for(size_t i=0, iend=vpMPs.size(); i<iend && slam_data_out->mp_num < MAX_TRACK_POINT;i++){
 			if(vpMPs[i]->isBad() )//|| spRefMPs.count(vpMPs[i]))
 				continue;
-			cv::Mat pos = vpMPs[i]->GetWorldPos();
-			slam_data_out->vp_mpoints[4*i] = pos.at<float>(0); 
-			slam_data_out->vp_mpoints[4*i+1] = pos.at<float>(1);
-          	slam_data_out->vp_mpoints[4*i+2] = pos.at<float>(2);slam_data_out->vp_mpoints[4*i+3] = 1.0f;
-			slam_data_out->vp_num++;
+			cv::Point3f pos = cv::Point3f(vpMPs[i]->GetWorldPos());
+			slam_data_out->mapPoints[slam_data_out->mp_num] = pos;
+			slam_data_out->mp_num++;
     	}
-		slam_data_out->vpref_num = 0;
-		int i=0;
+        //   LOG(INFO)<<"CHECK 2";
+
+		slam_data_out->rp_num = 0;
 		for(set<ORB_SLAM2::MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
+			if(slam_data_out->mp_num >= MAX_TRACK_POINT) break;
 			if((*sit)->isBad())
 				continue;
-			slam_data_out->vpref_num++;	
-			cv::Mat pos = (*sit)->GetWorldPos();
-			slam_data_out->vp_ref_mpoints[4*i] = pos.at<float>(0); 
-			slam_data_out->vp_ref_mpoints[4*i+1] = pos.at<float>(1);
-          	slam_data_out->vp_ref_mpoints[4*i+2] = pos.at<float>(2);slam_data_out->vp_ref_mpoints[4*i+3] = 1.0f;
-			i++;
+			slam_data_out->refPoints[slam_data_out->rp_num] = cv::Point3f((*sit)->GetWorldPos());
+			slam_data_out->rp_num++;
 		}
+        //   LOG(INFO)<<"CHECK 3";
 
-		
-
-		// glm::mat4 Projection = glm::perspective(glm::radians(45.0f), img_width/img_height, 0.1f, 100.0f);
-
-		// Camera matrix
-		// glm::mat4 View = glm::lookAt(
-		// 	glm::vec3(4,3,3), // Camera is at (4,3,3), in World Space
-		// 	glm::vec3(0,0,0), // and looks at the origin
-		// 	glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
-		// 	);
-
-		// int point_num = vpMPs.size();//kps.size();
-		// int point_num = kps.size();
-
-		// glm::mat4 view_mat;
-		// fromCVCamPose2ViewMat(pose, &view_mat);
-		// glm::mat4 mvp = Projection * view_mat;
-
-		// std::vector<float>data;//(4 * point_num, 1.0f);
-        
-		// std::vector<float>data(4 * point_num, 1.0f);
-
-		// for(int i=0; i<point_num; i++){
-        //   data[4*i] = (kps[i].pt.x / img_width) * 2.0f - 1.0f; data[4*i+1] = kps[i].pt.y / img_height* 2.0f - 1.0f;
-        //   data[4*i+2] = .0f;
-
-		// if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
-		// 	continue;
-        // cv::Mat pos = vpMPs[i]->GetWorldPos();
-		// data.push_back(pos.at<float>(0));data.push_back(pos.at<float>(1));data.push_back(pos.at<float>(2));data.push_back(1.0f);
-
-
-		// if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
-		// continue;
-        // cv::Mat pos = vpMPs[i]->GetWorldPos();
-        // glm::vec4 pw(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2), 1.0f);
-		
-		  
-		// glm::vec4 pt = mvp * pw;
-		// pt = pt/ pt.w;
-		// LOG(INFO)<<"pt: "<< pos.at<float>(0)<<" "<< pos.at<float>(1)<<" "<< pos.at<float>(2)<<" "<<pt.x <<" "<<pt.y<<" "<<pt.z;
-		// data.push_back(pt.x);data.push_back(pt.y);data.push_back(pt.z);data.push_back(1.0f);
-		  
-        // }
-		 cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
-		
+		cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 		// cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<cv::KeyPoint>>(SLAM->GetTrackedKeyPointsUn()).At(cc->InputTimestamp()));
 	} 
 

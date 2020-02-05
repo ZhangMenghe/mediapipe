@@ -12,6 +12,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp> 
 #include <glm/gtx/string_cast.hpp>
+#include <opencv2/calib3d.hpp>
 namespace mediapipe {
 namespace {
     constexpr char kInputVideoTag[] = "IMAGE_GPU";
@@ -73,6 +74,7 @@ private:
     bool b_render_point = true;
     float img_width = .0f, img_height=.0f;
     glm::mat4 projMat;
+    float map_point[4* MAX_TRACK_POINT];
     
     Status RenderGpu(CalculatorContext* cc){
       auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
@@ -101,57 +103,34 @@ private:
         }
         PointRenderer* prenderer = point_renderer_.get();
         auto slam_data =  cc->Inputs().Tag(kInputSLAMTag).Get<SLAMData*>();
-        bool draw_real = false;
-        if(draw_real&&slam_data->b_tracking_valid){
-          glm::mat4 world2Cam;
-          GetCurrentOpenGLCameraMatrix(slam_data->camera_pose_mat, &world2Cam);
+        bool draw_real = true;
+
+        if(draw_real&&slam_data->b_tracking_valid&&slam_data->mp_num){
+          cv::Mat rVec;
+          // LOG(INFO)<<"CHECK 1";
+          cv::Rodrigues(slam_data->camera_pose_mat.colRange(0, 3).rowRange(0, 3), rVec);
+          cv::Mat tVec = slam_data->camera_pose_mat.col(3).rowRange(0, 3);
+          std::vector<cv::Point2f> projectedPoints;
+          cv::projectPoints(std::vector<cv::Point3f>(slam_data->mapPoints,slam_data->mapPoints+sizeof(cv::Point3f)*slam_data->mp_num), rVec, tVec, slam_data->camera_intrinsic, slam_data->camera_mDistCoef, projectedPoints);
+          // LOG(INFO)<<"CHECK 2";
           
-          glm::mat4 Cam2World;
-          fromCV2GLM(slam_data->camera_pose_mat, &Cam2World);
-
-
-          // glm::mat4 viewMat = glm::mat4(1.0f);
-          auto mCameraPose = slam_data->camera_pose_mat;
-          cv::Mat Rwc(3,3,CV_32FC1);
-
-          cv::Mat twc(3,1,CV_32FC1);
-          {
-            Rwc = mCameraPose.rowRange(0,3).colRange(0,3).t();
-            twc = -Rwc*mCameraPose.rowRange(0,3).col(3);
+          int i = 0;
+          for(int j=0; j<projectedPoints.size(); j++){
+              if(i > MAX_TRACK_POINT) break;
+              cv::Point2f r1 = projectedPoints[j];
+              if(r1.x > img_width || r1.x<.0f || r1.y>img_height||r1.y<.0) continue;
+              map_point[4*i] = (r1.x / img_width) * 2.0f - 1.0f; 
+              map_point[4*i+1] = r1.y / img_height* 2.0f - 1.0f;
+              map_point[4*i+2] = .0f;map_point[4*i+3] = 1.0f;
+              i++;
           }
-          float data[16]={
-                Rwc.at<float>(0,0), Rwc.at<float>(0,1), Rwc.at<float>(0,2), twc.at<float>(0),
-                Rwc.at<float>(1,0), Rwc.at<float>(1,1), Rwc.at<float>(1,2), twc.at<float>(1),
-                Rwc.at<float>(2,0), Rwc.at<float>(2,1), Rwc.at<float>(2,2), twc.at<float>(2),
-                0.0, .0f,.0f,1.0f
-          };
-          glm::vec4 foward = Cam2World * glm::vec4(.0,.0,-1.0f,1.0f);
-          glm::vec4 up = Cam2World*glm::vec4(0,   1.0f,    0, 1.0f);
-          glm::vec4 c  = Cam2World*glm::vec4(.0f, .0f, .0f, 1.0f);
-
-          glm::mat4 viewMat = glm::lookAt(
-            glm::vec3(c.x, c.y, c.z)/c.w,
-            glm::vec3(foward.x, foward.y, foward.z)/foward.z,
-            glm::vec3(up.x, up.y, up.z)/ up.w
-          );
+          // LOG(INFO)<<"CHECK 3";
+          // MP_RETURN_IF_ERROR(prenderer->GlRender(&slam_data->keyPoints[0], slam_data->kp_num));  
           
-
-          // for(int i=0;i<slam_data->vp_num;i++){
-          //   auto data = &slam_data->vp_mpoints[4*i];
-          //   LOG(INFO)<<"pt: "<<data[0] <<" " << data[1]<<" "<< data[2]<<" "<<data[3];
-          // }
-
-          MP_RETURN_IF_ERROR(prenderer->GlRender(
-            projMat *Cam2World,//viewMat, 
-            &slam_data->vp_mpoints[0], 
-            slam_data->vp_num));  
- 
+          MP_RETURN_IF_ERROR(prenderer->GlRender(map_point, i));   
         }else{
-          MP_RETURN_IF_ERROR(prenderer->GlRender(&slam_data->kpoints[0], slam_data->kp_num));  
+          MP_RETURN_IF_ERROR(prenderer->GlRender(&slam_data->keyPoints[0], slam_data->kp_num));  
         }
-
-
-          //  }
 
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(src1.target(), 0);

@@ -31,7 +31,7 @@ class PointRenderer {
   GLuint program_ = 0;
   GLuint vao_, vbo_;
 
-  const int MAX_POINTS = 600;
+  const int MAX_POINTS = 5000;
   float point_size = 5.0f;
   GLfloat point_color[3] = {1.0f, 0.5f, .0f};
   glm::mat4 mvp_ = glm::mat4(1.0f);

@@ -6,27 +6,23 @@
 #define MAX_TRACK_POINT 2000
 
 namespace mediapipe{
+
 struct SLAMData {
+    //calibration
+    cv::Mat camera_intrinsic;
+    cv::Mat camera_mDistCoef;
+
+    //tracking
     bool b_tracking_valid;
     cv::Mat camera_pose_mat;
-    int kp_num;
-    int vp_num;
-    int vpref_num;
 
-    float kpoints[4*MAX_KEY_POINT];
-    float vp_mpoints[4*MAX_TRACK_POINT];
-    float vp_ref_mpoints[4*MAX_TRACK_POINT];
+    int kp_num;
+    int mp_num;
+    int rp_num;
+
+    float keyPoints[4*MAX_KEY_POINT];
+    cv::Point3f mapPoints[MAX_TRACK_POINT];
+    cv::Point3f refPoints[MAX_TRACK_POINT];
 };
 }
 #endif
-    // bool b_tracking_valid;
-    // cv::Mat camera_pose_mat;
-    
-
-    // int kp_num;
-    // int map_num;
-    // int ref_num;
-
-    // float keyPoints[4*MAX_KEY_POINT];
-    // float mapPoints[4*MAX_TRACK_POINT];
-    // float refPoints[4*MAX_TRACK_POINT];
