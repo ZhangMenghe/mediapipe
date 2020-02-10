@@ -67,8 +67,7 @@ void PointRenderer::GlTeardown() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // Draw.
-  glUseProgram(program_);
-  glUniformMatrix4fv(u_mvp, 1, GL_FALSE, glm::value_ptr(mvp_));
+  glUseProgram(program_);  
   glBindVertexArray(vao_);
   glDrawArrays(GL_POINTS, 0, num);
   glBindVertexArray(0);
@@ -77,6 +76,8 @@ void PointRenderer::GlTeardown() {
 }
 ::mediapipe::Status PointRenderer::GlRender(glm::mat4 mvp, float* pointCloudData, int num) {
   mvp_ = mvp;
+  glUseProgram(program_);
+  glUniformMatrix4fv(u_mvp, 1, GL_FALSE, glm::value_ptr(mvp_));
   return GlRender(pointCloudData,num);
 }
 

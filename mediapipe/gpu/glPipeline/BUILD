@@ -5,9 +5,9 @@ package(default_visibility = ["//visibility:public"])
 load("//mediapipe/gpu:metal.bzl", "metal_library")
 
 cc_library(
-    name = "gl_point_renderer",
-    srcs = ["gl_point_renderer.cc"],
-    hdrs = ["gl_point_renderer.h"],
+    name = "Mesh",
+    srcs = ["Mesh.cc"],
+    hdrs = ["Mesh.h","Primitive.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/gpu:gl_base",
@@ -16,14 +16,5 @@ cc_library(
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
         "//mediapipe/gpu:scale_mode_cc_proto",
-    ],
-)
-cc_library(
-    name = "gl_cube_renderer",
-    srcs = ["gl_cube_renderer.cc"],
-    hdrs = ["gl_cube_renderer.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//mediapipe/gpu/glPipeline:Mesh",
     ],
 )
