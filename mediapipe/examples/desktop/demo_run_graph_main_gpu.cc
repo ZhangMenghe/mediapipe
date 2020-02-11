@@ -198,7 +198,10 @@ bool GPUTask::postProcessVideo(cv::Mat frame){
     cv::imshow(kWindowName, frame);
       // Press any key to exit.
       const int pressed_key = cv::waitKey(5);
-      if (pressed_key >= 0 && pressed_key != 255) return false;
+      if(pressed_key == 32){//space to pause
+        while(cv::waitKey(0) != 32);
+      }else if(pressed_key == 27 || pressed_key == 81 || pressed_key == 113)//esc, q, Q to exit
+        return false;
     } else {
       writer.write(frame);
     }
