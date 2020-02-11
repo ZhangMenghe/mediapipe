@@ -15,7 +15,6 @@ cc_library(
         "//mediapipe/gpu:shader_util",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
-        "//mediapipe/gpu:scale_mode_cc_proto",
     ],
 )
 cc_library(

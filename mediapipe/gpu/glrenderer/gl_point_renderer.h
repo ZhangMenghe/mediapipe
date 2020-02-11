@@ -3,7 +3,6 @@
 
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/gpu/gl_base.h"
-#include "mediapipe/gpu/scale_mode.pb.h"
 #include <glm/glm.hpp> 
 #include <glm/gtc/type_ptr.hpp>
 

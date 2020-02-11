@@ -196,7 +196,6 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
 bool GPUTask::postProcessVideo(cv::Mat frame){
   if (FLAGS_output_video_path.empty()) {
     cv::imshow(kWindowName, frame);
-      // Press any key to exit.
       const int pressed_key = cv::waitKey(5);
       if(pressed_key == 32){//space to pause
         while(cv::waitKey(0) != 32);
