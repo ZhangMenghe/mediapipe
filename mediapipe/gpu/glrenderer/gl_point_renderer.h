@@ -25,6 +25,7 @@ class PointRenderer {
 
   // Deletes the rendering program. Must be called withn the GL context where it was created.
   void GlTeardown();
+  
 
  private:
   GLuint program_ = 0;
