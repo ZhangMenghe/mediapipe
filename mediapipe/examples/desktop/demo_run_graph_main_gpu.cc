@@ -222,6 +222,7 @@ Status GPUTask::Run(){
       mediapipe::ImageFormat::SRGB, m_frame_size.width, m_frame_size.height,
       mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);
 
+  bool pause = false;
   while(grab_frames){
     cv::Mat camera_frame;
     if(!getFrame(camera_frame)) break;
@@ -273,6 +274,7 @@ Status GPUTask::Run(){
     cv::cvtColor(output_frame_mat, output_frame_mat, cv::COLOR_RGB2BGR);
     // LOG(INFO) << "==="<<output_frame_mat.cols;
     if(!postProcessVideo(output_frame_mat)) grab_frames = false;
+    // sleep(1);
   }
 
   //finalize

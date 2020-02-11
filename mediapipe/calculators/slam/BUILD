@@ -16,6 +16,9 @@ cc_library(
         "//mediapipe/framework/formats:image_frame_opencv",
         "//mediapipe/framework/port:opencv_core",
         "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_video",
+
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
     ]+ select({

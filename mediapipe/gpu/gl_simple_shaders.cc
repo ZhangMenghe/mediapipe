@@ -59,7 +59,7 @@ const GLchar* const kNoTextureVertexShader = VERTEX_PREAMBLE _STRINGIFY(
     uniform mat4 mvp;
     void main() {
       gl_PointSize = point_size;
-      gl_Position = mvp * position;
+      gl_Position = mvp * vec4(position.x, position.y, position.z, 1.0);
     }
 );
 
