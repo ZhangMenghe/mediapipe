@@ -18,13 +18,14 @@ cc_library(
         "//mediapipe/framework/port:opencv_imgproc",
         "//mediapipe/framework/port:opencv_highgui",
         "//mediapipe/framework/port:opencv_video",
-
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
     ]+ select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
             "@linux_usr//:glm",
+            
+            "//mediapipe/gpu:gl_shader_helper_cc_proto",
             "//mediapipe/gpu:gl_calculator_helper",
             "//mediapipe/gpu:gl_simple_shaders",
             "//mediapipe/gpu/glrenderer:gl_point_renderer",
@@ -32,6 +33,8 @@ cc_library(
            "//mediapipe/gpu:gl_quad_renderer",
 
             "//mediapipe/gpu:shader_util",
+            "//mediapipe/util:resource_util",
+        
         ],
     }),
     alwayslink = 1,

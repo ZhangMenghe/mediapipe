@@ -1,0 +1,34 @@
+syntax = "proto2";
+
+package mediapipe;
+
+import "mediapipe/framework/calculator.proto";
+
+// Full Example:
+//
+// node {
+//   calculator: "TfLiteInferenceCalculator"
+//   input_stream: "TENSOR_IN:image_tensors"
+//   output_stream: "TENSOR_OUT:result_tensors"
+//   options {
+//     [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
+//       model_path: "model.tflite"
+//       use_gpu: true
+//     }
+//   }
+// }
+//
+message glShaderHelperOptions {
+  extend mediapipe.CalculatorOptions {
+    optional glShaderHelperOptions ext = 233867214;
+  }
+  message shaderInfo{
+    optional string shader_name = 1;
+    optional string vs_path = 2;
+    optional string frag_path = 3;
+    optional string geom_path = 4;
+//   optional string tex_path = 4;
+  }
+  repeated shaderInfo shader_files = 1;
+  
+}

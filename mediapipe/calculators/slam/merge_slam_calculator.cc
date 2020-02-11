@@ -18,12 +18,16 @@
 #include "mediapipe/framework/port/opencv_highgui_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
 #include "mediapipe/framework/port/opencv_video_inc.h"
+#include "mediapipe/gpu/gl_shader_helper.pb.h"
+#include "mediapipe/util/resource_util.h"
+
 
 namespace mediapipe {
 namespace {
     constexpr char kInputVideoTag[] = "IMAGE_GPU";
     constexpr char kOutputVideoTag[] = "IMAGE_GPU";
     constexpr char kInputSLAMTag[] = "SLAM_OUT";
+    constexpr char kRaycastShaderName[] = "DICOM_RAYCAST";
     void fromCV2GLM(const cv::Mat& cvmat, glm::mat4* glmmat) {
       if (cvmat.cols != 4 || cvmat.rows != 4 || cvmat.type() != CV_32FC1) {
           LOG(INFO)<<cvmat.cols<<" "<<cvmat.rows;
@@ -80,7 +84,7 @@ private:
     float img_width = .0f, img_height=.0f;
     glm::mat4 projMat;
     float map_point[4* MAX_TRACK_POINT];
-    
+		::mediapipe::Status LoadOptions(CalculatorContext* cc);
     Status RenderGpu(CalculatorContext* cc){
       auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
       GlTexture src1 = gpu_helper.CreateSourceTexture(input);
@@ -198,6 +202,7 @@ private:
 
   ::mediapipe::Status Open(CalculatorContext* cc) override {
     cc->SetOffset(TimestampDiff(0));
+	  LoadOptions(cc);
     MP_RETURN_IF_ERROR(gpu_helper.Open(cc));
     // cv::namedWindow("MapDrawer", /*flags=WINDOW_AUTOSIZE*/ 1);
 
@@ -221,6 +226,24 @@ private:
           });
   }
 };
+Status MergeSLAMCalculator::LoadOptions(
+    CalculatorContext* cc) {
+  // Get calculator options specified in the graph.
+	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
+  if(options.shader_files_size()){
+    for(auto file : options.shader_files()){
+      if(file.shader_name() == kRaycastShaderName){
+        std::string vs_txt, fs_txt;
+        MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.vs_path(), &vs_txt));
+		    MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.frag_path(), &fs_txt));
+        LOG(INFO)<<"VS: "<<vs_txt;
+        LOG(INFO)<<"Shader readed: "<<file.shader_name();
+      }
+    }
+  }
+	return ::mediapipe::OkStatus();
+}
+
 REGISTER_CALCULATOR(MergeSLAMCalculator);
 
 }  // namespace mediapipe

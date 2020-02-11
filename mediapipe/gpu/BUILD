@@ -313,6 +313,12 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = ["//mediapipe/framework:calculator_proto"],
 )
+proto_library(
+    name = "gl_shader_helper_proto",
+    srcs = ["gl_shader_helper.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["//mediapipe/framework:calculator_proto"]
+)
 
 mediapipe_cc_proto_library(
     name = "gl_context_options_cc_proto",
@@ -320,6 +326,14 @@ mediapipe_cc_proto_library(
     cc_deps = ["//mediapipe/framework:calculator_cc_proto"],
     visibility = ["//visibility:public"],
     deps = [":gl_context_options_proto"],
+)
+
+mediapipe_cc_proto_library(
+    name = "gl_shader_helper_cc_proto",
+    srcs = ["gl_shader_helper.proto"],
+    cc_deps = ["//mediapipe/framework:calculator_cc_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":gl_shader_helper_proto"],
 )
 
 # This is a hack needed to work around some issues with strict hdrs_check.

@@ -64,6 +64,23 @@ node: {
   input_stream:"SLAM_OUT:slam_output"
   input_stream:"IMAGE_GPU:transformed_input_video"
   output_stream:"IMAGE_GPU:output_video"
+  options {
+    [mediapipe.glShaderHelperOptions.ext] {
+      shader_files{
+        shader_name:"DICOM_RAYCAST"
+        vs_path : "mediapipe/res/shaders/raycastVolume.vert"
+        frag_path : "mediapipe/res/shaders/raycastVolume.frag"
+        geom_path : "mediapipe/res/shaders/raycastVolume.glsl"
+      }
+      # shader_files{
+      #   shader_name:"point"
+      #   vs_path : "mediapipe/res/shaders/raycastVolume.vert"
+      #   frag_path : "mediapipe/res/shaders/raycastVolume.frag"
+      #   geom_path : "mediapipe/res/shaders/raycastVolume.glsl"
+      # }
+
+    }
+  }
 }
 
 # Transfers the input image from GPU to CPU memory for the purpose of
