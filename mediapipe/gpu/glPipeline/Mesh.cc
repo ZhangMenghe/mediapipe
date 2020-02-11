@@ -1,5 +1,6 @@
 #include "mediapipe/gpu/glPipeline/Mesh.h"
 
+using namespace mediapipe;
 
 Mesh::Mesh() : mElementCount(6) {
 	glGenVertexArrays(1, &mVAO);

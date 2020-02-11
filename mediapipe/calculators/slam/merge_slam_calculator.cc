@@ -83,6 +83,8 @@ private:
     bool b_render_point = true;
     float img_width = .0f, img_height=.0f;
     glm::mat4 projMat;
+    bool old_one = true;
+
     float map_point[4* MAX_TRACK_POINT];
 		::mediapipe::Status LoadOptions(CalculatorContext* cc);
     Status RenderGpu(CalculatorContext* cc){
@@ -110,7 +112,8 @@ private:
             point_renderer_ = absl::make_unique<PointRenderer>();
             MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
         }
-        if(!cube_renderer_){
+        
+        if(old_one){
             cube_renderer_ = absl::make_unique<CubeRenderer>();
             MP_RETURN_IF_ERROR(cube_renderer_->GlSetup());
         }
@@ -134,11 +137,14 @@ private:
           auto view_mat = getGLModelViewMatrixFromCV(slam_data->camera_pose_mat.colRange(0, 3).rowRange(0, 3), tVec);
           glm::mat4 mvp_gl = proj_mat * view_mat;
 
+          if(old_one)
           cube_r->GlRender(
             mvp_gl
           * glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) //glm::vec3(-0.2f, 0.5f, 0.5f)) 
           * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
-        
+          else
+          cube_r->GlRender(mvp_gl, glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) //glm::vec3(-0.2f, 0.5f, 0.5f)) 
+          * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
 
           for(int i=0;i<slam_data->mp_num;i++){
             map_point[4*i] = slam_data->mapPoints[i].x;
@@ -233,11 +239,15 @@ Status MergeSLAMCalculator::LoadOptions(
   if(options.shader_files_size()){
     for(auto file : options.shader_files()){
       if(file.shader_name() == kRaycastShaderName){
-        std::string vs_txt, fs_txt;
+        std::string vs_txt, fs_txt, geo_txt;
         MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.vs_path(), &vs_txt));
 		    MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.frag_path(), &fs_txt));
         LOG(INFO)<<"VS: "<<vs_txt;
         LOG(INFO)<<"Shader readed: "<<file.shader_name();
+        
+        cube_renderer_ = absl::make_unique<CubeRenderer>();
+        MP_RETURN_IF_ERROR(cube_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));
+      old_one = false;
       }
     }
   }

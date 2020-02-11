@@ -3,7 +3,7 @@
 
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/gpu/gl_base.h"
-
+namespace mediapipe{
 class Mesh {
 public:
 	Mesh();
@@ -31,5 +31,5 @@ private:
 	GLuint mVBO;
 	GLuint mIBO;
 };
-
+}
 #endif

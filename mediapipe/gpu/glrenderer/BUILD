@@ -23,6 +23,7 @@ cc_library(
     hdrs = ["gl_cube_renderer.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//mediapipe/gpu/glPipeline:Shader",
         "//mediapipe/gpu/glPipeline:Mesh",
     ],
 )

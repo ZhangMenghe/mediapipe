@@ -1,6 +1,6 @@
 #ifndef MEDIAPIPE_GPU_GL_PIPELINE_PRIMITIVE_H
 #define MEDIAPIPE_GPU_GL_PIPELINE_PRIMITIVE_H
-
+namespace mediapipe{
 const unsigned int quad_indices[6]= {0,1,2,
                                      0,2,3};
 const float quad_vertices[12]={
@@ -56,5 +56,5 @@ const unsigned int cuboid_indices[36] = { 0,1,2,0,2,3,	//front
                                           3,2,6,3,6,7,	//top
                                           4,5,1,4,1,0,	//bottom
 };
-
+}
 #endif

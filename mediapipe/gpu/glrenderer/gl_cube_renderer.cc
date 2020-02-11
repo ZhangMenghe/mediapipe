@@ -38,6 +38,18 @@ namespace{
   glUseProgram(0);
   return ::mediapipe::OkStatus();
 }
+Status CubeRenderer::GlSetup(
+  const std::string vertex_shader, const std::string frag_shader, const std::string geo_shader){
+    Mesh::InitQuad(vao_, cuboid, 8, cuboid_indices, 36);
+    shader_ = new Shader();
+    if(!vertex_shader.empty()) shader_->AddShader(GL_VERTEX_SHADER, vertex_shader);
+    if(!frag_shader.empty()) shader_->AddShader(GL_FRAGMENT_SHADER, frag_shader);
+    if(!geo_shader.empty()) shader_->AddShader(GL_GEOMETRY_SHADER, geo_shader);
+    RET_CHECK(shader_->CompileAndLink());
+    
+    return ::mediapipe::OkStatus();
+  }
+
 
 void CubeRenderer::GlTeardown() {
   if (program_) {
@@ -54,6 +66,16 @@ void CubeRenderer::GlTeardown() {
   glBindVertexArray(0);
         
   glUseProgram(0);
+  return ::mediapipe::OkStatus();
+}
+::mediapipe::Status CubeRenderer::GlRender(glm::mat4 mvp, glm::mat4 model_mat){
+  GLuint sp = shader_->Use();
+    Shader::Uniform(sp, "uViewProjMat", mvp);
+    Shader::Uniform(sp, "uModelMat", model_mat);
+  glBindVertexArray(vao_);
+  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+  glBindVertexArray(0);
+shader_->UnUse();
   return ::mediapipe::OkStatus();
 }
 
