@@ -23,6 +23,19 @@ class PointRenderer {
   ::mediapipe::Status GlRender(float* pointCloudData, int num);
   ::mediapipe::Status GlRender(glm::mat4 mvp, float* pointCloudData, int num);
 
+  void setColor(float r, float g, float b){
+    point_color[0] = r;    point_color[1] = g;    point_color[2] = b; 
+    glUseProgram(program_);
+    glUniform3fv(u_point_color, 1, point_color);
+    glUseProgram(0);
+  }
+  void setPointSize(float sz){
+    point_size = sz;
+    glUseProgram(program_);
+    glUniform1f(u_point_size, point_size);
+    glUseProgram(0);
+  }
+
   // Deletes the rendering program. Must be called withn the GL context where it was created.
   void GlTeardown();
   

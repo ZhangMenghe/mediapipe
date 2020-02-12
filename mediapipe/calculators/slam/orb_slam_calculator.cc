@@ -105,15 +105,16 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 
 		if(frame_count %50 == 0 )slam_data_out->plane_detected = false;
 		if(!slam_data_out->plane_detected){
-			LOG(INFO)<<"Update plane";
+			// LOG(INFO)<<"Update plane";
 			ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(pose, Plane2World, p_c);
 			if(p_c.at<float>(0,0) != .0f && p_c.at<float>(1,0) != .0f && p_c.at<float>(2,0)!= .0f){
 				slam_data_out->plane_detected = true;
 				slam_data_out->plane_pose = Plane2World;
 				slam_data_out->plane_center = p_c;
+				
 				// slam_data_out->plane_points = ;
 		const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
-
+		slam_data_out->pp_num = trackPoints.size();
 		for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
 			cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
 			slam_data_out->planePoints[i] = pos;

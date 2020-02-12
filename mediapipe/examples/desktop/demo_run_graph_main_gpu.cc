@@ -188,8 +188,8 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
     capture >> camera_frame_raw;
     if (camera_frame_raw.empty()) return false;  // End of video.
     cv::cvtColor(camera_frame_raw, camera_frame, cv::COLOR_BGR2RGB);
-    if (load_type == FROM_CAMERA) 
-      cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
+    // if (load_type == FROM_CAMERA) 
+    //   cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
   }
   return true;
 }

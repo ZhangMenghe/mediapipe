@@ -42,10 +42,10 @@ namespace {
       float cx = mat.at<float>(0,2);  float cy = mat.at<float>(1,2);
       // // LOG(INFO)<<"cm "<<fx <<" "<< fy <<" "<<cx <<" "<<cy;
       glm::mat4 m;
-      m[0][0] = 2.0 * fx / width; m[0][1] = 0.0;  m[0][2] = 0.0;  m[0][3] = 0.0;
-      m[1][0] = 0.0;  m[1][1] = -2.0 * fy / height;  m[1][2] = 0.0;  m[1][3] = 0.0;
-      m[2][0] = 1.0 - 2.0 * cx / width;  m[2][1] = 2.0 * cy / height - 1.0;  m[2][2] = (zfar + znear) / (znear - zfar);  m[2][3] = -1.0;
-      m[3][0] = 0.0;  m[3][1] = 0.0;  m[3][2] = 2.0 * zfar * znear / (znear - zfar);  m[3][3] = 0.0;
+      m[0][0] = 2.0 * fx / width;        m[0][1] = 0.0;                      m[0][2] = 0.0;                                  m[0][3] = 0.0;
+      m[1][0] = 0.0;                     m[1][1] = -2.0 * fy / height;       m[1][2] = 0.0;                                  m[1][3] = 0.0;
+      m[2][0] = 1.0 - 2.0 * cx / width;  m[2][1] = 2.0 * cy / height - 1.0;  m[2][2] = (zfar + znear) / (znear - zfar);      m[2][3] = -1.0;
+      m[3][0] = 0.0;                     m[3][1] = 0.0;                      m[3][2] = 2.0 * zfar * znear / (znear - zfar);  m[3][3] = 0.0;
       return m;
     }
     glm::mat4 getGLModelViewMatrixFromCV(cv::Mat rotMat, cv::Mat transVec){
@@ -76,6 +76,8 @@ private:
     GlCalculatorHelper gpu_helper;
     std::unique_ptr<QuadRenderer> quad_renderer_;
     std::unique_ptr<PointRenderer> point_renderer_;
+    std::unique_ptr<PointRenderer> ppoint_renderer_;
+
     std::unique_ptr<CubeRenderer> cube_renderer_;
     std::unique_ptr<CubeRenderer> plane_renderer_;
 
@@ -87,7 +89,10 @@ private:
     bool old_one = true;
 
     float map_point[4* MAX_TRACK_POINT];
+    float plane_point[4* MAX_TRACK_POINT];
+
 		::mediapipe::Status LoadOptions(CalculatorContext* cc);
+    //Rendering functions
     Status RenderGpu(CalculatorContext* cc){
       auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
       GlTexture src1 = gpu_helper.CreateSourceTexture(input);
@@ -113,7 +118,12 @@ private:
             point_renderer_ = absl::make_unique<PointRenderer>();
             MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
         }
-        
+        if(!ppoint_renderer_){
+            ppoint_renderer_ = absl::make_unique<PointRenderer>();
+            MP_RETURN_IF_ERROR(ppoint_renderer_->GlSetup());
+            ppoint_renderer_->setColor(.0,.0,1.0);
+            ppoint_renderer_->setPointSize(8.0f);
+        }
         if(old_one){
             cube_renderer_ = absl::make_unique<CubeRenderer>();
             MP_RETURN_IF_ERROR(cube_renderer_->GlSetup());
@@ -124,6 +134,7 @@ private:
 
 
         PointRenderer* prenderer = point_renderer_.get();
+        PointRenderer* pprenderer = ppoint_renderer_.get();
 
         auto slam_data =  cc->Inputs().Tag(kInputSLAMTag).Get<SLAMData*>();
         bool draw_real = true;
@@ -145,25 +156,12 @@ private:
           * glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) //glm::vec3(-0.2f, 0.5f, 0.5f)) 
           * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
           else
-          cube_r->GlRender(mvp_gl, glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) //glm::vec3(-0.2f, 0.5f, 0.5f)) 
-          * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
+          cube_r->GlRender(mvp_gl, 
+          glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)),
+          glm::vec4(.0, 0.8, 0.8, 0.5));
           
           
-          if(slam_data->plane_detected){
-
-            glm::vec3 pp = glm::vec3(slam_data->plane_center.at<float>(0,0),slam_data->plane_center.at<float>(1,0),slam_data->plane_center.at<float>(2,0));
-            glm::mat4 pm;
-            fromCV2GLM(slam_data->plane_pose, &pm);
-          auto pm_test = getGLModelViewMatrixFromCV(slam_data->plane_pose.colRange(0, 3).rowRange(0, 3), slam_data->plane_pose.col(3).rowRange(0, 3));
-
-            plane_r->GlRender(
-            mvp_gl, 
-            glm::translate(glm::mat4(1.0f), pp)
-            // pm_test
-            // pm
-
-            * glm::scale(glm::mat4(1.0f), glm::vec3(5.f, 0.1f, 5.f)));
-          }
+          
             /*if(slam_data->plane_detected){
               cv::Mat Plane2Camera = slam_data->camera_pose_mat*slam_data->plane_pose;
               std::vector<cv::Point3f> drawPoints(8);
@@ -184,18 +182,18 @@ private:
             }*/
           
     
-          for(int i=0;i<slam_data->mp_num;i++){
-            map_point[4*i] = slam_data->mapPoints[i].x;
-            map_point[4*i+1] = slam_data->mapPoints[i].y;
-            map_point[4*i+2] = slam_data->mapPoints[i].z;
-            map_point[4*i+3] = 1.0f;
+          /*for(int i=0;i<slam_data->mp_num;i++){
+            plane_point[4*i] = slam_data->mapPoints[i].x;
+            plane_point[4*i+1] = slam_data->mapPoints[i].y;
+            plane_point[4*i+2] = slam_data->mapPoints[i].z;
+            plane_point[4*i+3] = 1.0f;
             // LOG(INFO)<<slam_data->mapPoints[i].x<<" "<<slam_data->mapPoints[i].y<<" "<< slam_data->mapPoints[i].z;
           }
 
-          MP_RETURN_IF_ERROR(prenderer->GlRender(mvp_gl, map_point, slam_data->mp_num)); 
+          MP_RETURN_IF_ERROR(pprenderer->GlRender(mvp_gl, plane_point, slam_data->mp_num)); */
           
 
-          /*std::vector<cv::Point2f> projectedPoints;
+          std::vector<cv::Point2f> projectedPoints;
           cv::projectPoints(
             std::vector<cv::Point3f>(slam_data->mapPoints,slam_data->mapPoints+sizeof(cv::Point3f)*slam_data->mp_num), 
             rVec, tVec, 
@@ -218,7 +216,34 @@ private:
               // }
           }
           
-          MP_RETURN_IF_ERROR(prenderer->GlRender(map_point, i));*/
+          MP_RETURN_IF_ERROR(prenderer->GlRender(map_point, i));
+          
+          if(slam_data->plane_detected){
+
+            glm::vec3 pp = glm::vec3(slam_data->plane_center.at<float>(0,0),slam_data->plane_center.at<float>(1,0),slam_data->plane_center.at<float>(2,0));
+            glm::mat4 pm;
+            fromCV2GLM(slam_data->plane_pose, &pm);
+          auto pm_test = getGLModelViewMatrixFromCV(slam_data->plane_pose.colRange(0, 3).rowRange(0, 3), slam_data->plane_pose.col(3).rowRange(0, 3));
+
+            plane_r->GlRender(
+            mvp_gl, 
+            glm::translate(glm::mat4(1.0f), pp)* glm::scale(glm::mat4(1.0f), glm::vec3(1.f, 0.1f, 1.f)),
+            glm::vec4(.0f,1.0f,.0f,0.1f));
+            
+            //draw plane points
+            // MP_RETURN_IF_ERROR(pprenderer->GlRender(pproj_points, slam_data->mp_num));
+
+
+          for(int i=0;i<slam_data->mp_num;i++){
+            plane_point[4*i] = slam_data->planePoints[i].x;
+            plane_point[4*i+1] = slam_data->planePoints[i].y;
+            plane_point[4*i+2] = slam_data->planePoints[i].z;
+            plane_point[4*i+3] = 1.0f;
+          }
+
+          MP_RETURN_IF_ERROR(pprenderer->GlRender(mvp_gl, plane_point, slam_data->pp_num)); 
+
+          }
         }else{
           MP_RETURN_IF_ERROR(prenderer->GlRender(&slam_data->keyPoints[0], slam_data->kp_num));  
         }

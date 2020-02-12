@@ -18,8 +18,7 @@ class CubeRenderer {
   ::mediapipe::Status GlSetup(const std::string vertex_shader, const std::string frag_shader, const std::string geo_shader);
 
   ::mediapipe::Status GlRender(glm::mat4 mvp);
-  ::mediapipe::Status GlRender(glm::mat4 mvp, glm::mat4 model_mat);
-
+  ::mediapipe::Status GlRender(glm::mat4 mvp, glm::mat4 model_mat, glm::vec4 color);
 
   // Deletes the rendering program. Must be called withn the GL context where it was created.
   void GlTeardown();

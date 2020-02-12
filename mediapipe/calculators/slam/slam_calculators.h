@@ -23,6 +23,7 @@ struct SLAMData {
     int kp_num;
     int mp_num;
     int rp_num;
+    int pp_num;
 
     float keyPoints[4*MAX_KEY_POINT];
     cv::Point3f mapPoints[MAX_TRACK_POINT];
