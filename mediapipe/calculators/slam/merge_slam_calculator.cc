@@ -77,6 +77,7 @@ private:
     std::unique_ptr<QuadRenderer> quad_renderer_;
     std::unique_ptr<PointRenderer> point_renderer_;
     std::unique_ptr<CubeRenderer> cube_renderer_;
+    std::unique_ptr<CubeRenderer> plane_renderer_;
 
     float* point_cloud;
     int point_num;
@@ -119,7 +120,8 @@ private:
         }
         
         CubeRenderer* cube_r = cube_renderer_.get();
-        
+        CubeRenderer* plane_r = plane_renderer_.get();
+
 
         PointRenderer* prenderer = point_renderer_.get();
 
@@ -145,7 +147,43 @@ private:
           else
           cube_r->GlRender(mvp_gl, glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) //glm::vec3(-0.2f, 0.5f, 0.5f)) 
           * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
+          
+          
+          if(slam_data->plane_detected){
 
+            glm::vec3 pp = glm::vec3(slam_data->plane_center.at<float>(0,0),slam_data->plane_center.at<float>(1,0),slam_data->plane_center.at<float>(2,0));
+            glm::mat4 pm;
+            fromCV2GLM(slam_data->plane_pose, &pm);
+          auto pm_test = getGLModelViewMatrixFromCV(slam_data->plane_pose.colRange(0, 3).rowRange(0, 3), slam_data->plane_pose.col(3).rowRange(0, 3));
+
+            plane_r->GlRender(
+            mvp_gl, 
+            glm::translate(glm::mat4(1.0f), pp)
+            // pm_test
+            // pm
+
+            * glm::scale(glm::mat4(1.0f), glm::vec3(5.f, 0.1f, 5.f)));
+          }
+            /*if(slam_data->plane_detected){
+              cv::Mat Plane2Camera = slam_data->camera_pose_mat*slam_data->plane_pose;
+              std::vector<cv::Point3f> drawPoints(8);
+                drawPoints[0] = cv::Point3f(0,0,0);
+                drawPoints[1] = cv::Point3f(0.3,0.0,0.0);
+                drawPoints[2] = cv::Point3f(0.0,0,0.3);
+                drawPoints[3] = cv::Point3f(0.0,0.3,0);
+                drawPoints[4] =cv::Point3f(0,0.3,0.3);
+                drawPoints[5] =cv::Point3f(0.3,0.3,0.3);
+                drawPoints[6] =cv::Point3f(0.3,0,0.3);
+                drawPoints[7] =cv::Point3f(0.3,0.3,0);
+                cv::Mat Rcp ,Tcp;
+                cv::Rodrigues(Plane2Camera.rowRange(0,3).colRange(0,3),Rcp);
+                Tcp = Plane2Camera.col(3).rowRange(0,3);
+                std::vector<cv::Point2f> projectedPoints;
+                cv::projectPoints(drawPoints, Rcp, Tcp,slam_data->camera_intrinsic, slam_data->camera_mDistCoef,projectedPoints);
+
+            }*/
+          
+    
           for(int i=0;i<slam_data->mp_num;i++){
             map_point[4*i] = slam_data->mapPoints[i].x;
             map_point[4*i+1] = slam_data->mapPoints[i].y;
@@ -247,6 +285,10 @@ Status MergeSLAMCalculator::LoadOptions(
         
         cube_renderer_ = absl::make_unique<CubeRenderer>();
         MP_RETURN_IF_ERROR(cube_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));
+        
+        plane_renderer_ = absl::make_unique<CubeRenderer>();
+        MP_RETURN_IF_ERROR(plane_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));
+
       old_one = false;
       }
     }

@@ -27,3 +27,12 @@ cc_library(
         "//mediapipe/gpu/glPipeline:Mesh",
     ],
 )
+cc_library(
+    name = "gl_plane_renderer",
+    srcs = ["gl_plane_renderer.cc"],
+    hdrs = ["gl_plane_renderer.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/gpu/glPipeline:Shader",
+    ],
+)

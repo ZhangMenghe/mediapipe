@@ -75,6 +75,7 @@ cc_library(
         "src/Sim3Solver.cc",
         "src/Initializer.cc",
         "src/Viewer.cc",
+        "src/PlaneDetector.cc",
         ],
     hdrs= glob([
         "include/*.h",

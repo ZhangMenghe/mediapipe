@@ -69,6 +69,10 @@ void CubeRenderer::GlTeardown() {
   return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status CubeRenderer::GlRender(glm::mat4 mvp, glm::mat4 model_mat){
+   glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+
   GLuint sp = shader_->Use();
     Shader::Uniform(sp, "uViewProjMat", mvp);
     Shader::Uniform(sp, "uModelMat", model_mat);
@@ -76,6 +80,8 @@ void CubeRenderer::GlTeardown() {
   glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
   glBindVertexArray(0);
 shader_->UnUse();
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
   return ::mediapipe::OkStatus();
 }
 

@@ -18,6 +18,7 @@ namespace{
   constexpr char kInputVideoTag[] = "IMAGE";
   constexpr char kOutputVideoTag[] = "IMAGE";
   constexpr char kOutputSLAMTag[] = "SLAM_OUT";
+  int frame_count = 0;
 }
 
 class OrbSLAMCalculator : public CalculatorBase {
@@ -71,6 +72,7 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 }
 
 ::mediapipe::Status OrbSLAMCalculator::Process(CalculatorContext* cc) {
+	frame_count++;
 	const auto& input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
 	if(img_width == 0){
 		img_width = (float)input_img.Width();
@@ -98,6 +100,29 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		 	cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 			return ::mediapipe::OkStatus();
 		}
+		cv::Mat Plane2World=cv::Mat::zeros(4,4,CV_32FC1);
+		cv::Mat p_c= cv::Mat::zeros(3,1,CV_32FC1);
+
+		if(frame_count %50 == 0 )slam_data_out->plane_detected = false;
+		if(!slam_data_out->plane_detected){
+			LOG(INFO)<<"Update plane";
+			ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(pose, Plane2World, p_c);
+			if(p_c.at<float>(0,0) != .0f && p_c.at<float>(1,0) != .0f && p_c.at<float>(2,0)!= .0f){
+				slam_data_out->plane_detected = true;
+				slam_data_out->plane_pose = Plane2World;
+				slam_data_out->plane_center = p_c;
+				// slam_data_out->plane_points = ;
+		const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
+
+		for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
+			cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
+			slam_data_out->planePoints[i] = pos;
+    	}
+			}
+		}
+
+		// LOG(INFO)<<"PLANE "<<Plane2World.cols<<" "<<Plane2World.rows;
+		// LOG(INFO)<<"PLANE center"<<p_c.at<float>(0,0)<<" "<<p_c.at<float>(1,0)<<" "<<p_c.at<float>(2,0);
 
 		slam_data_out->b_tracking_valid = true;
 		slam_data_out->camera_pose_mat = pose;
