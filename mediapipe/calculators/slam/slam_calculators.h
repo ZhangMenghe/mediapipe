@@ -7,28 +7,33 @@
 
 namespace mediapipe{
 
+struct cvPoints{
+    int num;
+    cv::Point3f data[MAX_TRACK_POINT];
+};
+struct planeData{
+    bool valid = false;
+    cv::Mat pose;
+    cv::Mat center;
+    cvPoints points;
+};
+struct CameraData{
+    bool valid;
+    cv::Mat intrinsic;
+    cv::Mat DistCoef;
+    cv::Mat pose;
+};
 struct SLAMData {
-    bool plane_detected = false;
     //calibration
-    cv::Mat camera_intrinsic;
-    cv::Mat camera_mDistCoef;
-
-    //tracking
-    bool b_tracking_valid;
-    cv::Mat camera_pose_mat;
+    CameraData camera;
     //plane
-    cv::Mat plane_pose;
-    cv::Mat plane_center;
+    planeData plane;
 
+    //key and world points
     int kp_num;
-    int mp_num;
-    int rp_num;
-    int pp_num;
-
     float keyPoints[4*MAX_KEY_POINT];
-    cv::Point3f mapPoints[MAX_TRACK_POINT];
-    cv::Point3f refPoints[MAX_TRACK_POINT];
-    cv::Point3f planePoints[MAX_TRACK_POINT];
+    cvPoints mapPoints;
+    // cvPoints refPoints;
 };
 }
 #endif

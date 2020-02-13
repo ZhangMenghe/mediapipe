@@ -89,44 +89,41 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		cc->Outputs().Tag(kOutputVideoTag).Add(output_frame.release(), cc->InputTimestamp());
 	}
 	if (cc->Outputs().HasTag(kOutputSLAMTag) ){
+		CameraData camera;
 		//calibration
-		SLAM->GetTracking()->GetCalibration(slam_data_out->camera_intrinsic, slam_data_out->camera_mDistCoef);
+		SLAM->GetTracking()->GetCalibration(camera.intrinsic, camera.DistCoef);
 
 		// Pass the image to the SLAM system
-		auto pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
-
-		if(pose.empty()){
-			slam_data_out->b_tracking_valid = false;
+		camera.pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
+		camera.valid = !camera.pose.empty();slam_data_out->camera = camera;
+		if(!camera.valid){
 		 	cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 			return ::mediapipe::OkStatus();
 		}
+		
+		//plane
+		planeData plane;
 		cv::Mat Plane2World=cv::Mat::zeros(4,4,CV_32FC1);
 		cv::Mat p_c= cv::Mat::zeros(3,1,CV_32FC1);
 
-		if(frame_count %50 == 0 )slam_data_out->plane_detected = false;
-		if(!slam_data_out->plane_detected){
+		if(frame_count %50 == 0 )plane.valid = false;
+		if(!plane.valid){
 			// LOG(INFO)<<"Update plane";
-			ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(pose, Plane2World, p_c);
+			ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(camera.pose, Plane2World, p_c);
 			if(p_c.at<float>(0,0) != .0f && p_c.at<float>(1,0) != .0f && p_c.at<float>(2,0)!= .0f){
-				slam_data_out->plane_detected = true;
-				slam_data_out->plane_pose = Plane2World;
-				slam_data_out->plane_center = p_c;
+				plane.valid = true;
+				plane.pose = Plane2World;
+				plane.center= p_c;
 				
-				// slam_data_out->plane_points = ;
-		const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
-		slam_data_out->pp_num = trackPoints.size();
-		for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
-			cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
-			slam_data_out->planePoints[i] = pos;
-    	}
+				const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
+				plane.points.num = trackPoints.size();
+				for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
+					cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
+					plane.points.data[i] = pos;
+				}
 			}
 		}
-
-		// LOG(INFO)<<"PLANE "<<Plane2World.cols<<" "<<Plane2World.rows;
-		// LOG(INFO)<<"PLANE center"<<p_c.at<float>(0,0)<<" "<<p_c.at<float>(1,0)<<" "<<p_c.at<float>(2,0);
-
-		slam_data_out->b_tracking_valid = true;
-		slam_data_out->camera_pose_mat = pose;
+		slam_data_out->plane = plane;
 
 		//keypoints
 		auto kps = SLAM->GetTrackedKeyPointsUn();
@@ -144,26 +141,26 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
     	const std::vector<ORB_SLAM2::MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 		std::set<ORB_SLAM2::MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
-		slam_data_out->mp_num = 0;
-        //   LOG(INFO)<<"CHECK 1";
-		
-		for(size_t i=0, iend=vpMPs.size(); i<iend && slam_data_out->mp_num < MAX_TRACK_POINT;i++){
+		cvPoints mp_points;
+
+		mp_points.num = 0;
+		for(size_t i=0, iend=vpMPs.size(); i<iend && mp_points.num < MAX_TRACK_POINT;i++){
 			if(vpMPs[i]->isBad() )//|| spRefMPs.count(vpMPs[i]))
 				continue;
 			cv::Point3f pos = cv::Point3f(vpMPs[i]->GetWorldPos());
-			slam_data_out->mapPoints[slam_data_out->mp_num] = pos;
-			slam_data_out->mp_num++;
+			mp_points.data[mp_points.num] = pos;
+			mp_points.num++;
     	}
-        //   LOG(INFO)<<"CHECK 2";
+		slam_data_out->mapPoints = mp_points;
 
-		slam_data_out->rp_num = 0;
-		for(set<ORB_SLAM2::MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
-			if(slam_data_out->mp_num >= MAX_TRACK_POINT) break;
-			if((*sit)->isBad())
-				continue;
-			slam_data_out->refPoints[slam_data_out->rp_num] = cv::Point3f((*sit)->GetWorldPos());
-			slam_data_out->rp_num++;
-		}
+		// slam_data_out->rp_num = 0;
+		// for(set<ORB_SLAM2::MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
+		// 	if(slam_data_out->mp_num >= MAX_TRACK_POINT) break;
+		// 	if((*sit)->isBad())
+		// 		continue;
+		// 	slam_data_out->refPoints[slam_data_out->rp_num] = cv::Point3f((*sit)->GetWorldPos());
+		// 	slam_data_out->rp_num++;
+		// }
         //   LOG(INFO)<<"CHECK 3";
 
 		cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
