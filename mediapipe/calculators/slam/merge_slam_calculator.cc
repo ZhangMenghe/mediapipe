@@ -40,10 +40,10 @@ namespace {
     glm::mat4 getGLProjMatFromCV(cv::Mat mat, float width, float height, float zfar, float znear){
       float fx = mat.at<float>(0,0);  float fy = mat.at<float>(1,1);
       float cx = mat.at<float>(0,2);  float cy = mat.at<float>(1,2);
-      // // LOG(INFO)<<"cm "<<fx <<" "<< fy <<" "<<cx <<" "<<cy;
       glm::mat4 m;
       m[0][0] = 2.0 * fx / width;        m[0][1] = 0.0;                      m[0][2] = 0.0;                                  m[0][3] = 0.0;
       m[1][0] = 0.0;                     m[1][1] = -2.0 * fy / height;       m[1][2] = 0.0;                                  m[1][3] = 0.0;
+      // m[1][0] = 0.0;                     m[1][1] = 2.0 * fy / height;        m[1][2] = 0.0;                                  m[1][3] = 0.0;
       m[2][0] = 1.0 - 2.0 * cx / width;  m[2][1] = 2.0 * cy / height - 1.0;  m[2][2] = (zfar + znear) / (znear - zfar);      m[2][3] = -1.0;
       m[3][0] = 0.0;                     m[3][1] = 0.0;                      m[3][2] = 2.0 * zfar * znear / (znear - zfar);  m[3][3] = 0.0;
       return m;
@@ -170,7 +170,6 @@ Status MergeSLAMCalculator::draw_plane(planeData pd, glm::mat4 vp){
 }
 
 Status MergeSLAMCalculator::draw_keypoints(PointRenderer* kprenderer, float* data, int num){
-  if(kprenderer == nullptr) LOG(INFO)<<"p null";
   MP_RETURN_IF_ERROR(kprenderer->GlRender(data, num));
   return ::mediapipe::OkStatus();
 }
@@ -249,7 +248,6 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         auto proj_mat = getGLProjMatFromCV(cam.intrinsic, img_width, img_height, 500.0f, 0.1f);
         auto view_mat = getGLModelViewMatrixFromCV(cam.pose);
         glm::mat4 mvp_gl = proj_mat * view_mat;
-        
         
         MP_RETURN_IF_ERROR(draw_mappoints(slam_data->mapPoints, slam_data->camera, mvp_gl));
         MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
