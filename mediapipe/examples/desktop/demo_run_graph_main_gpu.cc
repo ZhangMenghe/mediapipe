@@ -43,6 +43,11 @@ DEFINE_string(output_video_path, "",
 DEFINE_string(timestamp_series, "",
               "Full path to predefined timestamps");
 
+DEFINE_string(output_frame_path, "",
+              "Full path to output");
+DEFINE_string(output_framewpoint_path, "",
+              "Full path to output frame points");
+
 namespace mediapipe {
 class GPUTask{
 private:
@@ -188,6 +193,11 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
     capture >> camera_frame_raw;
     if (camera_frame_raw.empty()) return false;  // End of video.
     cv::cvtColor(camera_frame_raw, camera_frame, cv::COLOR_BGR2RGB);
+    
+
+    if(FLAGS_output_frame_path.length() > 0)
+		  cv::imwrite( FLAGS_output_frame_path + std::to_string(frame_timestamp) +".png" , camera_frame);
+
     // if (load_type == FROM_CAMERA) 
     //   cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
   }
@@ -196,6 +206,10 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
 bool GPUTask::postProcessVideo(cv::Mat frame){
   if (FLAGS_output_video_path.empty()) {
     cv::imshow(kWindowName, frame);
+    
+    if(FLAGS_output_framewpoint_path.length() > 0)
+		  cv::imwrite( FLAGS_output_framewpoint_path + std::to_string(frame_timestamp) +".png" , frame);
+
       const int pressed_key = cv::waitKey(5);
       if(pressed_key == 32){//space to pause
         while(cv::waitKey(0) != 32);

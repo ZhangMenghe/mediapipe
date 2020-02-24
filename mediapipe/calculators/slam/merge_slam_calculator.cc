@@ -21,6 +21,7 @@
 #include "mediapipe/gpu/gl_shader_helper.pb.h"
 #include "mediapipe/util/resource_util.h"
 
+#include <fstream>
 
 namespace mediapipe {
 namespace {
@@ -28,6 +29,7 @@ namespace {
     constexpr char kOutputVideoTag[] = "IMAGE_GPU";
     constexpr char kInputSLAMTag[] = "SLAM_OUT";
     constexpr char kRaycastShaderName[] = "DICOM_RAYCAST";
+    int64 timestamp=0;
     void fromCV2GLM(const cv::Mat& cvmat, glm::mat4* glmmat) {
       if (cvmat.cols != 4 || cvmat.rows != 4 || cvmat.type() != CV_32FC1) {
           LOG(INFO)<<cvmat.cols<<" "<<cvmat.rows;
@@ -71,6 +73,41 @@ namespace {
         glm::mat4 res;
         fromCV2GLM(mvMat, &res);
         return res;
+    }
+
+    void save_point_cloud(cvPoints points, std::vector<cv::Point2f> projectedPoints, cv::Mat transVec,
+                          float img_width, float img_height){
+      LOG(INFO)<<timestamp<<"\n";
+      std::ofstream file;
+      if(points.num <= 0) return;      
+      file.open("points/"+std::to_string(timestamp) + ".txt", std::ofstream::out | std::ofstream::app);
+      
+      for(int idx = 0; idx<projectedPoints.size(); idx++){
+        cv::Point2f r1 = projectedPoints[idx];
+        if(r1.x > img_width || r1.x<.0f || r1.y>img_height||r1.y<.0) continue;
+
+        auto point = points.data[idx];
+        file<<r1.y<<" "<<r1.x<<" "<<point.x - transVec.at<float>(0,0)<<" "<<point.y - transVec.at<float>(1,0)<<" "<<point.z- transVec.at<float>(2,0)<<"\n";
+      }
+      
+      projectedPoints.clear();
+      file.close();
+    }
+    void save_point_cloud_gl(cvPoints points, glm::mat4 mvp, cv::Mat transVec){
+      LOG(INFO)<<timestamp<<"\n";
+      std::ofstream file;
+      if(points.num <= 0) return;      
+      file.open("mappoints/0221/"+std::to_string(timestamp) + ".txt", std::ofstream::out | std::ofstream::app);
+      
+      for(auto point:points.data){
+        glm::vec4 r = glm::vec4(point.x, point.y, point.z, 1.0f);
+        glm::vec4 proj = mvp * r;
+        // LOG(INFO)<<proj.x << " "<<proj.y <<" "<< proj.z<<" "<<proj.w;
+        proj = proj / (proj.w * proj.z);
+        if(proj.x < -1.0 || proj.x>1.0 || proj.y < -1.0 || proj.y > 1.0) continue;
+        file<<(1.0 - proj.y * 0.5 +0.5) * 480<<" "<<(proj.x * 0.5 +0.5) * 640<<" "<<point.x - transVec.at<float>(0,0)<<" "<<point.y - transVec.at<float>(1,0)<<" "<<point.z- transVec.at<float>(2,0)<<"\n";
+      }
+      file.close();
     }
 
 }
@@ -197,6 +234,9 @@ Status MergeSLAMCalculator::draw_mappoints(cvPoints mapPoints, CameraData camera
         map_point[4*i+2] = .0f;map_point[4*i+3] = 1.0f;
         i++;
     }
+
+    // save_point_cloud(mapPoints, projectedPoints, camera.pose.col(3).rowRange(0, 3), img_width, img_height);
+
     MP_RETURN_IF_ERROR(point_renderer_->GlRender(map_point, i));
   }else{
     for(int i=0;i<mapPoints.num;i++){
@@ -205,6 +245,7 @@ Status MergeSLAMCalculator::draw_mappoints(cvPoints mapPoints, CameraData camera
       map_point[4*i+2] = mapPoints.data[i].z;
       map_point[4*i+3] = 1.0f;
     }
+    save_point_cloud_gl(mapPoints, vp, camera.pose.col(3).rowRange(0, 3));
     MP_RETURN_IF_ERROR(point_renderer_->GlRender(vp, map_point, mapPoints.num));
   }
     return ::mediapipe::OkStatus();
@@ -248,12 +289,13 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         auto proj_mat = getGLProjMatFromCV(cam.intrinsic, img_width, img_height, 500.0f, 0.1f);
         auto view_mat = getGLModelViewMatrixFromCV(cam.pose);
         glm::mat4 mvp_gl = proj_mat * view_mat;
+        MP_RETURN_IF_ERROR(draw_mappoints(slam_data->refPoints, slam_data->camera, mvp_gl));
         
-        MP_RETURN_IF_ERROR(draw_mappoints(slam_data->mapPoints, slam_data->camera, mvp_gl));
-        MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
-        MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
-      }else 
-        draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
+        // MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
+        // MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
+      }
+      // else 
+      //   draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(src1.target(), 0);
@@ -287,12 +329,13 @@ Status MergeSLAMCalculator::Open(CalculatorContext* cc){
 
 ::mediapipe::Status MergeSLAMCalculator::Process(CalculatorContext* cc){
   auto frame = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
+  timestamp = cc->InputTimestamp().Value();
+
   if(img_width == 0){
       img_width = (float)frame.width();
       img_height = (float)frame.height();
       float fov = 2*atan(img_height * 0.5 / 458.0f);//glm::radians(45.0f);
       projMat = glm::perspective(fov, img_width/img_height, 0.1f, 100.0f);
-
     }
 
   return gpu_helper.RunInGlContext(

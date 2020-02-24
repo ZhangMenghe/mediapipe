@@ -33,7 +33,7 @@ struct SLAMData {
     int kp_num;
     float keyPoints[4*MAX_KEY_POINT];
     cvPoints mapPoints;
-    // cvPoints refPoints;
+    cvPoints refPoints;
 };
 }
 #endif

@@ -11,8 +11,6 @@
 #include "System.h"
 #include "mediapipe/calculators/slam/slam_calculators.h"
 
-
-
 namespace mediapipe{
 namespace{
   constexpr char kInputVideoTag[] = "IMAGE";
@@ -34,7 +32,7 @@ class OrbSLAMCalculator : public CalculatorBase {
 		::mediapipe::Status Close(CalculatorContext* cc) override;
 	private:
 		::mediapipe::Status LoadOptions(CalculatorContext* cc);
-
+		 
 		    // Create SLAM system. It initializes all system threads and gets ready to process frames.
     	ORB_SLAM2::System *SLAM = nullptr;
   		std::unique_ptr<SLAMData> slam_data_out;
@@ -43,6 +41,8 @@ class OrbSLAMCalculator : public CalculatorBase {
 		float img_width = .0f, img_height = .0f;
 };
 REGISTER_CALCULATOR(OrbSLAMCalculator);
+
+
 
 ::mediapipe::Status OrbSLAMCalculator::GetContract(
     CalculatorContract* cc) {
@@ -142,7 +142,6 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		std::set<ORB_SLAM2::MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
 		cvPoints mp_points;
-
 		mp_points.num = 0;
 		for(size_t i=0, iend=vpMPs.size(); i<iend && mp_points.num < MAX_TRACK_POINT;i++){
 			if(vpMPs[i]->isBad() )//|| spRefMPs.count(vpMPs[i]))
@@ -151,17 +150,21 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 			mp_points.data[mp_points.num] = pos;
 			mp_points.num++;
     	}
+		
 		slam_data_out->mapPoints = mp_points;
 
-		// slam_data_out->rp_num = 0;
-		// for(set<ORB_SLAM2::MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
-		// 	if(slam_data_out->mp_num >= MAX_TRACK_POINT) break;
-		// 	if((*sit)->isBad())
-		// 		continue;
-		// 	slam_data_out->refPoints[slam_data_out->rp_num] = cv::Point3f((*sit)->GetWorldPos());
-		// 	slam_data_out->rp_num++;
-		// }
-        //   LOG(INFO)<<"CHECK 3";
+
+		cvPoints rf_points;
+		rf_points.num = 0;
+		for(set<ORB_SLAM2::MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
+			if(rf_points.num >= MAX_TRACK_POINT) break;
+			if((*sit)->isBad() )
+				continue;
+			cv::Point3f pos = cv::Point3f((*sit)->GetWorldPos());
+			rf_points.data[rf_points.num] = pos;
+			rf_points.num++;
+    	}
+		slam_data_out->refPoints = rf_points;
 
 		cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 		// cc->Outputs().Tag(kOutputKeyPoints).AddPacket(MakePacket<std::vector<cv::KeyPoint>>(SLAM->GetTrackedKeyPointsUn()).At(cc->InputTimestamp()));
