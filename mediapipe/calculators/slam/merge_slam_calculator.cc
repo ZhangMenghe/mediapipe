@@ -108,6 +108,15 @@ namespace {
         file<<(1.0 - proj.y * 0.5 +0.5) * 480<<" "<<(proj.x * 0.5 +0.5) * 640<<" "<<point.x - transVec.at<float>(0,0)<<" "<<point.y - transVec.at<float>(1,0)<<" "<<point.z- transVec.at<float>(2,0)<<"\n";
       }
       file.close();
+
+      /// save camera status
+      file.open("camera/0221/"+std::to_string(timestamp) + ".txt", std::ofstream::out | std::ofstream::app);
+      for(int i=0; i<4; i++){
+        file<<mvp[i][0]<<" "<<mvp[i][1]<<" "<<mvp[i][2]<<" "<<mvp[i][3]<<"\n";
+      }
+      file<< transVec.at<float>(0,0)<<" "<<transVec.at<float>(1,0)<<" "<<transVec.at<float>(2,0)<<"\n";
+      file.close();
+
     }
 
 }
