@@ -103,9 +103,9 @@ namespace {
         glm::vec4 r = glm::vec4(point.x, point.y, point.z, 1.0f);
         glm::vec4 proj = mvp * r;
         // LOG(INFO)<<proj.x << " "<<proj.y <<" "<< proj.z<<" "<<proj.w;
-        proj = proj / (proj.w * proj.z);
+        proj = proj / proj.w;
         if(proj.x < -1.0 || proj.x>1.0 || proj.y < -1.0 || proj.y > 1.0) continue;
-        file<<(1.0 - proj.y * 0.5 +0.5) * 480<<" "<<(proj.x * 0.5 +0.5) * 640<<" "<<point.x - transVec.at<float>(0,0)<<" "<<point.y - transVec.at<float>(1,0)<<" "<<point.z- transVec.at<float>(2,0)<<"\n";
+        file<<(1.0 - (proj.y * 0.5 +0.5)) * 480<<" "<<(proj.x * 0.5 +0.5) * 640<<" "<<point.x - transVec.at<float>(0,0)<<" "<<point.y - transVec.at<float>(1,0)<<" "<<point.z- transVec.at<float>(2,0)<<"\n";
       }
       file.close();
 
