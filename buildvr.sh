@@ -1,0 +1,1 @@
+bazel build -c opt --compilation_mode=dbg mediapipe/vr/desktop:vr_dicom_gpu

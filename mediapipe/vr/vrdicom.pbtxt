@@ -1,0 +1,12 @@
+input_stream: "input_video"
+output_stream: "output_video"
+node: {
+  calculator: "LuminanceCalculator"
+  input_stream: "input_video"
+  output_stream: "output_video"
+}
+# node: {
+#   calculator: "SobelEdgesCalculator"
+#   input_stream: "luma_video"
+#   output_stream: "output_video"
+# }
