@@ -53,8 +53,8 @@ node: {
     [mediapipe.OrbSLAMCalculatorOptions.ext] {
       voc_path: "../data/slam/vocabulary.txt"
       # voc_path: "../data/slam/vocabulary.yml"
-      # camera_path: "../data/slam/camera.yaml"
-      camera_path: "../data/slam/Microsoft_webcam.yaml"
+      camera_path: "../data/slam/camera.yaml"
+      # camera_path: "../data/slam/Microsoft_webcam.yaml"
 
     }
   }

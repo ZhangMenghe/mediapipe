@@ -72,7 +72,7 @@ REGISTER_CALCULATOR(LuminanceCalculator);
   void main() {
     vec4 color = texture2D(video_frame, sample_coordinate);
     float luminance = dot(color.rgb, W);
-    fragColor.rgb = vec3(luminance);
+    fragColor.rgb = vec3(luminance * 0.8);
     fragColor.a = color.a;
   }
 

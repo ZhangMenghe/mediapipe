@@ -254,7 +254,7 @@ Status MergeSLAMCalculator::draw_mappoints(cvPoints mapPoints, CameraData camera
       map_point[4*i+2] = mapPoints.data[i].z;
       map_point[4*i+3] = 1.0f;
     }
-    save_point_cloud_gl(mapPoints, vp, camera.pose.col(3).rowRange(0, 3));
+    // save_point_cloud_gl(mapPoints, vp, camera.pose.col(3).rowRange(0, 3));
     MP_RETURN_IF_ERROR(point_renderer_->GlRender(vp, map_point, mapPoints.num));
   }
     return ::mediapipe::OkStatus();
@@ -291,6 +291,8 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
       auto cam = slam_data->camera;
 
       if(cam.valid){
+        std::cout<<"CAMERA VALID"<<std::endl;
+        LOG(INFO)<<"CAMERA VALID";
         cv::Mat rVec;
         cv::Rodrigues(cam.pose.colRange(0, 3).rowRange(0, 3), rVec);
         cv::Mat tVec = cam.pose.col(3).rowRange(0, 3);
@@ -303,8 +305,12 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         // MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
         // MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
       }
-      // else 
-      //   draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
+      // else{
+      //   std::cout<<"CAMERA in VALID"<<std::endl;
+
+      //   LOG(INFO)<<"CAMERA IN VALID";
+        draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
+      // }
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(src1.target(), 0);
@@ -349,7 +355,6 @@ Status MergeSLAMCalculator::Open(CalculatorContext* cc){
 
   return gpu_helper.RunInGlContext(
       [this, cc]() -> ::mediapipe::Status { 
-        // LOG(INFO) << "=============";
         return RenderGPU(cc); 
         });
 }
@@ -366,8 +371,8 @@ Status MergeSLAMCalculator::LoadOptions(
         std::string vs_txt, fs_txt, geo_txt;
         MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.vs_path(), &vs_txt));
 		    MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.frag_path(), &fs_txt));
-        LOG(INFO)<<"VS: "<<vs_txt;
-        LOG(INFO)<<"Shader readed: "<<file.shader_name();
+        // LOG(INFO)<<"VS: "<<vs_txt;
+        // LOG(INFO)<<"Shader readed: "<<file.shader_name();
         
         cube_renderer_ = absl::make_unique<CubeRenderer>();
         MP_RETURN_IF_ERROR(cube_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));

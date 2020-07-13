@@ -14,7 +14,6 @@
 //
 // An example of sending OpenCV webcam frames into a MediaPipe graph.
 // This example requires a linux computer and a GPU with EGL support drivers.
-#include <cstdlib>
 
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
@@ -163,11 +162,6 @@ Status GPUTask::Initilization(){
     RET_CHECK(writer.isOpened());
   } else {
     cv::namedWindow(kWindowName, /*flags=WINDOW_AUTOSIZE*/ 1);
-#if (CV_MAJOR_VERSION >= 3) && (CV_MINOR_VERSION >= 2)
-    capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    capture.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-    capture.set(cv::CAP_PROP_FPS, 30);
-#endif
   }
 
   return OkStatus();
@@ -197,6 +191,7 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
     // Capture opencv camera or video frame.
     cv::Mat camera_frame_raw;
     capture >> camera_frame_raw;
+    // LOG(INFO)<<"CAPTURE"<< camera_frame_raw.cols;
     if (camera_frame_raw.empty()) return false;  // End of video.
     cv::cvtColor(camera_frame_raw, camera_frame, cv::COLOR_BGR2RGB);
     
@@ -207,6 +202,7 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
     // if (load_type == FROM_CAMERA) 
     //   cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
   }
+  // LOG(INFO)<< "get frame";
   return true;
 }
 bool GPUTask::postProcessVideo(cv::Mat frame){
@@ -252,8 +248,6 @@ Status GPUTask::Run(){
     camera_frame.copyTo(input_frame_mat);
 
     // Prepare and add graph input packet.
-    size_t frame_timestamp_us =
-        (double)cv::getTickCount() / (double)cv::getTickFrequency() * 1e6;
     MP_RETURN_IF_ERROR(
       gpu_helper.RunInGlContext([this, &input_frame]() -> Status {
         // Convert ImageFrame to GpuBuffer.
@@ -296,7 +290,7 @@ Status GPUTask::Run(){
     // Convert back to opencv for display or saving.
     cv::Mat output_frame_mat = mediapipe::formats::MatView(output_frame.get());
     cv::cvtColor(output_frame_mat, output_frame_mat, cv::COLOR_RGB2BGR);
-    // LOG(INFO) << "==="<<output_frame_mat.cols;
+    // std::cout << "==="<<output_frame_mat.cols<<"==="<<output_frame_mat.rows<<std::endl;
     if(!postProcessVideo(output_frame_mat)) grab_frames = false;
     // sleep(1);
   }
