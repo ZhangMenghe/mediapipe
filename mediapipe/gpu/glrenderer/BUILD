@@ -15,6 +15,8 @@ cc_library(
         "//mediapipe/gpu:shader_util",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
+        "@linux_usr//:glm",
+
     ],
 )
 cc_library(
@@ -25,6 +27,7 @@ cc_library(
     deps = [
         "//mediapipe/gpu/glPipeline:Shader",
         "//mediapipe/gpu/glPipeline:Mesh",
+
     ],
 )
 cc_library(
@@ -34,5 +37,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/gpu/glPipeline:Shader",
+
     ],
 )

@@ -27,6 +27,7 @@ namespace mediapipe {
 
 namespace {
 
+constexpr char kDetectionTag[] = "DETECTION";
 constexpr char kDetectionsTag[] = "DETECTIONS";
 constexpr char kDetectionListTag[] = "DETECTION_LIST";
 constexpr char kRenderDataTag[] = "RENDER_DATA";
@@ -39,6 +40,8 @@ constexpr char kKeypointLabel[] = "KEYPOINT";
 // The ratio of detection label font height to the height of detection bounding
 // box.
 constexpr double kLabelToBoundingBoxRatio = 0.1;
+// Perserve 2 decimal digits.
+constexpr float kNumScoreDecimalDigitsMultipler = 100;
 
 }  // namespace
 
@@ -60,6 +63,7 @@ constexpr double kLabelToBoundingBoxRatio = 0.1;
 // Example config:
 // node {
 //   calculator: "DetectionsToRenderDataCalculator"
+//   input_stream: "DETECTION:detection"
 //   input_stream: "DETECTIONS:detections"
 //   input_stream: "DETECTION_LIST:detection_list"
 //   output_stream: "RENDER_DATA:render_data"
@@ -121,9 +125,13 @@ REGISTER_CALCULATOR(DetectionsToRenderDataCalculator);
 ::mediapipe::Status DetectionsToRenderDataCalculator::GetContract(
     CalculatorContract* cc) {
   RET_CHECK(cc->Inputs().HasTag(kDetectionListTag) ||
-            cc->Inputs().HasTag(kDetectionsTag))
+            cc->Inputs().HasTag(kDetectionsTag) ||
+            cc->Inputs().HasTag(kDetectionTag))
       << "None of the input streams are provided.";
 
+  if (cc->Inputs().HasTag(kDetectionTag)) {
+    cc->Inputs().Tag(kDetectionTag).Set<Detection>();
+  }
   if (cc->Inputs().HasTag(kDetectionListTag)) {
     cc->Inputs().Tag(kDetectionListTag).Set<DetectionList>();
   }
@@ -153,8 +161,10 @@ REGISTER_CALCULATOR(DetectionsToRenderDataCalculator);
   const bool has_detection_from_vector =
       cc->Inputs().HasTag(kDetectionsTag) &&
       !cc->Inputs().Tag(kDetectionsTag).Get<std::vector<Detection>>().empty();
+  const bool has_single_detection = cc->Inputs().HasTag(kDetectionTag) &&
+                                    !cc->Inputs().Tag(kDetectionTag).IsEmpty();
   if (!options.produce_empty_packet() && !has_detection_from_list &&
-      !has_detection_from_vector) {
+      !has_detection_from_vector && !has_single_detection) {
     return ::mediapipe::OkStatus();
   }
 
@@ -173,6 +183,10 @@ REGISTER_CALCULATOR(DetectionsToRenderDataCalculator);
          cc->Inputs().Tag(kDetectionsTag).Get<std::vector<Detection>>()) {
       AddDetectionToRenderData(detection, options, render_data.get());
     }
+  }
+  if (has_single_detection) {
+    AddDetectionToRenderData(cc->Inputs().Tag(kDetectionTag).Get<Detection>(),
+                             options, render_data.get());
   }
   cc->Outputs()
       .Tag(kRenderDataTag)
@@ -235,18 +249,26 @@ void DetectionsToRenderDataCalculator::AddLabels(
     std::string label_str = detection.label().empty()
                                 ? absl::StrCat(detection.label_id(i))
                                 : detection.label(i);
+    const float rounded_score =
+        std::round(detection.score(i) * kNumScoreDecimalDigitsMultipler) /
+        kNumScoreDecimalDigitsMultipler;
     std::string label_and_score =
-        absl::StrCat(label_str, options.text_delimiter(), detection.score(i),
+        absl::StrCat(label_str, options.text_delimiter(), rounded_score,
                      options.text_delimiter());
     label_and_scores.push_back(label_and_score);
   }
   std::vector<std::string> labels;
+  if (options.render_detection_id()) {
+    const std::string detection_id_str =
+        absl::StrCat("Id: ", detection.detection_id());
+    labels.push_back(detection_id_str);
+  }
   if (options.one_label_per_line()) {
-    labels.swap(label_and_scores);
+    labels.insert(labels.end(), label_and_scores.begin(),
+                  label_and_scores.end());
   } else {
     labels.push_back(absl::StrJoin(label_and_scores, ""));
   }
-
   // Add the render annotations for "label(_id),score".
   for (int i = 0; i < labels.size(); ++i) {
     auto label = labels.at(i);

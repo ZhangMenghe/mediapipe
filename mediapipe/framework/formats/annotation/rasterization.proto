@@ -16,6 +16,9 @@ syntax = "proto2";
 
 package mediapipe;
 
+option java_package = "com.google.mediapipe.formats.annotation.proto";
+option java_outer_classname = "RasterizationProto";
+
 // A Region can be represented in each frame as a set of scanlines
 // (compressed RLE, similar to rasterization of polygons).
 // For each scanline with y-coordinate y, we save (possibly multiple) intervals
@@ -27,7 +30,7 @@ message Rasterization {
     required int32 right_x = 3;
   }
 
-  // Intervals are always sorted by y-corrdinate.
+  // Intervals are always sorted by y-coordinate.
   // Therefore, a region occupies a set of scanlines ranging
   // from interval(0).y() to interval(interval_size() - 1)).y().
   // Note: In video, at some scanlines no interval might be present.

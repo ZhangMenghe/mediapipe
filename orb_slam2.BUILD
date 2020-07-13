@@ -36,20 +36,20 @@ cc_library(
     name = "pangolin",
     srcs = glob(
         [
-            "Thirdparty/pangolin/build/src/libpangolin.so"
+            "Thirdparty/Pangolin/build/src/libpangolin.so"
         ],
     ),
     hdrs = glob(
         [
-            "Thirdparty/pangolin/build/src/include/pangolin/*.h",
-            "Thirdparty/pangolin/include/pangolin/*/*.h",
-            "Thirdparty/pangolin/include/pangolin/*.h",
-            "Thirdparty/pangolin/include/**/*.h",
-            "Thirdparty/pangolin/include/**/*.hpp"
+            "Thirdparty/Pangolin/build/src/include/pangolin/*.h",
+            "Thirdparty/Pangolin/include/pangolin/*/*.h",
+            "Thirdparty/Pangolin/include/pangolin/*.h",
+            "Thirdparty/Pangolin/include/**/*.h",
+            "Thirdparty/Pangolin/include/**/*.hpp"
         ]
     ),
-    deps = ["@linux_usr//:opengl",],
-    includes = ["Thirdparty/pangolin/include","Thirdparty/pangolin/build/src/include"],
+    deps = ["@linux_opengl//:opengl",],
+    includes = ["Thirdparty/Pangolin/include","Thirdparty/Pangolin/build/src/include"],
     linkstatic = 1,
     visibility = ["//visibility:public"],
 )
@@ -68,6 +68,7 @@ cc_library(
         "src/MapPoint.cc",
         "src/KeyFrame.cc",
         "src/Map.cc",
+        "src/MapDrawer.cc",
         "src/Optimizer.cc",
         "src/PnPsolver.cc",
         "src/Frame.cc",
@@ -75,7 +76,6 @@ cc_library(
         "src/Sim3Solver.cc",
         "src/Initializer.cc",
         "src/Viewer.cc",
-        "src/PlaneDetector.cc",
         ],
     hdrs= glob([
         "include/*.h",
@@ -89,7 +89,8 @@ cc_library(
         ":DBoW",
         ":pangolin",
         ":G2O",
-        "@linux_usr//:opengl",
+        "@linux_opengl//:opengl",
+        "@linux_opencv//:opencv",
         "@linux_opencv//:opencv_contrib",
         "@linux_usr//:eigen",
     ],

@@ -136,6 +136,27 @@ JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateGrayscaleImage)(
   return CreatePacketWithContext(context, packet);
 }
 
+JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateFloatImageFrame)(
+    JNIEnv* env, jobject thiz, jlong context, jobject byte_buffer, jint width,
+    jint height) {
+  const void* data = env->GetDirectBufferAddress(byte_buffer);
+  auto image_frame = absl::make_unique<::mediapipe::ImageFrame>(
+      mediapipe::ImageFormat::VEC32F1, width, height,
+      ::mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);
+  int64_t buffer_size = env->GetDirectBufferCapacity(byte_buffer);
+  if (buffer_size != image_frame->PixelDataSize()) {
+    LOG(ERROR) << "Please check the input buffer size.";
+    LOG(ERROR) << "Buffer size: " << buffer_size
+               << ", Buffer size needed: " << image_frame->PixelDataSize()
+               << ", Image width: " << width;
+    return 0L;
+  }
+  std::memcpy(image_frame->MutablePixelData(), data,
+              image_frame->PixelDataSize());
+  mediapipe::Packet packet = mediapipe::Adopt(image_frame.release());
+  return CreatePacketWithContext(context, packet);
+}
+
 JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateRgbaImageFrame)(
     JNIEnv* env, jobject thiz, jlong context, jobject byte_buffer, jint width,
     jint height) {
@@ -157,25 +178,14 @@ JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateRgbaImageFrame)(
   return CreatePacketWithContext(context, packet);
 }
 
-JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateAudioPacket)(
-    JNIEnv* env, jobject thiz, jlong context, jbyteArray data,
-    jint num_channels, jint num_samples) {
-  if (env->GetArrayLength(data) != num_channels * num_samples * 2) {
-    LOG(ERROR) << "Please check the audio data size, "
-                  "has to be num_channels * num_samples * 2 = "
-               << num_channels * num_samples * 2;
-    return 0L;
-  }
+static mediapipe::Packet createAudioPacket(const uint8_t* audio_sample,
+                                           int num_samples, int num_channels) {
   std::unique_ptr<::mediapipe::Matrix> matrix(
       new ::mediapipe::Matrix(num_channels, num_samples));
-  // Note, audio_data_ref is really a const jbyte* but this clashes with the
-  // the expectation of ReleaseByteArrayElements below.
-  jbyte* audio_data_ref = env->GetByteArrayElements(data, nullptr);
   // Preparing and normalize the audio data.
   // kMultiplier is same as what used in av_sync_media_decoder.cc.
   static const float kMultiplier = 1.f / (1 << 15);
   // We try to not assume the Endian order of the data.
-  const uint8_t* audio_sample = reinterpret_cast<uint8_t*>(audio_data_ref);
   for (int sample = 0; sample < num_samples; ++sample) {
     for (int channel = 0; channel < num_channels; ++channel) {
       int16_t value = (audio_sample[1] & 0xff) << 8 | audio_sample[0];
@@ -183,8 +193,30 @@ JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateAudioPacket)(
       audio_sample += 2;
     }
   }
+  return mediapipe::Adopt(matrix.release());
+}
+
+JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateAudioPacket)(
+    JNIEnv* env, jobject thiz, jlong context, jbyteArray data, jint offset,
+    jint num_channels, jint num_samples) {
+  // Note, audio_data_ref is really a const jbyte* but this clashes with the
+  // the expectation of ReleaseByteArrayElements below.
+  jbyte* audio_data_ref = env->GetByteArrayElements(data, nullptr);
+  const uint8_t* audio_sample =
+      reinterpret_cast<uint8_t*>(audio_data_ref) + offset;
+  mediapipe::Packet packet =
+      createAudioPacket(audio_sample, num_samples, num_channels);
   env->ReleaseByteArrayElements(data, audio_data_ref, JNI_ABORT);
-  mediapipe::Packet packet = mediapipe::Adopt(matrix.release());
+  return CreatePacketWithContext(context, packet);
+}
+
+JNIEXPORT jlong JNICALL PACKET_CREATOR_METHOD(nativeCreateAudioPacketDirect)(
+    JNIEnv* env, jobject thiz, jlong context, jobject data, jint num_channels,
+    jint num_samples) {
+  const uint8_t* audio_sample =
+      reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(data));
+  mediapipe::Packet packet =
+      createAudioPacket(audio_sample, num_samples, num_channels);
   return CreatePacketWithContext(context, packet);
 }
 

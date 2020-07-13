@@ -158,9 +158,11 @@ void Scheduler::HandleIdle() {
     if (!active_sources_.empty() || throttled_graph_input_stream_count_ > 0) {
       VLOG(2) << "HandleIdle: unthrottling";
       state_mutex_.Unlock();
-      graph_->UnthrottleSources();
+      bool did_unthrottle = graph_->UnthrottleSources();
       state_mutex_.Lock();
-      continue;
+      if (did_unthrottle) {
+        continue;
+      }
     }
 
     // Nothing left to do.
@@ -236,7 +238,7 @@ void Scheduler::WaitUntilGraphInputStreamUnthrottled(
   }
   secondary_mutex->Unlock();
   ApplicationThreadAwait(
-      [this, seq_num]() EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
+      [this, seq_num]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
         return (unthrottle_seq_num_ != seq_num) || state_ == STATE_TERMINATED;
       });
   secondary_mutex->Lock();
@@ -253,7 +255,7 @@ void Scheduler::EmittedObservedOutput() {
 ::mediapipe::Status Scheduler::WaitForObservedOutput() {
   bool observed = false;
   ApplicationThreadAwait(
-      [this, &observed]() EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
+      [this, &observed]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
         observed = observed_output_signal_;
         observed_output_signal_ = false;
         waiting_for_observed_output_ = !observed && state_ != STATE_TERMINATED;
@@ -279,7 +281,7 @@ void Scheduler::EmittedObservedOutput() {
 
 ::mediapipe::Status Scheduler::WaitUntilDone() {
   RET_CHECK_NE(state_, STATE_NOT_STARTED);
-  ApplicationThreadAwait([this]() EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
+  ApplicationThreadAwait([this]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(state_mutex_) {
     return state_ == STATE_TERMINATED;
   });
   return ::mediapipe::OkStatus();

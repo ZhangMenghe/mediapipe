@@ -43,10 +43,6 @@ class PacketWithContext;
 // so that we can clean up or query later.
 class Graph {
  public:
-  // The Packet java class name.
-  static constexpr char const* kJavaPacketClassName =
-      "com/google/mediapipe/framework/Packet";
-
   Graph();
   Graph(const Graph&) = delete;
   Graph& operator=(const Graph&) = delete;
@@ -55,10 +51,6 @@ class Graph {
   // Adds a callback for a given stream name.
   ::mediapipe::Status AddCallbackHandler(std::string output_stream_name,
                                          jobject java_callback);
-
-  // Adds a packet with header callback for a given stream name.
-  ::mediapipe::Status AddCallbackWithHeaderHandler(
-      std::string output_stream_name, jobject java_callback);
 
   // Loads a binary graph from a file.
   ::mediapipe::Status LoadBinaryGraph(std::string path_to_graph);

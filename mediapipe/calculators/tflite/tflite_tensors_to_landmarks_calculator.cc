@@ -21,13 +21,29 @@
 namespace mediapipe {
 
 // A calculator for converting TFLite tensors from regression models into
-// landmarks. Note that if the landmarks in the tensor has more than 3
-// dimensions, only the first 3 dimensions will be converted to x,y,z.
+// landmarks. Note that if the landmarks in the tensor has more than 4
+// dimensions, only the first 4 dimensions will be converted to
+// [x,y,z, visibility].
 //
 // Input:
 //  TENSORS - Vector of TfLiteTensor of type kTfLiteFloat32. Only the first
 //            tensor will be used. The size of the values must be
 //            (num_dimension x num_landmarks).
+//
+//  FLIP_HORIZONTALLY (optional): Whether to flip landmarks horizontally or
+//  not. Overrides corresponding side packet and/or field in the calculator
+//  options.
+//
+//  FLIP_VERTICALLY (optional): Whether to flip landmarks vertically or not.
+//  Overrides corresponding side packet and/or field in the calculator options.
+//
+// Input side packet:
+//   FLIP_HORIZONTALLY (optional): Whether to flip landmarks horizontally or
+//   not. Overrides the corresponding field in the calculator options.
+//
+//   FLIP_VERTICALLY (optional): Whether to flip landmarks vertically or not.
+//   Overrides the corresponding field in the calculator options.
+//
 // Output:
 //  LANDMARKS(optional) - Result MediaPipe landmarks.
 //  NORM_LANDMARKS(optional) - Result MediaPipe normalized landmarks.
@@ -61,6 +77,8 @@ class TfLiteTensorsToLandmarksCalculator : public CalculatorBase {
  private:
   ::mediapipe::Status LoadOptions(CalculatorContext* cc);
   int num_landmarks_ = 0;
+  bool flip_vertically_ = false;
+  bool flip_horizontally_ = false;
 
   ::mediapipe::TfLiteTensorsToLandmarksCalculatorOptions options_;
 };
@@ -75,12 +93,28 @@ REGISTER_CALCULATOR(TfLiteTensorsToLandmarksCalculator);
     cc->Inputs().Tag("TENSORS").Set<std::vector<TfLiteTensor>>();
   }
 
+  if (cc->Inputs().HasTag("FLIP_HORIZONTALLY")) {
+    cc->Inputs().Tag("FLIP_HORIZONTALLY").Set<bool>();
+  }
+
+  if (cc->Inputs().HasTag("FLIP_VERTICALLY")) {
+    cc->Inputs().Tag("FLIP_VERTICALLY").Set<bool>();
+  }
+
+  if (cc->InputSidePackets().HasTag("FLIP_HORIZONTALLY")) {
+    cc->InputSidePackets().Tag("FLIP_HORIZONTALLY").Set<bool>();
+  }
+
+  if (cc->InputSidePackets().HasTag("FLIP_VERTICALLY")) {
+    cc->InputSidePackets().Tag("FLIP_VERTICALLY").Set<bool>();
+  }
+
   if (cc->Outputs().HasTag("LANDMARKS")) {
-    cc->Outputs().Tag("LANDMARKS").Set<std::vector<Landmark>>();
+    cc->Outputs().Tag("LANDMARKS").Set<LandmarkList>();
   }
 
   if (cc->Outputs().HasTag("NORM_LANDMARKS")) {
-    cc->Outputs().Tag("NORM_LANDMARKS").Set<std::vector<NormalizedLandmark>>();
+    cc->Outputs().Tag("NORM_LANDMARKS").Set<NormalizedLandmarkList>();
   }
 
   return ::mediapipe::OkStatus();
@@ -98,17 +132,40 @@ REGISTER_CALCULATOR(TfLiteTensorsToLandmarksCalculator);
         << "Must provide input with/height for getting normalized landmarks.";
   }
   if (cc->Outputs().HasTag("LANDMARKS") &&
-      (options_.flip_vertically() || options_.flip_horizontally())) {
+      (options_.flip_vertically() || options_.flip_horizontally() ||
+       cc->InputSidePackets().HasTag("FLIP_HORIZONTALLY") ||
+       cc->InputSidePackets().HasTag("FLIP_VERTICALLY"))) {
     RET_CHECK(options_.has_input_image_height() &&
               options_.has_input_image_width())
         << "Must provide input with/height for using flip_vertically option "
            "when outputing landmarks in absolute coordinates.";
   }
+
+  flip_horizontally_ =
+      cc->InputSidePackets().HasTag("FLIP_HORIZONTALLY")
+          ? cc->InputSidePackets().Tag("FLIP_HORIZONTALLY").Get<bool>()
+          : options_.flip_horizontally();
+
+  flip_vertically_ =
+      cc->InputSidePackets().HasTag("FLIP_VERTICALLY")
+          ? cc->InputSidePackets().Tag("FLIP_VERTICALLY").Get<bool>()
+          : options_.flip_vertically();
+
   return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status TfLiteTensorsToLandmarksCalculator::Process(
     CalculatorContext* cc) {
+  // Override values if specified so.
+  if (cc->Inputs().HasTag("FLIP_HORIZONTALLY") &&
+      !cc->Inputs().Tag("FLIP_HORIZONTALLY").IsEmpty()) {
+    flip_horizontally_ = cc->Inputs().Tag("FLIP_HORIZONTALLY").Get<bool>();
+  }
+  if (cc->Inputs().HasTag("FLIP_VERTICALLY") &&
+      !cc->Inputs().Tag("FLIP_VERTICALLY").IsEmpty()) {
+    flip_vertically_ = cc->Inputs().Tag("FLIP_VERTICALLY").Get<bool>();
+  }
+
   if (cc->Inputs().Tag("TENSORS").IsEmpty()) {
     return ::mediapipe::OkStatus();
   }
@@ -127,54 +184,58 @@ REGISTER_CALCULATOR(TfLiteTensorsToLandmarksCalculator);
 
   const float* raw_landmarks = raw_tensor->data.f;
 
-  auto output_landmarks = absl::make_unique<std::vector<Landmark>>();
+  LandmarkList output_landmarks;
 
   for (int ld = 0; ld < num_landmarks_; ++ld) {
     const int offset = ld * num_dimensions;
-    Landmark landmark;
+    Landmark* landmark = output_landmarks.add_landmark();
 
-    if (options_.flip_horizontally()) {
-      landmark.set_x(options_.input_image_width() - raw_landmarks[offset]);
+    if (flip_horizontally_) {
+      landmark->set_x(options_.input_image_width() - raw_landmarks[offset]);
     } else {
-      landmark.set_x(raw_landmarks[offset]);
+      landmark->set_x(raw_landmarks[offset]);
     }
     if (num_dimensions > 1) {
-      if (options_.flip_vertically()) {
-        landmark.set_y(options_.input_image_height() -
-                       raw_landmarks[offset + 1]);
+      if (flip_vertically_) {
+        landmark->set_y(options_.input_image_height() -
+                        raw_landmarks[offset + 1]);
       } else {
-        landmark.set_y(raw_landmarks[offset + 1]);
+        landmark->set_y(raw_landmarks[offset + 1]);
       }
     }
     if (num_dimensions > 2) {
-      landmark.set_z(raw_landmarks[offset + 2]);
+      landmark->set_z(raw_landmarks[offset + 2]);
     }
-    output_landmarks->push_back(landmark);
+    if (num_dimensions > 3) {
+      landmark->set_visibility(raw_landmarks[offset + 3]);
+    }
   }
 
   // Output normalized landmarks if required.
   if (cc->Outputs().HasTag("NORM_LANDMARKS")) {
-    auto output_norm_landmarks =
-        absl::make_unique<std::vector<NormalizedLandmark>>();
-    for (const auto& landmark : *output_landmarks) {
-      NormalizedLandmark norm_landmark;
-      norm_landmark.set_x(static_cast<float>(landmark.x()) /
-                          options_.input_image_width());
-      norm_landmark.set_y(static_cast<float>(landmark.y()) /
-                          options_.input_image_height());
-      norm_landmark.set_z(landmark.z() / options_.normalize_z());
-
-      output_norm_landmarks->push_back(norm_landmark);
+    NormalizedLandmarkList output_norm_landmarks;
+    for (int i = 0; i < output_landmarks.landmark_size(); ++i) {
+      const Landmark& landmark = output_landmarks.landmark(i);
+      NormalizedLandmark* norm_landmark = output_norm_landmarks.add_landmark();
+      norm_landmark->set_x(landmark.x() / options_.input_image_width());
+      norm_landmark->set_y(landmark.y() / options_.input_image_height());
+      // Scale Z coordinate as X + allow additional uniform normalization.
+      norm_landmark->set_z(landmark.z() / options_.input_image_width() /
+                           options_.normalize_z());
+      norm_landmark->set_visibility(landmark.visibility());
     }
     cc->Outputs()
         .Tag("NORM_LANDMARKS")
-        .Add(output_norm_landmarks.release(), cc->InputTimestamp());
+        .AddPacket(MakePacket<NormalizedLandmarkList>(output_norm_landmarks)
+                       .At(cc->InputTimestamp()));
   }
+
   // Output absolute landmarks.
   if (cc->Outputs().HasTag("LANDMARKS")) {
     cc->Outputs()
         .Tag("LANDMARKS")
-        .Add(output_landmarks.release(), cc->InputTimestamp());
+        .AddPacket(MakePacket<LandmarkList>(output_landmarks)
+                       .At(cc->InputTimestamp()));
   }
 
   return ::mediapipe::OkStatus();

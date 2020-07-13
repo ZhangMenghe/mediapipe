@@ -102,28 +102,28 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		}
 		
 		//plane
-		planeData plane;
-		cv::Mat Plane2World=cv::Mat::zeros(4,4,CV_32FC1);
-		cv::Mat p_c= cv::Mat::zeros(3,1,CV_32FC1);
+		// planeData plane;
+		// cv::Mat Plane2World=cv::Mat::zeros(4,4,CV_32FC1);
+		// cv::Mat p_c= cv::Mat::zeros(3,1,CV_32FC1);
 
-		if(frame_count %50 == 0 )plane.valid = false;
-		if(!plane.valid){
-			// LOG(INFO)<<"Update plane";
-			ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(camera.pose, Plane2World, p_c);
-			if(p_c.at<float>(0,0) != .0f && p_c.at<float>(1,0) != .0f && p_c.at<float>(2,0)!= .0f){
-				plane.valid = true;
-				plane.pose = Plane2World;
-				plane.center= p_c;
+		// if(frame_count %50 == 0 )plane.valid = false;
+		// if(!plane.valid){
+		// 	// LOG(INFO)<<"Update plane";
+		// 	ORB_SLAM2::PlaneDetector* pd = SLAM->GetPlane(camera.pose, Plane2World, p_c);
+		// 	if(p_c.at<float>(0,0) != .0f && p_c.at<float>(1,0) != .0f && p_c.at<float>(2,0)!= .0f){
+		// 		plane.valid = true;
+		// 		plane.pose = Plane2World;
+		// 		plane.center= p_c;
 				
-				const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
-				plane.points.num = trackPoints.size();
-				for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
-					cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
-					plane.points.data[i] = pos;
-				}
-			}
-		}
-		slam_data_out->plane = plane;
+		// 		const std::vector<ORB_SLAM2::MapPoint*> &trackPoints = pd->GetPlanePoints();
+		// 		plane.points.num = trackPoints.size();
+		// 		for(size_t i=0, iend=trackPoints.size(); i<iend&&i<MAX_TRACK_POINT;i++){
+		// 			cv::Point3f pos = cv::Point3f(trackPoints[i]->GetWorldPos());
+		// 			plane.points.data[i] = pos;
+		// 		}
+		// 	}
+		// }
+		// slam_data_out->plane = plane;
 
 		//keypoints
 		auto kps = SLAM->GetTrackedKeyPointsUn();

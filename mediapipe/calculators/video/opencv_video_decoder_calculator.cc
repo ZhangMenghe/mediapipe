@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdlib.h>
+
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_format.pb.h"
 #include "mediapipe/framework/formats/image_frame.h"
@@ -66,6 +68,22 @@ ImageFormat::Format GetImageFormat(int num_channels) {
 //   output_stream: "VIDEO:video_frames"
 //   output_stream: "VIDEO_PRESTREAM:video_header"
 // }
+//
+// OpenCV's VideoCapture doesn't decode audio tracks. If the audio tracks need
+// to be saved, specify an output side packet with tag "SAVED_AUDIO_PATH".
+// The calculator will call FFmpeg binary to save audio tracks as an aac file.
+// If the audio tracks can't be extracted by FFmpeg, the output side packet
+// will contain an empty std::string.
+//
+// Example config:
+// node {
+//   calculator: "OpenCvVideoDecoderCalculator"
+//   input_side_packet: "INPUT_FILE_PATH:input_file_path"
+//   output_side_packet: "SAVED_AUDIO_PATH:audio_path"
+//   output_stream: "VIDEO:video_frames"
+//   output_stream: "VIDEO_PRESTREAM:video_header"
+// }
+//
 class OpenCvVideoDecoderCalculator : public CalculatorBase {
  public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
@@ -73,6 +91,9 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
     cc->Outputs().Tag("VIDEO").Set<ImageFrame>();
     if (cc->Outputs().HasTag("VIDEO_PRESTREAM")) {
       cc->Outputs().Tag("VIDEO_PRESTREAM").Set<VideoHeader>();
+    }
+    if (cc->OutputSidePackets().HasTag("SAVED_AUDIO_PATH")) {
+      cc->OutputSidePackets().Tag("SAVED_AUDIO_PATH").Set<std::string>();
     }
     return ::mediapipe::OkStatus();
   }
@@ -123,9 +144,39 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
       cc->Outputs()
           .Tag("VIDEO_PRESTREAM")
           .Add(header.release(), Timestamp::PreStream());
+      cc->Outputs().Tag("VIDEO_PRESTREAM").Close();
     }
     // Rewind to the very first frame.
     cap_->set(cv::CAP_PROP_POS_AVI_RATIO, 0);
+
+    if (cc->OutputSidePackets().HasTag("SAVED_AUDIO_PATH")) {
+#ifdef HAVE_FFMPEG
+      std::string saved_audio_path = std::tmpnam(nullptr);
+      std::string ffmpeg_command =
+          absl::StrCat("ffmpeg -nostats -loglevel 0 -i ", input_file_path,
+                       " -vn -f adts ", saved_audio_path);
+      system(ffmpeg_command.c_str());
+      int status_code = system(absl::StrCat("ls ", saved_audio_path).c_str());
+      if (status_code == 0) {
+        cc->OutputSidePackets()
+            .Tag("SAVED_AUDIO_PATH")
+            .Set(MakePacket<std::string>(saved_audio_path));
+      } else {
+        LOG(WARNING) << "FFmpeg can't extract audio from " << input_file_path
+                     << " by executing the following command: "
+                     << ffmpeg_command;
+        cc->OutputSidePackets()
+            .Tag("SAVED_AUDIO_PATH")
+            .Set(MakePacket<std::string>(std::string()));
+      }
+#else
+      return ::mediapipe::InvalidArgumentErrorBuilder(MEDIAPIPE_LOC)
+             << "OpenCVVideoDecoderCalculator can't save the audio file "
+                "because FFmpeg is not installed. Please remove "
+                "output_side_packet: \"SAVED_AUDIO_PATH\" from the node "
+                "config.";
+#endif
+    }
     return ::mediapipe::OkStatus();
   }
 

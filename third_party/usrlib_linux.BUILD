@@ -52,28 +52,13 @@ cc_library(
 #glm
 cc_library(
     name = "glm",
-    hdrs = glob([
-        "include/glm/*.h*",
-        "include/glm/*.inl",
-        "include/glm/*/*.h*",
-        "include/glm/*/*.inl"
-        ]),
     includes = ["include/glm"],
-    linkstatic = 1,
+    srcs = glob(["include/glm/**/*.hpp"]) + glob(["include/glm/**/*.h"]),
+    hdrs = glob(["include/glm/**/*.inl"]),
     visibility = ["//visibility:public"],
-)
-
-#OpenGL
-cc_library(
-    name = "opengl",
-    srcs = glob(
-        [
-            "lib/x86_64-linux-gnu/libGLU.so",
-            "lib/x86_64-linux-gnu/libGLEW.so",
-        ],
-    ),
-    hdrs = glob(["include/GL/*.h*"]),
-    includes = ["include"],
-    linkstatic = 1,
-    visibility = ["//visibility:public"],
+    defines = [
+        "GLM_FORCE_RADIANS",
+        "GLM_FORCE_LEFT_HANDED",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+    ],
 )

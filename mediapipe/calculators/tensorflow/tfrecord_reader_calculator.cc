@@ -81,11 +81,11 @@ class TFRecordReaderCalculator : public CalculatorBase {
   auto tf_status = tensorflow::Env::Default()->NewRandomAccessFile(
       cc->InputSidePackets().Tag(kTFRecordPath).Get<std::string>(), &file);
   RET_CHECK(tf_status.ok())
-      << "Failed to open tfrecord file: " << tf_status.error_message();
+      << "Failed to open tfrecord file: " << tf_status.ToString();
   tensorflow::io::RecordReader reader(file.get(),
                                       tensorflow::io::RecordReaderOptions());
   tensorflow::uint64 offset = 0;
-  std::string example_str;
+  tensorflow::tstring example_str;
   const int target_idx =
       cc->InputSidePackets().HasTag(kRecordIndex)
           ? cc->InputSidePackets().Tag(kRecordIndex).Get<int>()
@@ -94,11 +94,11 @@ class TFRecordReaderCalculator : public CalculatorBase {
   while (current_idx <= target_idx) {
     tf_status = reader.ReadRecord(&offset, &example_str);
     RET_CHECK(tf_status.ok())
-        << "Failed to read tfrecord: " << tf_status.error_message();
+        << "Failed to read tfrecord: " << tf_status.ToString();
     if (current_idx == target_idx) {
       if (cc->OutputSidePackets().HasTag(kExampleTag)) {
         tensorflow::Example tf_example;
-        tf_example.ParseFromString(example_str);
+        tf_example.ParseFromArray(example_str.data(), example_str.size());
         cc->OutputSidePackets()
             .Tag(kExampleTag)
             .Set(MakePacket<tensorflow::Example>(std::move(tf_example)));

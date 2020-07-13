@@ -14,6 +14,7 @@
 //
 // An example of sending OpenCV webcam frames into a MediaPipe graph.
 // This example requires a linux computer and a GPU with EGL support drivers.
+#include <cstdlib>
 
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
@@ -162,6 +163,11 @@ Status GPUTask::Initilization(){
     RET_CHECK(writer.isOpened());
   } else {
     cv::namedWindow(kWindowName, /*flags=WINDOW_AUTOSIZE*/ 1);
+#if (CV_MAJOR_VERSION >= 3) && (CV_MINOR_VERSION >= 2)
+    capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    capture.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    capture.set(cv::CAP_PROP_FPS, 30);
+#endif
   }
 
   return OkStatus();
@@ -246,6 +252,8 @@ Status GPUTask::Run(){
     camera_frame.copyTo(input_frame_mat);
 
     // Prepare and add graph input packet.
+    size_t frame_timestamp_us =
+        (double)cv::getTickCount() / (double)cv::getTickFrequency() * 1e6;
     MP_RETURN_IF_ERROR(
       gpu_helper.RunInGlContext([this, &input_frame]() -> Status {
         // Convert ImageFrame to GpuBuffer.
@@ -317,9 +325,9 @@ int main(int argc, char** argv) {
   run_status = gpu_task.Run();
     if (!run_status.ok()) {
     LOG(ERROR) << "Failed to run the graph: " << run_status.message();
+    return EXIT_FAILURE;
   } else {
     LOG(INFO) << "Success Run!";
   }
-
-  return 0;
+  return EXIT_SUCCESS;
 }

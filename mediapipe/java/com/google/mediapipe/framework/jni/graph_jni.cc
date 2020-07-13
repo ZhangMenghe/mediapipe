@@ -19,6 +19,7 @@
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/port/canonical_errors.h"
 #include "mediapipe/framework/port/logging.h"
+#include "mediapipe/java/com/google/mediapipe/framework/jni/class_registry.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/graph.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/jni_util.h"
 
@@ -69,25 +70,11 @@ mediapipe::Status AddStreamHeadersIntoGraph(
   return mediapipe::OkStatus();
 }
 
-// Creates a java MediaPipeException object for a mediapipe::Status.
-jthrowable CreateMediaPipeException(JNIEnv* env, mediapipe::Status status) {
-  jclass status_cls =
-      env->FindClass("com/google/mediapipe/framework/MediaPipeException");
-  jmethodID status_ctr = env->GetMethodID(status_cls, "<init>", "(I[B)V");
-  int length = status.message().length();
-  jbyteArray message_bytes = env->NewByteArray(length);
-  env->SetByteArrayRegion(message_bytes, 0, length,
-                          reinterpret_cast<jbyte*>(const_cast<char*>(
-                              std::string(status.message()).c_str())));
-  return reinterpret_cast<jthrowable>(
-      env->NewObject(status_cls, status_ctr, status.code(), message_bytes));
-}
-
 // Throws a MediaPipeException for any non-ok mediapipe::Status.
 // Note that the exception is thrown after execution returns to Java.
 bool ThrowIfError(JNIEnv* env, mediapipe::Status status) {
   if (!status.ok()) {
-    env->Throw(CreateMediaPipeException(env, status));
+    env->Throw(mediapipe::android::CreateMediaPipeException(env, status));
     return true;
   }
   return false;
@@ -208,25 +195,6 @@ GRAPH_METHOD(nativeAddPacketCallback)(JNIEnv* env, jobject thiz, jlong context,
                                                         global_callback_ref));
 }
 
-JNIEXPORT void JNICALL GRAPH_METHOD(nativeAddPacketWithHeaderCallback)(
-    JNIEnv* env, jobject thiz, jlong context, jstring stream_name,
-    jobject callback) {
-  mediapipe::android::Graph* mediapipe_graph =
-      reinterpret_cast<mediapipe::android::Graph*>(context);
-  std::string output_stream_name = JStringToStdString(env, stream_name);
-
-  // Create a global reference to the callback object, so that it can
-  // be accessed later.
-  jobject global_callback_ref = env->NewGlobalRef(callback);
-  if (!global_callback_ref) {
-    ThrowIfError(
-        env, ::mediapipe::InternalError("Failed to allocate packet callback"));
-    return;
-  }
-  ThrowIfError(env, mediapipe_graph->AddCallbackWithHeaderHandler(
-                        output_stream_name, global_callback_ref));
-}
-
 JNIEXPORT jlong JNICALL GRAPH_METHOD(nativeAddSurfaceOutput)(
     JNIEnv* env, jobject thiz, jlong context, jstring stream_name) {
   mediapipe::android::Graph* mediapipe_graph =
@@ -273,11 +241,11 @@ JNIEXPORT void JNICALL GRAPH_METHOD(nativeAddPacketToInputStream)(
   mediapipe::android::Graph* mediapipe_graph =
       reinterpret_cast<mediapipe::android::Graph*>(context);
   // We push in a copy of the current packet at the given timestamp.
-  ThrowIfError(env,
-               mediapipe_graph->AddPacketToInputStream(
-                   JStringToStdString(env, stream_name),
-                   mediapipe::android::Graph::GetPacketFromHandle(packet).At(
-                       mediapipe::Timestamp(timestamp))));
+  ThrowIfError(
+      env, mediapipe_graph->AddPacketToInputStream(
+               JStringToStdString(env, stream_name),
+               mediapipe::android::Graph::GetPacketFromHandle(packet).At(
+                   mediapipe::Timestamp::CreateNoErrorChecking(timestamp))));
 }
 
 JNIEXPORT void JNICALL GRAPH_METHOD(nativeMovePacketToInputStream)(

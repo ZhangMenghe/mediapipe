@@ -20,6 +20,40 @@ exports_files(["LICENSE"])
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "glog",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "//mediapipe:android_x86": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:android_x86_64": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:android_armeabi": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:android_arm": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:android_arm64": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:ios": [
+            "@com_github_glog_glog_v_0_3_5//:glog",
+        ],
+        "//mediapipe:macos": [
+            "@com_github_glog_glog//:glog",
+        ],
+        "//mediapipe:windows": [
+            "@com_github_glog_glog//:glog",
+        ],
+        "//conditions:default": [
+            "@com_github_glog_glog//:glog",
+        ],
+    }),
+)
+
+cc_library(
     name = "opencv",
     visibility = ["//visibility:public"],
     deps = select({
@@ -43,6 +77,9 @@ cc_library(
         ],
         "//mediapipe:macos": [
             "@macos_opencv//:opencv",
+        ],
+        "//mediapipe:windows": [
+            "@windows_opencv//:opencv",
         ],
         "//conditions:default": [
             "@linux_opencv//:opencv",
@@ -118,13 +155,16 @@ android_library(
     ],
 )
 
-# TODO: Get the AARs from Google's Maven Repository.
-aar_import(
+android_library(
     name = "camerax_core",
-    aar = "camera-core-1.0.0-alpha01.aar",
+    exports = [
+        "@maven//:androidx_camera_camera_core",
+    ],
 )
 
-aar_import(
+android_library(
     name = "camera2",
-    aar = "camera-camera2-1.0.0-alpha01.aar",
+    exports = [
+        "@maven//:androidx_camera_camera_camera2",
+    ],
 )

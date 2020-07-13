@@ -22,20 +22,23 @@
 #include "mediapipe/framework/formats/matrix.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/util/resource_util.h"
+#include "mediapipe/util/tflite/config.h"
 #include "tensorflow/lite/error_reporter.h"
 #include "tensorflow/lite/interpreter.h"
 
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
-#include "mediapipe/gpu/gl_calculator_helper.h"
+#ifndef MEDIAPIPE_DISABLE_GPU
 #include "mediapipe/gpu/gpu_buffer.h"
+#endif  // MEDIAPIPE_DISABLE_GPU
+
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
+#include "mediapipe/gpu/gl_calculator_helper.h"
 #include "tensorflow/lite/delegates/gpu/gl/gl_buffer.h"
 #include "tensorflow/lite/delegates/gpu/gl/gl_program.h"
 #include "tensorflow/lite/delegates/gpu/gl/gl_shader.h"
 #include "tensorflow/lite/delegates/gpu/gl_delegate.h"
-#endif  //  !MEDIAPIPE_DISABLE_GPU
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
 
-#if defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#if MEDIAPIPE_TFLITE_METAL_INFERENCE
 #import <CoreVideo/CoreVideo.h>
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
@@ -44,14 +47,7 @@
 #include "mediapipe/gpu/MPPMetalUtil.h"
 #include "mediapipe/gpu/gpu_buffer.h"
 #include "tensorflow/lite/delegates/gpu/metal_delegate.h"
-#endif  // iOS
-
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
-typedef ::tflite::gpu::gl::GlBuffer GpuTensor;
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
-typedef id<MTLBuffer> GpuTensor;
-#endif
+#endif  // MEDIAPIPE_TFLITE_METAL_INFERENCE
 
 namespace {
 constexpr int kWorkgroupSize = 8;  // Block size for GPU shader.
@@ -65,12 +61,17 @@ typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>
     ColMajorMatrixXf;
 
+constexpr char kImageFrameTag[] = "IMAGE";
+constexpr char kGpuBufferTag[] = "IMAGE_GPU";
+constexpr char kTensorsTag[] = "TENSORS";
+constexpr char kTensorsGpuTag[] = "TENSORS_GPU";
+constexpr char kMatrixTag[] = "MATRIX";
 }  // namespace
 
 namespace mediapipe {
 
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+namespace {
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
 using ::tflite::gpu::gl::CreateReadWriteShaderStorageBuffer;
 using ::tflite::gpu::gl::GlProgram;
 using ::tflite::gpu::gl::GlShader;
@@ -80,13 +81,15 @@ struct GPUData {
   GlShader shader;
   GlProgram program;
 };
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
 struct GPUData {
   int elements = 1;
   GpuTensor buffer;
   id<MTLComputePipelineState> pipeline_state;
 };
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
+
+}  // namespace
 
 // Calculator for normalizing and converting an ImageFrame or Matrix
 // into a TfLiteTensor (float 32) or a GpuBuffer to a tflite::gpu::GlBuffer
@@ -127,6 +130,9 @@ struct GPUData {
 //  GPU tensors are currently only supported on mobile platforms.
 //  This calculator uses FixedSizeInputStreamHandler by default.
 //
+// Note: Input defines output, so only these type sets are supported:
+// IMAGE -> TENSORS | IMAGE_GPU -> TENSORS_GPU | MATRIX -> TENSORS
+//
 class TfLiteConverterCalculator : public CalculatorBase {
  public:
   static ::mediapipe::Status GetContract(CalculatorContract* cc);
@@ -141,26 +147,28 @@ class TfLiteConverterCalculator : public CalculatorBase {
   template <class T>
   ::mediapipe::Status NormalizeImage(const ImageFrame& image_frame,
                                      bool zero_center, bool flip_vertically,
-                                     float* tensor_buffer);
+                                     float* tensor_ptr);
   ::mediapipe::Status CopyMatrixToTensor(const Matrix& matrix,
-                                         float* tensor_buffer);
+                                         float* tensor_ptr);
   ::mediapipe::Status ProcessCPU(CalculatorContext* cc);
   ::mediapipe::Status ProcessGPU(CalculatorContext* cc);
 
   std::unique_ptr<tflite::Interpreter> interpreter_ = nullptr;
 
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
   mediapipe::GlCalculatorHelper gpu_helper_;
   std::unique_ptr<GPUData> gpu_data_out_;
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
   MPPMetalHelper* gpu_helper_ = nullptr;
   std::unique_ptr<GPUData> gpu_data_out_;
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
 
   bool initialized_ = false;
   bool use_gpu_ = false;
   bool zero_center_ = true;  // normalize range to [-1,1] | otherwise [0,1]
+  bool use_custom_normalization_ = false;
+  float custom_div_ = -1.0f;
+  float custom_sub_ = -1.0f;
   bool flip_vertically_ = false;
   bool row_major_matrix_ = false;
   bool use_quantized_tensors_ = false;
@@ -168,46 +176,54 @@ class TfLiteConverterCalculator : public CalculatorBase {
 };
 REGISTER_CALCULATOR(TfLiteConverterCalculator);
 
+namespace {
+template <class CC>
+bool ShouldUseGpu(CC* cc) {
+#if MEDIAPIPE_TFLITE_GPU_SUPPORTED
+  return cc->Inputs().HasTag(kGpuBufferTag) ||
+         cc->Outputs().HasTag(kTensorsGpuTag);
+#else
+  return false;
+#endif  // MEDIAPIPE_TFLITE_GPU_SUPPORTED
+}
+}  // namespace
+
 ::mediapipe::Status TfLiteConverterCalculator::GetContract(
     CalculatorContract* cc) {
-  const bool has_image_tag = cc->Inputs().HasTag("IMAGE");
-  const bool has_image_gpu_tag = cc->Inputs().HasTag("IMAGE_GPU");
-  const bool has_matrix_tag = cc->Inputs().HasTag("MATRIX");
   // Confirm only one of the input streams is present.
-  RET_CHECK(has_image_tag ^ has_image_gpu_tag ^ has_matrix_tag &&
-            !(has_image_tag && has_image_gpu_tag && has_matrix_tag));
+  RET_CHECK(cc->Inputs().HasTag(kImageFrameTag) ^
+            cc->Inputs().HasTag(kGpuBufferTag) ^
+            cc->Inputs().HasTag(kMatrixTag));
 
   // Confirm only one of the output streams is present.
-  RET_CHECK(cc->Outputs().HasTag("TENSORS") ^
-            cc->Outputs().HasTag("TENSORS_GPU"));
+  RET_CHECK(cc->Outputs().HasTag(kTensorsTag) ^
+            cc->Outputs().HasTag(kTensorsGpuTag));
 
-  bool use_gpu = false;
-
-  if (cc->Inputs().HasTag("IMAGE")) cc->Inputs().Tag("IMAGE").Set<ImageFrame>();
-  if (cc->Inputs().HasTag("MATRIX")) cc->Inputs().Tag("MATRIX").Set<Matrix>();
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__)
-  if (cc->Inputs().HasTag("IMAGE_GPU")) {
-    cc->Inputs().Tag("IMAGE_GPU").Set<mediapipe::GpuBuffer>();
-    use_gpu |= true;
+  if (cc->Inputs().HasTag(kImageFrameTag)) {
+    cc->Inputs().Tag(kImageFrameTag).Set<ImageFrame>();
   }
-#endif  //  !MEDIAPIPE_DISABLE_GPU
-
-  if (cc->Outputs().HasTag("TENSORS"))
-    cc->Outputs().Tag("TENSORS").Set<std::vector<TfLiteTensor>>();
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__)
-  if (cc->Outputs().HasTag("TENSORS_GPU")) {
-    cc->Outputs().Tag("TENSORS_GPU").Set<std::vector<GpuTensor>>();
-    use_gpu |= true;
+  if (cc->Inputs().HasTag(kMatrixTag)) {
+    cc->Inputs().Tag(kMatrixTag).Set<Matrix>();
   }
-#endif  //  !MEDIAPIPE_DISABLE_GPU
+#ifndef MEDIAPIPE_DISABLE_GPU
+  if (cc->Inputs().HasTag(kGpuBufferTag)) {
+    cc->Inputs().Tag(kGpuBufferTag).Set<mediapipe::GpuBuffer>();
+  }
+#endif  // MEDIAPIPE_DISABLE_GPU
 
-  if (use_gpu) {
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+  if (cc->Outputs().HasTag(kTensorsTag)) {
+    cc->Outputs().Tag(kTensorsTag).Set<std::vector<TfLiteTensor>>();
+  }
+  if (cc->Outputs().HasTag(kTensorsGpuTag)) {
+    cc->Outputs().Tag(kTensorsGpuTag).Set<std::vector<GpuTensor>>();
+  }
+
+  if (ShouldUseGpu(cc)) {
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
     MP_RETURN_IF_ERROR(mediapipe::GlCalculatorHelper::UpdateContract(cc));
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
     MP_RETURN_IF_ERROR([MPPMetalHelper updateContract:cc]);
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
   }
 
   // Assign this calculator's default InputStreamHandler.
@@ -221,28 +237,20 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
 
   MP_RETURN_IF_ERROR(LoadOptions(cc));
 
-  if (cc->Inputs().HasTag("IMAGE_GPU") ||
-      cc->Outputs().HasTag("IMAGE_OUT_GPU")) {
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__)
-    use_gpu_ = true;
-#else
-    RET_CHECK_FAIL() << "GPU processing not enabled.";
-#endif
-  }
+  use_gpu_ = ShouldUseGpu(cc);
 
   if (use_gpu_) {
     // Cannot mix CPU/GPU streams.
-    RET_CHECK(cc->Inputs().HasTag("IMAGE_GPU") &&
-              cc->Outputs().HasTag("TENSORS_GPU"));
+    RET_CHECK(cc->Inputs().HasTag(kGpuBufferTag) &&
+              cc->Outputs().HasTag(kTensorsGpuTag));
     // Cannot use quantization.
     use_quantized_tensors_ = false;
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
     MP_RETURN_IF_ERROR(gpu_helper_.Open(cc));
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
     gpu_helper_ = [[MPPMetalHelper alloc] initWithCalculatorContext:cc];
     RET_CHECK(gpu_helper_);
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
   } else {
     interpreter_ = absl::make_unique<tflite::Interpreter>();
     interpreter_->AddTensors(1);
@@ -254,7 +262,9 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
 
 ::mediapipe::Status TfLiteConverterCalculator::Process(CalculatorContext* cc) {
   if (use_gpu_) {
-    // GpuBuffer to tflite::gpu::GlBuffer conversion.
+    if (cc->Inputs().Tag(kGpuBufferTag).IsEmpty()) {
+      return ::mediapipe::OkStatus();
+    }
     if (!initialized_) {
       MP_RETURN_IF_ERROR(InitGpu(cc));
       initialized_ = true;
@@ -265,47 +275,60 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
     // Convert to CPU tensors or Matrix type.
     MP_RETURN_IF_ERROR(ProcessCPU(cc));
   }
-
   return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status TfLiteConverterCalculator::Close(CalculatorContext* cc) {
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+  interpreter_.reset();
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
   gpu_helper_.RunInGlContext([this] { gpu_data_out_.reset(); });
-#endif
-#if defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
   gpu_data_out_.reset();
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
   return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status TfLiteConverterCalculator::ProcessCPU(
     CalculatorContext* cc) {
-  if (cc->Inputs().HasTag("IMAGE")) {
+  if (cc->Inputs().HasTag(kImageFrameTag)) {
+    if (cc->Inputs().Tag(kImageFrameTag).IsEmpty()) {
+      return ::mediapipe::OkStatus();
+    }
     // CPU ImageFrame to TfLiteTensor conversion.
 
-    const auto& image_frame = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
+    const auto& image_frame =
+        cc->Inputs().Tag(kImageFrameTag).Get<ImageFrame>();
     const int height = image_frame.Height();
     const int width = image_frame.Width();
     const int channels = image_frame.NumberOfChannels();
     const int channels_preserved = std::min(channels, max_num_channels_);
+    const mediapipe::ImageFormat::Format format = image_frame.Format();
 
     if (!initialized_) {
-      if (!(image_frame.Format() == mediapipe::ImageFormat::SRGBA ||
-            image_frame.Format() == mediapipe::ImageFormat::SRGB ||
-            image_frame.Format() == mediapipe::ImageFormat::GRAY8 ||
-            image_frame.Format() == mediapipe::ImageFormat::VEC32F1))
+      if (!(format == mediapipe::ImageFormat::SRGBA ||
+            format == mediapipe::ImageFormat::SRGB ||
+            format == mediapipe::ImageFormat::GRAY8 ||
+            format == mediapipe::ImageFormat::VEC32F1))
         RET_CHECK_FAIL() << "Unsupported CPU input format.";
       TfLiteQuantization quant;
       if (use_quantized_tensors_) {
-        RET_CHECK(image_frame.Format() != mediapipe::ImageFormat::VEC32F1)
+        RET_CHECK(format != mediapipe::ImageFormat::VEC32F1)
             << "Only 8-bit input images are supported for quantization.";
-        // Optional: Set 'quant' quantization params here if needed.
+        quant.type = kTfLiteAffineQuantization;
+        auto quant_params = static_cast<TfLiteAffineQuantization*>(
+            malloc(sizeof(TfLiteAffineQuantization)));
+        quant_params->scale = TfLiteFloatArrayCreate(1);
+        quant_params->scale->data[0] = 1.0;
+        quant_params->zero_point = TfLiteIntArrayCreate(1);
+        quant_params->zero_point->data[0] = 0;
+        quant_params->quantized_dimension = 0;
+        quant.params = quant_params;
         interpreter_->SetTensorParametersReadWrite(0, kTfLiteUInt8, "",
                                                    {channels_preserved}, quant);
       } else {
-        // Default TfLiteQuantization used for no quantization.
+        // Initialize structure for no quantization.
+        quant.type = kTfLiteNoQuantization;
+        quant.params = nullptr;
         interpreter_->SetTensorParametersReadWrite(0, kTfLiteFloat32, "",
                                                    {channels_preserved}, quant);
       }
@@ -352,12 +375,15 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
 
     auto output_tensors = absl::make_unique<std::vector<TfLiteTensor>>();
     output_tensors->emplace_back(*tensor);
-    cc->Outputs().Tag("TENSORS").Add(output_tensors.release(),
-                                     cc->InputTimestamp());
-  } else if (cc->Inputs().HasTag("MATRIX")) {
+    cc->Outputs()
+        .Tag(kTensorsTag)
+        .Add(output_tensors.release(), cc->InputTimestamp());
+  } else if (cc->Inputs().HasTag(kMatrixTag)) {
+    if (cc->Inputs().Tag(kMatrixTag).IsEmpty()) {
+      return ::mediapipe::OkStatus();
+    }
     // CPU Matrix to TfLiteTensor conversion.
-
-    const auto& matrix = cc->Inputs().Tag("MATRIX").Get<Matrix>();
+    const auto& matrix = cc->Inputs().Tag(kMatrixTag).Get<Matrix>();
     const int height = matrix.rows();
     const int width = matrix.cols();
     const int channels = 1;
@@ -374,15 +400,16 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
     interpreter_->ResizeInputTensor(tensor_idx, {height, width, channels});
     interpreter_->AllocateTensors();
 
-    float* tensor_buffer = tensor->data.f;
-    RET_CHECK(tensor_buffer);
+    float* tensor_ptr = tensor->data.f;
+    RET_CHECK(tensor_ptr);
 
-    MP_RETURN_IF_ERROR(CopyMatrixToTensor(matrix, tensor_buffer));
+    MP_RETURN_IF_ERROR(CopyMatrixToTensor(matrix, tensor_ptr));
 
     auto output_tensors = absl::make_unique<std::vector<TfLiteTensor>>();
     output_tensors->emplace_back(*tensor);
-    cc->Outputs().Tag("TENSORS").Add(output_tensors.release(),
-                                     cc->InputTimestamp());
+    cc->Outputs()
+        .Tag(kTensorsTag)
+        .Add(output_tensors.release(), cc->InputTimestamp());
   }
 
   return ::mediapipe::OkStatus();
@@ -390,10 +417,10 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
 
 ::mediapipe::Status TfLiteConverterCalculator::ProcessGPU(
     CalculatorContext* cc) {
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
   // GpuBuffer to tflite::gpu::GlBuffer conversion.
-  const auto& input = cc->Inputs().Tag("IMAGE_GPU").Get<mediapipe::GpuBuffer>();
+  const auto& input =
+      cc->Inputs().Tag(kGpuBufferTag).Get<mediapipe::GpuBuffer>();
   MP_RETURN_IF_ERROR(
       gpu_helper_.RunInGlContext([this, &input]() -> ::mediapipe::Status {
         // Convert GL texture into TfLite GlBuffer (SSBO).
@@ -425,60 +452,57 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
         return ::mediapipe::OkStatus();
       }));
   cc->Outputs()
-      .Tag("TENSORS_GPU")
+      .Tag(kTensorsGpuTag)
       .Add(output_tensors.release(), cc->InputTimestamp());
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
   // GpuBuffer to id<MTLBuffer> conversion.
-  const auto& input = cc->Inputs().Tag("IMAGE_GPU").Get<mediapipe::GpuBuffer>();
-  {
-    id<MTLTexture> src_texture = [gpu_helper_ metalTextureWithGpuBuffer:input];
-    id<MTLCommandBuffer> command_buffer = [gpu_helper_ commandBuffer];
-    command_buffer.label = @"TfLiteConverterCalculatorConvert";
-    id<MTLComputeCommandEncoder> compute_encoder =
-        [command_buffer computeCommandEncoder];
-    [compute_encoder setComputePipelineState:gpu_data_out_->pipeline_state];
-    [compute_encoder setTexture:src_texture atIndex:0];
-    [compute_encoder setBuffer:gpu_data_out_->buffer offset:0 atIndex:1];
-    MTLSize threads_per_group = MTLSizeMake(kWorkgroupSize, kWorkgroupSize, 1);
-    MTLSize threadgroups =
-        MTLSizeMake(NumGroups(input.width(), kWorkgroupSize),
-                    NumGroups(input.height(), kWorkgroupSize), 1);
-    [compute_encoder dispatchThreadgroups:threadgroups
-                    threadsPerThreadgroup:threads_per_group];
-    [compute_encoder endEncoding];
-    [command_buffer commit];
-    [command_buffer waitUntilCompleted];
-  }
+  const auto& input =
+      cc->Inputs().Tag(kGpuBufferTag).Get<mediapipe::GpuBuffer>();
+  id<MTLCommandBuffer> command_buffer = [gpu_helper_ commandBuffer];
+
+  id<MTLTexture> src_texture = [gpu_helper_ metalTextureWithGpuBuffer:input];
+  command_buffer.label = @"TfLiteConverterCalculatorConvertAndBlit";
+  id<MTLComputeCommandEncoder> compute_encoder =
+      [command_buffer computeCommandEncoder];
+  [compute_encoder setComputePipelineState:gpu_data_out_->pipeline_state];
+  [compute_encoder setTexture:src_texture atIndex:0];
+  [compute_encoder setBuffer:gpu_data_out_->buffer offset:0 atIndex:1];
+  MTLSize threads_per_group = MTLSizeMake(kWorkgroupSize, kWorkgroupSize, 1);
+  MTLSize threadgroups =
+      MTLSizeMake(NumGroups(input.width(), kWorkgroupSize),
+                  NumGroups(input.height(), kWorkgroupSize), 1);
+  [compute_encoder dispatchThreadgroups:threadgroups
+                  threadsPerThreadgroup:threads_per_group];
+  [compute_encoder endEncoding];
 
   // Copy into outputs.
   // TODO Avoid this copy.
   auto output_tensors = absl::make_unique<std::vector<GpuTensor>>();
   output_tensors->resize(1);
-  {
-    id<MTLDevice> device = gpu_helper_.mtlDevice;
-    output_tensors->at(0) =
-        [device newBufferWithLength:gpu_data_out_->elements * sizeof(float)
-                            options:MTLResourceStorageModeShared];
-    [MPPMetalUtil blitMetalBufferTo:output_tensors->at(0)
-                               from:gpu_data_out_->buffer
-                           blocking:true
-                      commandBuffer:[gpu_helper_ commandBuffer]];
-  }
+  id<MTLDevice> device = gpu_helper_.mtlDevice;
+  output_tensors->at(0) =
+      [device newBufferWithLength:gpu_data_out_->elements * sizeof(float)
+                          options:MTLResourceStorageModeShared];
+  [MPPMetalUtil blitMetalBufferTo:output_tensors->at(0)
+                             from:gpu_data_out_->buffer
+                         blocking:false
+                    commandBuffer:command_buffer];
 
   cc->Outputs()
-      .Tag("TENSORS_GPU")
+      .Tag(kTensorsGpuTag)
       .Add(output_tensors.release(), cc->InputTimestamp());
 #else
   RET_CHECK_FAIL() << "GPU processing is not enabled.";
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
 
   return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status TfLiteConverterCalculator::InitGpu(CalculatorContext* cc) {
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__)
+#if MEDIAPIPE_TFLITE_GPU_SUPPORTED
   // Get input image sizes.
-  const auto& input = cc->Inputs().Tag("IMAGE_GPU").Get<mediapipe::GpuBuffer>();
+  const auto& input =
+      cc->Inputs().Tag(kGpuBufferTag).Get<mediapipe::GpuBuffer>();
   mediapipe::ImageFormat::Format format =
       mediapipe::ImageFormatForGpuBufferFormat(input.format());
   gpu_data_out_ = absl::make_unique<GPUData>();
@@ -491,10 +515,9 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
     RET_CHECK_FAIL() << "Unsupported GPU input format.";
   if (include_alpha && (format != mediapipe::ImageFormat::SRGBA))
     RET_CHECK_FAIL() << "Num input channels is less than desired output.";
-#endif  //  !MEDIAPIPE_DISABLE_GPU
+#endif  // MEDIAPIPE_TFLITE_GPU_SUPPORTED
 
-#if !defined(MEDIAPIPE_DISABLE_GPU) && !defined(__EMSCRIPTEN__) && \
-    !defined(__APPLE__)
+#if MEDIAPIPE_TFLITE_GL_INFERENCE
   MP_RETURN_IF_ERROR(gpu_helper_.RunInGlContext(
       [this, &include_alpha, &input, &single_channel]() -> ::mediapipe::Status {
         // Device memory.
@@ -538,7 +561,9 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
                                                    &gpu_data_out_->program));
         return ::mediapipe::OkStatus();
       }));
-#elif defined(__APPLE__) && !TARGET_OS_OSX  // iOS
+
+#elif MEDIAPIPE_TFLITE_METAL_INFERENCE
+
   RET_CHECK(include_alpha)
       << "iOS GPU inference currently accepts only RGBA input.";
 
@@ -594,7 +619,7 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
   RET_CHECK(gpu_data_out_->pipeline_state != nil)
       << "Couldn't create pipeline state "
       << [[error localizedDescription] UTF8String];
-#endif
+#endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
 
   return ::mediapipe::OkStatus();
 }
@@ -608,6 +633,11 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
   // Get data normalization mode.
   zero_center_ = options.zero_center();
 
+  // Custom div and sub values.
+  use_custom_normalization_ = options.use_custom_normalization();
+  custom_div_ = options.custom_div();
+  custom_sub_ = options.custom_sub();
+
   // Get y-flip mode.
   flip_vertically_ = options.flip_vertically();
 
@@ -619,8 +649,8 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
   CHECK_GE(max_num_channels_, 1);
   CHECK_LE(max_num_channels_, 4);
   CHECK_NE(max_num_channels_, 2);
-#if defined(__APPLE__) && !TARGET_OS_OSX  // iOS
-  if (cc->Inputs().HasTag("IMAGE_GPU"))
+#if defined(MEDIAPIPE_IOS)
+  if (cc->Inputs().HasTag(kGpuBufferTag))
     // Currently on iOS, tflite gpu input tensor must be 4 channels,
     // so input image must be 4 channels also (checked in InitGpu).
     max_num_channels_ = 4;
@@ -635,7 +665,7 @@ REGISTER_CALCULATOR(TfLiteConverterCalculator);
 template <class T>
 ::mediapipe::Status TfLiteConverterCalculator::NormalizeImage(
     const ImageFrame& image_frame, bool zero_center, bool flip_vertically,
-    float* tensor_buffer) {
+    float* tensor_ptr) {
   const int height = image_frame.Height();
   const int width = image_frame.Width();
   const int channels = image_frame.NumberOfChannels();
@@ -643,7 +673,13 @@ template <class T>
   const int channels_ignored = channels - channels_preserved;
 
   float div, sub;
-  if (zero_center) {
+
+  if (use_custom_normalization_) {
+    RET_CHECK_GT(custom_div_, 0.0f);
+    RET_CHECK_GE(custom_sub_, 0.0f);
+    div = custom_div_;
+    sub = custom_sub_;
+  } else if (zero_center) {
     // [-1,1]
     div = 127.5f;
     sub = 1.0f;
@@ -659,7 +695,7 @@ template <class T>
         (flip_vertically ? height - 1 - i : i) * image_frame.WidthStep());
     for (int j = 0; j < width; ++j) {
       for (int c = 0; c < channels_preserved; ++c) {
-        *tensor_buffer++ = *image_ptr++ / div - sub;
+        *tensor_ptr++ = *image_ptr++ / div - sub;
       }
       image_ptr += channels_ignored;
     }
@@ -669,14 +705,14 @@ template <class T>
 }
 
 ::mediapipe::Status TfLiteConverterCalculator::CopyMatrixToTensor(
-    const Matrix& matrix, float* tensor_buffer) {
+    const Matrix& matrix, float* tensor_ptr) {
   if (row_major_matrix_) {
-    auto matrix_map = Eigen::Map<RowMajorMatrixXf>(tensor_buffer, matrix.rows(),
-                                                   matrix.cols());
+    auto matrix_map =
+        Eigen::Map<RowMajorMatrixXf>(tensor_ptr, matrix.rows(), matrix.cols());
     matrix_map = matrix;
   } else {
-    auto matrix_map = Eigen::Map<ColMajorMatrixXf>(tensor_buffer, matrix.rows(),
-                                                   matrix.cols());
+    auto matrix_map =
+        Eigen::Map<ColMajorMatrixXf>(tensor_ptr, matrix.rows(), matrix.cols());
     matrix_map = matrix;
   }
 

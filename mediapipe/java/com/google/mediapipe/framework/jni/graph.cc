@@ -31,6 +31,7 @@
 #include "mediapipe/framework/tool/name_util.h"
 #include "mediapipe/gpu/gpu_shared_data_internal.h"
 #include "mediapipe/gpu/graph_support.h"
+#include "mediapipe/java/com/google/mediapipe/framework/jni/class_registry.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/jni_util.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/packet_context_jni.h"
 #ifdef __ANDROID__
@@ -190,26 +191,6 @@ void Graph::EnsureMinimumExecutorStackSizeForJava() {}
   return ::mediapipe::OkStatus();
 }
 
-::mediapipe::Status Graph::AddCallbackWithHeaderHandler(
-    std::string output_stream_name, jobject java_callback) {
-  if (!graph_config()) {
-    return ::mediapipe::InternalError("Graph is not loaded!");
-  }
-  std::unique_ptr<internal::CallbackHandler> handler(
-      new internal::CallbackHandler(this, java_callback));
-  std::string side_packet_name;
-  tool::AddCallbackWithHeaderCalculator(output_stream_name, output_stream_name,
-                                        graph_config(), &side_packet_name,
-                                        /* use_std_function = */ true);
-  EnsureMinimumExecutorStackSizeForJava();
-  side_packets_callbacks_.emplace(
-      side_packet_name,
-      MakePacket<std::function<void(const Packet&, const Packet&)>>(
-          handler->CreateCallbackWithHeader()));
-  callback_handlers_.emplace_back(std::move(handler));
-  return ::mediapipe::OkStatus();
-}
-
 int64_t Graph::AddSurfaceOutput(const std::string& output_stream_name) {
   if (!graph_config()) {
     LOG(ERROR) << "Graph is not loaded!";
@@ -294,10 +275,16 @@ CalculatorGraphConfig Graph::GetCalculatorGraphConfig() {
 void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
                            const Packet& packet) {
   jclass callback_cls = env->GetObjectClass(java_callback_obj);
-  jmethodID processMethod = env->GetMethodID(
-      callback_cls, "process",
-      absl::StrFormat("(L%s;)V", std::string(Graph::kJavaPacketClassName))
-          .c_str());
+
+  auto& class_registry = mediapipe::android::ClassRegistry::GetInstance();
+  std::string packet_class_name = class_registry.GetClassName(
+      mediapipe::android::ClassRegistry::kPacketClassName);
+  std::string process_method_name = class_registry.GetMethodName(
+      mediapipe::android::ClassRegistry::kPacketCallbackClassName, "process");
+
+  jmethodID processMethod =
+      env->GetMethodID(callback_cls, process_method_name.c_str(),
+                       absl::StrFormat("(L%s;)V", packet_class_name).c_str());
 
   int64_t packet_handle = WrapPacketIntoContext(packet);
   // Creates a Java Packet.
@@ -316,10 +303,17 @@ void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
 void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
                            const Packet& packet, const Packet& header_packet) {
   jclass callback_cls = env->GetObjectClass(java_callback_obj);
+
+  auto& class_registry = mediapipe::android::ClassRegistry::GetInstance();
+  std::string packet_class_name = class_registry.GetClassName(
+      mediapipe::android::ClassRegistry::kPacketClassName);
+  std::string process_method_name = class_registry.GetMethodName(
+      mediapipe::android::ClassRegistry::kPacketWithHeaderCallbackClassName,
+      "process");
+
   jmethodID processMethod = env->GetMethodID(
-      callback_cls, "process",
-      absl::StrFormat("(L%s;L%s;)V", std::string(Graph::kJavaPacketClassName),
-                      std::string(Graph::kJavaPacketClassName))
+      callback_cls, process_method_name.c_str(),
+      absl::StrFormat("(L%s;L%s;)V", packet_class_name, packet_class_name)
           .c_str());
 
   int64_t packet_handle = WrapPacketIntoContext(packet);
@@ -341,8 +335,10 @@ void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
 
 void Graph::SetPacketJavaClass(JNIEnv* env) {
   if (global_java_packet_cls_ == nullptr) {
-    jclass packet_cls =
-        env->FindClass(mediapipe::android::Graph::kJavaPacketClassName);
+    auto& class_registry = ClassRegistry::GetInstance();
+    std::string packet_class_name = class_registry.GetClassName(
+        mediapipe::android::ClassRegistry::kPacketClassName);
+    jclass packet_cls = env->FindClass(packet_class_name.c_str());
     global_java_packet_cls_ =
         reinterpret_cast<jclass>(env->NewGlobalRef(packet_cls));
   }
@@ -431,7 +427,7 @@ void Graph::SetPacketJavaClass(JNIEnv* env) {
 
   // Set the timestamp of the packet in-place by calling the rvalue-reference
   // version of At here.
-  packet = std::move(packet).At(Timestamp(timestamp));
+  packet = std::move(packet).At(Timestamp::CreateNoErrorChecking(timestamp));
 
   // Then std::move it into the input stream.
   return AddPacketToInputStream(stream_name, std::move(packet));

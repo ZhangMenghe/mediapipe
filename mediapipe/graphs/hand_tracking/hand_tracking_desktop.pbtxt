@@ -1,7 +1,7 @@
 # MediaPipe graph that performs hand tracking on desktop with TensorFlow Lite
 # on CPU.
 # Used in the example in
-# mediapipie/examples/desktop/hand_tracking:hand_tracking_tflite.
+# mediapipe/examples/desktop/hand_tracking:hand_tracking_tflite.
 
 # max_queue_size limits the number of packets enqueued on any input stream
 # by throttling inputs to the graph. This makes the graph only process one
@@ -64,6 +64,7 @@ node {
   input_stream: "NORM_RECT:hand_rect"
   output_stream: "LANDMARKS:hand_landmarks"
   output_stream: "NORM_RECT:hand_rect_from_landmarks"
+  output_stream: "HANDEDNESS:handedness"
   output_stream: "PRESENCE:hand_presence"
 }
 
@@ -107,6 +108,7 @@ node {
   input_stream: "LANDMARKS:hand_landmarks"
   input_stream: "NORM_RECT:hand_rect"
   input_stream: "DETECTIONS:palm_detections"
+  input_stream: "HANDEDNESS:handedness"
   output_stream: "IMAGE:output_video"
 }
 

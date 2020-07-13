@@ -116,6 +116,7 @@ cc_library(
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
+        "//mediapipe/framework/tool:name_util",
         "//mediapipe/framework/tool:tag_map",
         "//mediapipe/framework/tool:validate_name",
         "@com_google_absl//absl/memory",
@@ -185,6 +186,7 @@ cc_library(
         "//mediapipe/framework:packet",
         "//mediapipe/framework:timestamp",
         "//mediapipe/framework/port:integral_types",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/time",
     ],
 )
@@ -269,17 +271,15 @@ cc_library(
     srcs = select({
         "//conditions:default": ["profiler_resource_util.cc"],
         "//mediapipe:android": ["profiler_resource_util_android.cc"],
-        "//mediapipe:apple": ["profiler_resource_util_apple.cc"],
-        "//mediapipe:macos": ["profiler_resource_util.cc"],
+        "//mediapipe:ios": ["profiler_resource_util_ios.cc"],
     }),
     hdrs = ["profiler_resource_util.h"],
     # We use Objective-C++ on iOS.
     copts = select({
         "//conditions:default": [],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             "-ObjC++",
         ],
-        "//mediapipe:macos": [],
     }),
     visibility = [
         "//mediapipe/framework:mediapipe_internal",
@@ -297,4 +297,25 @@ cc_library(
         ],
         "//mediapipe:apple": [],
     }),
+)
+
+cc_test(
+    name = "reporter_test",
+    srcs = ["reporter_test.cc"],
+    data = [
+        "//mediapipe/framework/profiler/testdata:mediapipe_profile_graphs",
+    ],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//mediapipe/framework:calculator_cc_proto",
+        "//mediapipe/framework:calculator_profile_cc_proto",
+        "//mediapipe/framework/deps:file_path",
+        "//mediapipe/framework/port:advanced_proto",
+        "//mediapipe/framework/port:gtest_main",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/profiler/reporter:reporter_lib",
+        "//mediapipe/framework/tool:test_util",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
 )

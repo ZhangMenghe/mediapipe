@@ -15,8 +15,11 @@
 #include "mediapipe/framework/tool/subgraph_expansion.h"
 
 #include <algorithm>
+#include <functional>
+#include <map>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -32,6 +35,7 @@
 #include "mediapipe/framework/port/status_macros.h"
 #include "mediapipe/framework/status_handler.pb.h"
 #include "mediapipe/framework/subgraph.h"
+#include "mediapipe/framework/tool/name_util.h"
 #include "mediapipe/framework/tool/tag_map.h"
 
 namespace mediapipe {
@@ -52,6 +56,37 @@ namespace tool {
   return ::mediapipe::OkStatus();
 }
 
+// Returns subgraph streams not requested by a subgraph-node.
+::mediapipe::Status FindIgnoredStreams(
+    const proto_ns::RepeatedPtrField<ProtoString>& src_streams,
+    const proto_ns::RepeatedPtrField<ProtoString>& dst_streams,
+    std::set<std::string>* result) {
+  ASSIGN_OR_RETURN(auto src_map, tool::TagMap::Create(src_streams));
+  ASSIGN_OR_RETURN(auto dst_map, tool::TagMap::Create(dst_streams));
+  for (auto id = src_map->BeginId(); id < src_map->EndId(); ++id) {
+    std::pair<std::string, int> tag_index = src_map->TagAndIndexFromId(id);
+    if (!dst_map->GetId(tag_index.first, tag_index.second).IsValid()) {
+      result->insert(src_map->Names()[id.value()]);
+    }
+  }
+  return ::mediapipe::OkStatus();
+}
+
+// Removes subgraph streams not requested by a subgraph-node.
+::mediapipe::Status RemoveIgnoredStreams(
+    proto_ns::RepeatedPtrField<ProtoString>* streams,
+    const std::set<std::string>& missing_streams) {
+  for (int i = streams->size() - 1; i >= 0; --i) {
+    std::string tag, name;
+    int index;
+    MP_RETURN_IF_ERROR(ParseTagIndexName(streams->Get(i), &tag, &index, &name));
+    if (missing_streams.count(name) > 0) {
+      streams->DeleteSubrange(i, 1);
+    }
+  }
+  return ::mediapipe::OkStatus();
+}
+
 ::mediapipe::Status TransformNames(
     CalculatorGraphConfig* config,
     const std::function<std::string(absl::string_view)>& transform) {
@@ -62,15 +97,19 @@ namespace tool {
         config->mutable_output_side_packet()}) {
     MP_RETURN_IF_ERROR(TransformStreamNames(streams, transform));
   }
+  std::vector<std::string> node_names(config->node_size());
+  for (int node_id = 0; node_id < config->node_size(); ++node_id) {
+    node_names[node_id] = CanonicalNodeName(*config, node_id);
+  }
+  for (int node_id = 0; node_id < config->node_size(); ++node_id) {
+    config->mutable_node(node_id)->set_name(transform(node_names[node_id]));
+  }
   for (auto& node : *config->mutable_node()) {
     for (auto* streams :
          {node.mutable_input_stream(), node.mutable_output_stream(),
           node.mutable_input_side_packet(),
           node.mutable_output_side_packet()}) {
       MP_RETURN_IF_ERROR(TransformStreamNames(streams, transform));
-    }
-    if (!node.name().empty()) {
-      node.set_name(transform(node.name()));
     }
   }
   for (auto& generator : *config->mutable_packet_generator()) {
@@ -87,21 +126,18 @@ namespace tool {
 }
 
 // Adds a prefix to the name of each stream, side packet and node in the
-// config. Each call to this method should use a different subgraph_index
-// to produce a different numerical prefix. For example:
-//   1, { foo, bar }  --PrefixNames-> { __sg_1_foo, __sg_1_bar }
-//   2, { foo, bar }  --PrefixNames-> { __sg_2_foo, __sg_2_bar }
+// config. Each call to this method should use a different prefix. For example:
+//   1, { foo, bar }  --PrefixNames-> { qsg__foo, qsg__bar }
+//   2, { foo, bar }  --PrefixNames-> { rsg__foo, rsg__bar }
 // This means that two copies of the same subgraph will not interfere with
 // each other.
-static ::mediapipe::Status PrefixNames(int subgraph_index,
+static ::mediapipe::Status PrefixNames(std::string prefix,
                                        CalculatorGraphConfig* config) {
-  // TODO: prefix with subgraph name instead (see cl/157677233
-  // discussion).
-  // TODO: since we expand nested subgraphs outside-in, we should
-  // append the prefix to the existing prefix, if any. This is unimportant
-  // with the meaningless prefix we use now, but it should be considered
-  // when prefixing with names.
-  std::string prefix = absl::StrCat("__sg", subgraph_index, "_");
+  std::transform(prefix.begin(), prefix.end(), prefix.begin(), ::tolower);
+  std::replace(prefix.begin(), prefix.end(), '.', '_');
+  std::replace(prefix.begin(), prefix.end(), ' ', '_');
+  std::replace(prefix.begin(), prefix.end(), ':', '_');
+  absl::StrAppend(&prefix, "__");
   auto add_prefix = [&prefix](absl::string_view s) {
     return absl::StrCat(prefix, s);
   };
@@ -114,7 +150,7 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
     const proto_ns::RepeatedPtrField<ProtoString>& dst_streams) {
   ASSIGN_OR_RETURN(auto src_map, tool::TagMap::Create(src_streams));
   ASSIGN_OR_RETURN(auto dst_map, tool::TagMap::Create(dst_streams));
-  for (auto it : dst_map->Mapping()) {
+  for (const auto& it : dst_map->Mapping()) {
     const std::string& tag = it.first;
     const TagMap::TagData* src_tag_data =
         ::mediapipe::FindOrNull(src_map->Mapping(), tag);
@@ -190,6 +226,14 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
           .SetPrepend()
       << "while processing the output side packets of subgraph node "
       << subgraph_node.calculator() << ": ";
+  std::set<std::string> ignored_input_streams;
+  MP_RETURN_IF_ERROR(FindIgnoredStreams(subgraph_config->input_stream(),
+                                        subgraph_node.input_stream(),
+                                        &ignored_input_streams));
+  std::set<std::string> ignored_input_side_packets;
+  MP_RETURN_IF_ERROR(FindIgnoredStreams(subgraph_config->input_side_packet(),
+                                        subgraph_node.input_side_packet(),
+                                        &ignored_input_side_packets));
   std::map<std::string, std::string>* name_map;
   auto replace_names = [&name_map](absl::string_view s) {
     std::string original(s);
@@ -207,6 +251,12 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
         TransformStreamNames(node.mutable_input_side_packet(), replace_names));
     MP_RETURN_IF_ERROR(
         TransformStreamNames(node.mutable_output_side_packet(), replace_names));
+
+    // Remove input streams and side packets ignored by the subgraph-node.
+    MP_RETURN_IF_ERROR(RemoveIgnoredStreams(node.mutable_input_stream(),
+                                            ignored_input_streams));
+    MP_RETURN_IF_ERROR(RemoveIgnoredStreams(node.mutable_input_side_packet(),
+                                            ignored_input_side_packets));
   }
   name_map = &side_packet_map;
   for (auto& generator : *subgraph_config->mutable_packet_generator()) {
@@ -214,6 +264,10 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
         generator.mutable_input_side_packet(), replace_names));
     MP_RETURN_IF_ERROR(TransformStreamNames(
         generator.mutable_output_side_packet(), replace_names));
+
+    // Remove input side packets ignored by the subgraph-node.
+    MP_RETURN_IF_ERROR(RemoveIgnoredStreams(
+        generator.mutable_input_side_packet(), ignored_input_side_packets));
   }
   return ::mediapipe::OkStatus();
 }
@@ -224,7 +278,6 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
       graph_registry ? graph_registry : &GraphRegistry::global_graph_registry;
   RET_CHECK(config);
   auto* nodes = config->mutable_node();
-  int subgraph_counter = 0;
   while (1) {
     auto subgraph_nodes_start = std::stable_partition(
         nodes->begin(), nodes->end(),
@@ -236,11 +289,13 @@ static ::mediapipe::Status PrefixNames(int subgraph_index,
     std::vector<CalculatorGraphConfig> subgraphs;
     for (auto it = subgraph_nodes_start; it != nodes->end(); ++it) {
       const auto& node = *it;
+      int node_id = it - nodes->begin();
+      std::string node_name = CanonicalNodeName(*config, node_id);
       MP_RETURN_IF_ERROR(ValidateSubgraphFields(node));
       ASSIGN_OR_RETURN(auto subgraph,
                        graph_registry->CreateByName(config->package(),
                                                     node.calculator(), &node));
-      MP_RETURN_IF_ERROR(PrefixNames(subgraph_counter++, &subgraph));
+      MP_RETURN_IF_ERROR(PrefixNames(node_name, &subgraph));
       MP_RETURN_IF_ERROR(ConnectSubgraphStreams(node, &subgraph));
       subgraphs.push_back(subgraph);
     }

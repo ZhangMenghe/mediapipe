@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-licenses(["notice"])  # Apache 2.0
-
-package(default_visibility = ["//visibility:public"])
-
 load("//mediapipe/gpu:metal.bzl", "metal_library")
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library")
+
+licenses(["notice"])  # Apache 2.0
+
+package(default_visibility = ["//visibility:public"])
 
 # Disabling GPU support is sometimes useful on desktop Linux because SwiftShader can
 # interfere with desktop GL. b/73494271
@@ -59,7 +59,7 @@ GL_BASE_LINK_OPTS = select({
         # runtime. Weak GLESv3 symbols will still be resolved if we
         # load it early enough.
     ],
-    "//mediapipe:apple": [
+    "//mediapipe:ios": [
         "-framework OpenGLES",
         "-framework CoreVideo",
     ],
@@ -111,7 +111,7 @@ cc_library(
     # Note: need the frameworks on Apple platforms to get the headers.
     linkopts = select({
         "//conditions:default": [],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             "-framework OpenGLES",
             "-framework CoreVideo",
         ],
@@ -147,7 +147,7 @@ cc_library(
         "//conditions:default": [
             "gl_context_egl.cc",
         ],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             "gl_context_eagl.cc",
         ],
         "//mediapipe:macos": [
@@ -214,7 +214,7 @@ cc_library(
         "//conditions:default": [
             ":gl_texture_buffer",
         ],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             "//mediapipe/objc:CFHolder",
         ],
         "//mediapipe:macos": [
@@ -246,9 +246,14 @@ objc_library(
         "-Wno-shorten-64-to-32",
     ],
     sdk_frameworks = [
+        "Accelerate",
+        "CoreGraphics",
         "CoreVideo",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/objc:util",
+    ],
 )
 
 objc_library(
@@ -303,6 +308,7 @@ objc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/objc:mediapipe_framework_ios",
+        "@com_google_absl//absl/time",
         "@google_toolbox_for_mac//:GTM_Defines",
     ],
 )
@@ -421,7 +427,7 @@ cc_library(
         "//conditions:default": [
             "gl_texture_buffer_pool.cc",
         ],
-        "//mediapipe:apple": [],
+        "//mediapipe:ios": [],
         "//mediapipe:macos": [
             "gl_texture_buffer_pool.cc",
         ],
@@ -430,7 +436,7 @@ cc_library(
         "//conditions:default": [
             "gl_texture_buffer_pool.h",
         ],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             # The inclusions check does not see that this is provided by
             # pixel_buffer_pool_util, so we include it here too. This is
             # b/28066691.
@@ -454,7 +460,7 @@ cc_library(
         "//conditions:default": [
             ":gl_texture_buffer",
         ],
-        "//mediapipe:apple": [
+        "//mediapipe:ios": [
             ":pixel_buffer_pool_util",
             "//mediapipe/objc:CFHolder",
         ],
@@ -933,6 +939,7 @@ objc_library(
 ios_unit_test(
     name = "gl_ios_test",
     minimum_os_version = MIN_IOS_VERSION,
+    runner = "//googlemac/iPhone/Shared/Testing/EarlGrey/Runner:IOS_LATEST",
     tags = [
         "ios",
     ],

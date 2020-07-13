@@ -16,9 +16,9 @@
 #define MEDIAPIPE_FRAMEWORK_VALIDATED_GRAPH_CONFIG_H_
 
 #include <map>
-#include <unordered_set>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "mediapipe/framework/calculator.pb.h"
 #include "mediapipe/framework/calculator_contract.h"
 #include "mediapipe/framework/packet_generator.pb.h"
@@ -32,48 +32,6 @@
 namespace mediapipe {
 
 class ValidatedGraphConfig;
-
-// Returns a short unique name for a Node in a CalculatorGraphConfig.
-// This is the Node.name (if specified) or the Node.calculator.
-// If there are multiple calculators with similar name in the graph, the name
-// will be postfixed by "_<COUNT>". For example, in the following graph the node
-// names will be as mentiond.
-//
-// node { // Name will be "CalcA"
-//   calculator: "CalcA"
-// }
-// node { // Name will be "NameB"
-//   calculator: "CalcB"
-//   name: "NameB"
-// }
-// node { // Name will be "CalcC_1" due to duplicate "calculator" field.
-//   calculator: "CalcC"
-// }
-// node { // Name will be "CalcC_2" due to duplicate "calculator" field.
-//   calculator: "CalcC"
-// }
-// node { // Name will be "NameX".
-//   calculator: "CalcD"
-//   name: "NameX"
-// }
-// node { // Name will be "NameY".
-//   calculator: "CalcD"
-//   name: "NameY"
-// }
-// node { // Name will be "NameZ_1". due to "name" field duplicate.
-//   calculator: "CalcE"
-//   name: "NameZ"
-// }
-// node { // Name will be "NameZ_2". due to "name" field duplicate.
-//   calculator: "CalcF"
-//   name: "NameZ"
-// }
-//
-// TODO: Update GraphNode.UniqueName in MediaPipe Visualizer to match
-// this logic.
-// TODO: Fix the edge case mentioned in the bug.
-std::string CanonicalNodeName(const CalculatorGraphConfig& graph_config,
-                              int node_id);
 
 // Type information for a graph node (Calculator, Generator, etc).
 class NodeTypeInfo {
@@ -169,7 +127,7 @@ class NodeTypeInfo {
   // be a virtual node corresponding to a graph input stream (which are
   // listed by index contiguously after all calculators).
   // This function is only valid for a NodeTypeInfo of NodeType CALCULATOR.
-  const std::unordered_set<int>& AncestorSources() const {
+  const absl::flat_hash_set<int>& AncestorSources() const {
     return ancestor_sources_;
   }
   // Returns True if the source was not already there.
@@ -213,7 +171,7 @@ class NodeTypeInfo {
   NodeRef node_;
 
   // The set of sources which affect this node.
-  std::unordered_set<int> ancestor_sources_;
+  absl::flat_hash_set<int> ancestor_sources_;
 };
 
 // Information for either the input or output side of an edge.  An edge

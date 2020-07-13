@@ -28,5 +28,6 @@ cc_library(
         "//mediapipe/gpu:shader_util",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
+        "@linux_usr//:glm",
     ],
 )

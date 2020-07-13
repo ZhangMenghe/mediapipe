@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -126,7 +127,13 @@ CalculatorGraph::CalculatorGraph(const CalculatorGraphConfig& config)
 // Defining the destructor here lets us use incomplete types in the header;
 // they only need to be fully visible here, where their destructor is
 // instantiated.
-CalculatorGraph::~CalculatorGraph() {}
+CalculatorGraph::~CalculatorGraph() {
+  // Stop periodic profiler output to ublock Executor destructors.
+  ::mediapipe::Status status = profiler()->Stop();
+  if (!status.ok()) {
+    LOG(ERROR) << "During graph destruction: " << status;
+  }
+}
 
 ::mediapipe::Status CalculatorGraph::InitializePacketGeneratorGraph(
     const std::map<std::string, Packet>& side_packets) {
@@ -313,7 +320,7 @@ CalculatorGraph::~CalculatorGraph() {}
   }
 
   if (!::mediapipe::ContainsKey(executors_, "")) {
-    MP_RETURN_IF_ERROR(InitializeDefaultExecutor(*default_executor_options,
+    MP_RETURN_IF_ERROR(InitializeDefaultExecutor(default_executor_options,
                                                  use_application_thread));
   }
 
@@ -321,7 +328,7 @@ CalculatorGraph::~CalculatorGraph() {}
 }
 
 ::mediapipe::Status CalculatorGraph::InitializeDefaultExecutor(
-    const ThreadPoolExecutorOptions& default_executor_options,
+    const ThreadPoolExecutorOptions* default_executor_options,
     bool use_application_thread) {
   // If specified, run synchronously on the calling thread.
   if (use_application_thread) {
@@ -334,7 +341,9 @@ CalculatorGraph::~CalculatorGraph() {}
   }
 
   // Check the number of threads specified in the proto.
-  int num_threads = default_executor_options.num_threads();
+  int num_threads = default_executor_options == nullptr
+                        ? 0
+                        : default_executor_options->num_threads();
 
   // If the default (0 or -1) was specified, pick a suitable number of threads
   // depending on the number of processors in this system and the number of
@@ -751,10 +760,6 @@ CalculatorGraph::PrepareGpu(const std::map<std::string, Packet>& side_packets) {
 }
 
 ::mediapipe::Status CalculatorGraph::WaitUntilIdle() {
-  if (has_sources_) {
-    return ::mediapipe::InvalidArgumentErrorBuilder(MEDIAPIPE_LOC)
-           << "WaitUntilIdle called on a graph with source nodes.";
-  }
   MP_RETURN_IF_ERROR(scheduler_.WaitUntilIdle());
   VLOG(2) << "Scheduler idle.";
   ::mediapipe::Status status = ::mediapipe::OkStatus();
@@ -1017,8 +1022,8 @@ void CalculatorGraph::UpdateThrottledNodes(InputStreamManager* stream,
   // TODO Change the throttling code to use the index directly
   // rather than looking up a stream name.
   int node_index = validated_graph_->OutputStreamToNode(stream->Name());
-  std::unordered_set<int> owned_set;
-  const std::unordered_set<int>* upstream_nodes;
+  absl::flat_hash_set<int> owned_set;
+  const absl::flat_hash_set<int>* upstream_nodes;
   if (node_index >= validated_graph_->CalculatorInfos().size()) {
     // TODO just create a NodeTypeInfo object for each virtual node.
     owned_set.insert(node_index);
@@ -1093,6 +1098,19 @@ bool CalculatorGraph::IsNodeThrottled(int node_id) {
   return max_queue_size_ != -1 && !full_input_streams_[node_id].empty();
 }
 
+// Returns true if an input stream serves as a graph-output-stream.
+bool IsGraphOutputStream(
+    InputStreamManager* stream,
+    const std::vector<std::shared_ptr<internal::GraphOutputStream>>&
+        graph_output_streams) {
+  for (auto& graph_output_stream : graph_output_streams) {
+    if (stream == graph_output_stream->input_stream()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool CalculatorGraph::UnthrottleSources() {
   // NOTE: We can be sure that this function will grow input streams enough
   // to unthrottle at least one source node.  The current stream queue sizes
@@ -1100,29 +1118,21 @@ bool CalculatorGraph::UnthrottleSources() {
   // This is a sufficient because succesfully growing at least one full input
   // stream during each call to UnthrottleSources will eventually resolve
   // each deadlock.
-  std::unordered_set<InputStreamManager*> full_streams;
+  absl::flat_hash_set<InputStreamManager*> full_streams;
   {
     absl::MutexLock lock(&full_input_streams_mutex_);
-    for (std::unordered_set<InputStreamManager*>& s : full_input_streams_) {
-      if (!s.empty()) {
-        full_streams.insert(s.begin(), s.end());
+    for (absl::flat_hash_set<InputStreamManager*>& s : full_input_streams_) {
+      for (auto& stream : s) {
+        // The queue size of a graph output stream shouldn't change. Throttling
+        // should continue until the caller of the graph output stream consumes
+        // enough packets.
+        if (!IsGraphOutputStream(stream, graph_output_streams_)) {
+          full_streams.insert(stream);
+        }
       }
     }
   }
   for (InputStreamManager* stream : full_streams) {
-    // The queue size of a graph output stream shouldn't change. Throttling
-    // should continue until the caller of the graph output stream consumes
-    // enough packets.
-    bool is_graph_output_stream = false;
-    for (auto& graph_output_stream : graph_output_streams_) {
-      if (stream == graph_output_stream->input_stream()) {
-        is_graph_output_stream = true;
-        break;
-      }
-    }
-    if (is_graph_output_stream) {
-      continue;
-    }
     if (Config().report_deadlock()) {
       RecordError(::mediapipe::UnavailableError(absl::StrCat(
           "Detected a deadlock due to input throttling for: \"", stream->Name(),
@@ -1203,12 +1213,14 @@ Packet CalculatorGraph::GetServicePacket(const GraphServiceBase& service) {
 }
 
 ::mediapipe::Status CalculatorGraph::CreateDefaultThreadPool(
-    const ThreadPoolExecutorOptions& default_executor_options,
+    const ThreadPoolExecutorOptions* default_executor_options,
     int num_threads) {
   MediaPipeOptions extendable_options;
   ThreadPoolExecutorOptions* options =
       extendable_options.MutableExtension(ThreadPoolExecutorOptions::ext);
-  *options = default_executor_options;
+  if (default_executor_options != nullptr) {
+    options->CopyFrom(*default_executor_options);
+  }
   options->set_num_threads(num_threads);
   // clang-format off
   ASSIGN_OR_RETURN(Executor* executor,
@@ -1289,7 +1301,7 @@ void PrintTimingToInfo(const std::string& label, int64 timer_value) {
                    "%02lld days, %02lld:%02lld:%02lld.%03lld (total seconds: "
                    "%lld.%06lld)",
                    days, hours, minutes, seconds, milliseconds, total_seconds,
-                   timer_value % 1000000ll);
+                   timer_value % int64{1000000});
 }
 
 bool MetricElementComparator(const std::pair<std::string, int64>& e1,

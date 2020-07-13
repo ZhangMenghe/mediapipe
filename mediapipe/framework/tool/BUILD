@@ -13,10 +13,6 @@
 # limitations under the License.
 #
 
-licenses(["notice"])  # Apache 2.0
-
-package(default_visibility = ["//visibility:private"])
-
 load(
     "//mediapipe/framework/port:build_config.bzl",
     "mediapipe_cc_proto_library",
@@ -26,6 +22,10 @@ load(
     "data_as_c_string",
     "mediapipe_binary_graph",
 )
+
+licenses(["notice"])  # Apache 2.0
+
+package(default_visibility = ["//visibility:private"])
 
 exports_files([
     "simple_subgraph_template.cc",
@@ -244,6 +244,7 @@ cc_library(
     hdrs = ["subgraph_expansion.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":name_util",
         ":tag_map",
         "//mediapipe/framework:calculator_cc_proto",
         "//mediapipe/framework:packet_generator",
@@ -598,4 +599,40 @@ cc_test(
         "//mediapipe/framework/tool/testdata:nested_test_subgraph",
         "@com_google_absl//absl/strings",
     ],
+)
+
+cc_library(
+    name = "test_util",
+    testonly = 1,
+    srcs = ["test_util.cc"],
+    hdrs = ["test_util.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_cc_proto",
+        "//mediapipe/framework/deps:file_path",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/port:advanced_proto",
+        "//mediapipe/framework/port:gtest",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "//mediapipe/framework/deps:no_destructor",
+        "//mediapipe/framework/port:logging",
+    ] + select({
+        "//conditions:default": [
+            "//mediapipe/framework/port:file_helpers",
+        ],
+        "//mediapipe:android": [
+            "//mediapipe/util/android/file/base",
+        ],
+        "//mediapipe:ios": [],
+        "//mediapipe:macos": [
+            "//mediapipe/framework/port:file_helpers",
+        ],
+    }),
+)
+
+exports_files(
+    ["build_defs.bzl"],
+    visibility = ["//mediapipe/framework:__subpackages__"],
 )

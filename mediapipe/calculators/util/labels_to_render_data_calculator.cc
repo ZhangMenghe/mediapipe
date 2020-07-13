@@ -93,6 +93,7 @@ REGISTER_CALCULATOR(LabelsToRenderDataCalculator);
 }
 
 ::mediapipe::Status LabelsToRenderDataCalculator::Open(CalculatorContext* cc) {
+  cc->SetOffset(TimestampDiff(0));
   options_ = cc->Options<LabelsToRenderDataCalculatorOptions>();
   num_colors_ = options_.color_size();
   label_height_px_ = std::ceil(options_.font_height_px() * kFontHeightScale);
@@ -127,16 +128,19 @@ REGISTER_CALCULATOR(LabelsToRenderDataCalculator);
   } else {
     const std::vector<std::string>& label_vector =
         cc->Inputs().Tag("LABELS").Get<std::vector<std::string>>();
-    std::vector<float> score_vector;
-    if (cc->Inputs().HasTag("SCORES")) {
-      score_vector = cc->Inputs().Tag("SCORES").Get<std::vector<float>>();
-    }
-    CHECK_EQ(label_vector.size(), score_vector.size());
     labels.resize(label_vector.size());
-    scores.resize(label_vector.size());
     for (int i = 0; i < label_vector.size(); ++i) {
       labels[i] = label_vector[i];
-      scores[i] = score_vector[i];
+    }
+
+    if (cc->Inputs().HasTag("SCORES")) {
+      std::vector<float> score_vector =
+          cc->Inputs().Tag("SCORES").Get<std::vector<float>>();
+      CHECK_EQ(label_vector.size(), score_vector.size());
+      scores.resize(label_vector.size());
+      for (int i = 0; i < label_vector.size(); ++i) {
+        scores[i] = score_vector[i];
+      }
     }
   }
 

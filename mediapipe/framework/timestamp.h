@@ -100,7 +100,6 @@ class Timestamp {
   }
 
   // Special values.
-
   static Timestamp Unset();
   static Timestamp Unstarted();
   static Timestamp PreStream();
@@ -182,11 +181,14 @@ class Timestamp {
   Timestamp operator++(int);
   Timestamp operator--(int);
 
-  // Returns the next timestamp at which a Packet may arrive in a stream, given
-  // that the current Packet is at *this timestamp. CHECKs that
-  // this->IsAllowedInStream()==true. Returns Timestamp::OneOverPostStream() if
-  // no Packets may follow one with the given timestamp.
+  // Returns the next timestamp in the range [Min .. Max], or
+  // OneOverPostStream() if no Packets may follow one with this timestamp.
+  // CHECKs that this->IsAllowedInStream().
   Timestamp NextAllowedInStream() const;
+
+  // Returns the previous timestamp in the range [Min .. Max], or
+  // Unstarted() if no Packets may preceed one with this timestamp.
+  Timestamp PreviousAllowedInStream() const;
 
  private:
   TimestampBaseType timestamp_;
@@ -244,6 +246,12 @@ class TimestampDiff {
   TimestampDiff operator+(const TimestampDiff other) const;
   TimestampDiff operator-(const TimestampDiff other) const;
   Timestamp operator+(const Timestamp other) const;
+
+  // Special values.
+
+  static TimestampDiff Unset() {
+    return TimestampDiff(Timestamp::Unset().Value());
+  }
 
  private:
   TimestampBaseType timestamp_;

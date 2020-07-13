@@ -14,12 +14,11 @@
 # limitations under the License.
 #
 
+load("//mediapipe/framework/port:build_config.bzl", "mediapipe_proto_library")
+
 licenses(["notice"])  # Apache 2.0
 
 package(default_visibility = ["//visibility:private"])
-
-load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library")
-load("//mediapipe/framework/port:build_config.bzl", "mediapipe_py_proto_library")
 
 package_group(
     name = "mediapipe_internal",
@@ -34,7 +33,7 @@ exports_files([
     "encode_binary_proto.bzl",
 ])
 
-proto_library(
+mediapipe_proto_library(
     name = "calculator_proto",
     srcs = ["calculator.proto"],
     visibility = ["//visibility:public"],
@@ -49,40 +48,46 @@ proto_library(
     ],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "calculator_options_proto",
     srcs = ["calculator_options.proto"],
     visibility = ["//visibility:public"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "calculator_contract_test_proto",
     testonly = 1,
     srcs = ["calculator_contract_test.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = ["//mediapipe/framework:calculator_proto"],
+    deps = [
+        "//mediapipe/framework:calculator_options_proto",
+        "//mediapipe/framework:calculator_proto",
+    ],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "calculator_profile_proto",
     srcs = ["calculator_profile.proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = ["//mediapipe/framework:calculator_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_options_proto",
+        "//mediapipe/framework:calculator_proto",
+    ],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "mediapipe_options_proto",
     srcs = ["mediapipe_options.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "packet_factory_proto",
     srcs = ["packet_factory.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "packet_generator_proto",
     srcs = ["packet_generator.proto"],
     visibility = [
@@ -90,204 +95,43 @@ proto_library(
     ],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "packet_test_proto",
     testonly = 1,
     srcs = ["packet_test.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "status_handler_proto",
     srcs = ["status_handler.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
     deps = ["//mediapipe/framework:mediapipe_options_proto"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "stream_handler_proto",
     srcs = ["stream_handler.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
     deps = ["//mediapipe/framework:mediapipe_options_proto"],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "test_calculators_proto",
     testonly = 1,
     srcs = ["test_calculators.proto"],
     visibility = ["//visibility:public"],
-    deps = ["//mediapipe/framework:calculator_proto"],
+    deps = [
+        "//mediapipe/framework:calculator_options_proto",
+        "//mediapipe/framework:calculator_proto",
+    ],
 )
 
-proto_library(
+mediapipe_proto_library(
     name = "thread_pool_executor_proto",
     srcs = ["thread_pool_executor.proto"],
     visibility = ["//mediapipe/framework:__subpackages__"],
     deps = ["//mediapipe/framework:mediapipe_options_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "calculator_cc_proto",
-    srcs = ["calculator.proto"],
-    cc_deps = [
-        ":calculator_options_cc_proto",
-        ":mediapipe_options_cc_proto",
-        ":packet_factory_cc_proto",
-        ":packet_generator_cc_proto",
-        ":status_handler_cc_proto",
-        ":stream_handler_cc_proto",
-        "@com_google_protobuf//:cc_wkt_protos",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [":calculator_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "calculator_contract_test_cc_proto",
-    testonly = 1,
-    srcs = ["calculator_contract_test.proto"],
-    cc_deps = [":calculator_cc_proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":calculator_contract_test_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "calculator_options_cc_proto",
-    srcs = ["calculator_options.proto"],
-    visibility = ["//visibility:public"],
-    deps = [":calculator_options_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "calculator_profile_cc_proto",
-    srcs = ["calculator_profile.proto"],
-    cc_deps = [":calculator_cc_proto"],
-    visibility = [
-        "//mediapipe/framework:__subpackages__",
-        "//mediapipe/java/com/google/mediapipe/framework:__subpackages__",
-    ],
-    deps = [":calculator_profile_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "mediapipe_options_cc_proto",
-    srcs = [":mediapipe_options.proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":mediapipe_options_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "packet_factory_cc_proto",
-    srcs = ["packet_factory.proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":packet_factory_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "packet_generator_cc_proto",
-    srcs = ["packet_generator.proto"],
-    visibility = [
-        "//mediapipe:__subpackages__",
-    ],
-    deps = [":packet_generator_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "packet_test_cc_proto",
-    testonly = 1,
-    srcs = ["packet_test.proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":packet_test_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "status_handler_cc_proto",
-    srcs = ["status_handler.proto"],
-    cc_deps = [":mediapipe_options_cc_proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":status_handler_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "stream_handler_cc_proto",
-    srcs = ["stream_handler.proto"],
-    cc_deps = [":mediapipe_options_cc_proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":stream_handler_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "test_calculators_cc_proto",
-    testonly = 1,
-    srcs = ["test_calculators.proto"],
-    cc_deps = [":calculator_cc_proto"],
-    visibility = ["//visibility:public"],
-    deps = [":test_calculators_proto"],
-)
-
-mediapipe_cc_proto_library(
-    name = "thread_pool_executor_cc_proto",
-    srcs = ["thread_pool_executor.proto"],
-    cc_deps = [":mediapipe_options_cc_proto"],
-    visibility = ["//mediapipe/framework:__subpackages__"],
-    deps = [":thread_pool_executor_proto"],
-)
-
-mediapipe_py_proto_library(
-    name = "mediapipe_options_py_pb2",
-    srcs = ["mediapipe_options.proto"],
-    api_version = 2,
-    proto_deps = [":mediapipe_options_proto"],
-    visibility = ["//mediapipe:__subpackages__"],
-)
-
-mediapipe_py_proto_library(
-    name = "stream_handler_py_pb2",
-    srcs = ["stream_handler.proto"],
-    api_version = 2,
-    proto_deps = [":stream_handler_proto"],
-    py_proto_deps = [":mediapipe_options_py_pb2"],
-    visibility = ["//mediapipe:__subpackages__"],
-)
-
-mediapipe_py_proto_library(
-    name = "packet_generator_py_pb2",
-    srcs = ["packet_generator.proto"],
-    api_version = 2,
-    proto_deps = [":packet_generator_proto"],
-    py_proto_deps = [":mediapipe_options_py_pb2"],
-    visibility = ["//mediapipe:__subpackages__"],
-)
-
-mediapipe_py_proto_library(
-    name = "calculator_py_pb2",
-    srcs = [
-        "calculator.proto",
-        "calculator_options.proto",
-        "packet_factory.proto",
-        "status_handler.proto",
-    ],
-    api_version = 2,
-    proto_deps = [":calculator_proto"],
-    py_proto_deps = [
-        ":mediapipe_options_py_pb2",
-        ":packet_generator_py_pb2",
-        ":stream_handler_py_pb2",
-    ],
-    visibility = ["//mediapipe:__subpackages__"],
-)
-
-java_lite_proto_library(
-    name = "calculator_java_proto_lite",
-    strict_deps = 0,
-    visibility = [":mediapipe_internal"],
-    deps = [":calculator_proto"],
-)
-
-java_lite_proto_library(
-    name = "calculator_profile_java_proto_lite",
-    visibility = [":mediapipe_internal"],
-    deps = [":calculator_profile_proto"],
 )
 
 cc_library(
@@ -362,6 +206,7 @@ cc_library(
         "//mediapipe/framework:mediapipe_options_cc_proto",
         "//mediapipe/framework:packet_generator_cc_proto",
         "//mediapipe/framework:status_handler_cc_proto",
+        "//mediapipe/framework:stream_handler_cc_proto",
         "//mediapipe/framework/port:any_proto",
         "//mediapipe/framework/port:status",
         "//mediapipe/framework/tool:options_util",
@@ -464,6 +309,8 @@ cc_library(
         "//mediapipe/framework:packet_generator_cc_proto",
         "//mediapipe/framework:status_handler_cc_proto",
         "//mediapipe/framework:thread_pool_executor_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "//mediapipe/gpu:graph_support",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
@@ -471,8 +318,8 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
-        "//mediapipe/framework:calculator_node",
-        "//mediapipe/framework:output_side_packet_impl",
+        ":calculator_node",
+        ":output_side_packet_impl",
         "//mediapipe/framework/profiler:graph_profiler",
         "//mediapipe/framework/tool:fill_packet_set",
         "//mediapipe/framework/tool:status_util",
@@ -535,6 +382,7 @@ cc_library(
         "//mediapipe/framework/profiler:graph_profiler",
         "//mediapipe/framework/stream_handler:default_input_stream_handler",
         "//mediapipe/framework/stream_handler:in_order_output_stream_handler",
+        "//mediapipe/framework/tool:name_util",
         "//mediapipe/framework/tool:status_util",
         "//mediapipe/framework/tool:tag_map",
         "//mediapipe/framework/tool:validate_name",
@@ -630,8 +478,8 @@ cc_library(
     hdrs = ["collection.h"],
     visibility = [":mediapipe_internal"],
     deps = [
+        ":collection_item_id",
         ":type_map",
-        "//mediapipe/framework:collection_item_id",
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/tool:tag_map",
         "//mediapipe/framework/tool:validate_name",
@@ -800,11 +648,11 @@ cc_library(
         ":collection_item_id",
         ":input_stream_manager",
         ":input_stream_shard",
+        ":mediapipe_profiling",
         ":packet",
         ":packet_set",
         ":packet_type",
         "//mediapipe/framework:mediapipe_options_cc_proto",
-        "//mediapipe/framework:mediapipe_profiling",
         "//mediapipe/framework/deps:registration",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
@@ -982,6 +830,8 @@ cc_library(
         ":port",
         ":timestamp",
         ":type_map",
+        "//mediapipe/framework/deps:no_destructor",
+        "//mediapipe/framework/deps:registration",
         "//mediapipe/framework/port:core_proto",
         "//mediapipe/framework/port:integral_types",
         "//mediapipe/framework/port:logging",
@@ -1057,10 +907,10 @@ cc_library(
     hdrs = ["packet_type.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":collection",
         ":packet",
         ":packet_set",
         ":type_map",
-        "//mediapipe/framework:collection",
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:map_util",
         "//mediapipe/framework/port:ret_check",
@@ -1076,10 +926,16 @@ cc_library(
 cc_library(
     name = "port",
     hdrs = ["port.h"],
+    defines = select({
+        "//conditions:default": [],
+    }) + select({
+        "//conditions:default": [],
+        "//mediapipe/gpu:disable_gpu": ["MEDIAPIPE_DISABLE_GPU"],
+    }),
     visibility = [
         "//mediapipe/framework:__subpackages__",
         "//mediapipe/framework/port:__pkg__",
-        "//mediapipe/util:__pkg__",
+        "//mediapipe/util:__subpackages__",
     ],
 )
 
@@ -1267,11 +1123,13 @@ cc_library(
         "//mediapipe/framework/port:source_location",
         "//mediapipe/framework/port:status",
         "//mediapipe/framework/port:topologicalsorter",
+        "//mediapipe/framework/tool:name_util",
         "//mediapipe/framework/tool:status_util",
         "//mediapipe/framework/tool:subgraph_expansion",
         "//mediapipe/framework/tool:validate",
         "//mediapipe/framework/tool:validate_name",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
     ],
@@ -1334,8 +1192,8 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":calculator_framework",
+        ":calculator_node",
         "//mediapipe/calculators/core:pass_through_calculator",
-        "//mediapipe/framework:calculator_node",
         "//mediapipe/framework/port:gtest_main",
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:parse_text_proto",
@@ -1485,13 +1343,17 @@ cc_test(
         "//mediapipe/framework/port:status",
         "//mediapipe/framework/stream_handler:barrier_input_stream_handler",
         "//mediapipe/framework/stream_handler:early_close_input_stream_handler",
+        "//mediapipe/framework/stream_handler:fixed_size_input_stream_handler",
         "//mediapipe/framework/stream_handler:immediate_input_stream_handler",
         "//mediapipe/framework/stream_handler:mux_input_stream_handler",
+        "//mediapipe/framework/stream_handler:sync_set_input_stream_handler",
+        "//mediapipe/framework/stream_handler:timestamp_align_input_stream_handler",
         "//mediapipe/framework/tool:sink",
         "//mediapipe/framework/tool:status_util",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
     ],
 )
@@ -1522,7 +1384,9 @@ cc_test(
         "//mediapipe/framework/stream_handler:fixed_size_input_stream_handler",
         "//mediapipe/framework/stream_handler:immediate_input_stream_handler",
         "//mediapipe/framework/stream_handler:mux_input_stream_handler",
+        "//mediapipe/framework/stream_handler:sync_set_input_stream_handler",
         "//mediapipe/framework/tool:sink",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -1653,6 +1517,21 @@ cc_test(
     srcs = ["packet_test.cc"],
     linkstatic = 1,
     deps = [
+        ":packet",
+        ":packet_test_cc_proto",
+        ":type_map",
+        "//mediapipe/framework/port:core_proto",
+        "//mediapipe/framework/port:gtest_main",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "packet_registration_test",
+    size = "small",
+    srcs = ["packet_registration_test.cc"],
+    deps = [
+        ":calculator_framework",
         ":packet",
         ":packet_test_cc_proto",
         ":type_map",

@@ -1,6 +1,6 @@
 mediapipe/provisioning_profile.mobileprovision
-.aswb
-.vscode
+.aswb/*
+.vscode/*
 *.mkv
 bazel-bin
 bazel-genfiles

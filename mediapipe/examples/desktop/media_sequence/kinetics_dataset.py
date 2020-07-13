@@ -56,6 +56,9 @@ with the following lines:
 This data is structured for per-clip action classification where images is
 the sequence of images and labels are a one-hot encoded value. See
 as_dataset() for more details.
+
+Note that the number of videos changes in the data set over time, so it will
+likely be necessary to change the expected number of examples.
 """
 
 from __future__ import absolute_import
@@ -68,13 +71,17 @@ import os
 import random
 import subprocess
 import sys
+import tarfile
 import tempfile
-import urllib
-import zipfile
+
 from absl import app
 from absl import flags
 from absl import logging
-import tensorflow as tf
+from six.moves import range
+from six.moves import urllib
+from six.moves import zip
+import tensorflow.compat.v1 as tf
+
 from mediapipe.util.sequence import media_sequence as ms
 
 CITATION = r"""@article{kay2017kinetics,
@@ -84,21 +91,28 @@ CITATION = r"""@article{kay2017kinetics,
   year={2017},
   url = {https://deepmind.com/research/open-source/kinetics},
 }"""
-ANNOTATION_URL = "https://storage.googleapis.com/deepmind-media/research/Kinetics_700.zip"
+ANNOTATION_URL = "https://storage.googleapis.com/deepmind-media/Datasets/kinetics700.tar.gz"
 SECONDS_TO_MICROSECONDS = 1000000
 GRAPHS = ["tvl1_flow_and_rgb_from_file.pbtxt"]
 FILEPATTERN = "kinetics_700_%s_25fps_rgb_flow"
 SPLITS = {
     "train": {
         "shards": 1000,
-        "examples": 545317},
-    "val": {"shards": 100,
-            "examples": 35000},
-    "test": {"shards": 100,
-             "examples": 70000},
-    "custom": {"csv": None,  # Add a CSV for your own data here.
-               "shards": 1,  # Change this number to increase sharding.
-               "examples": -1},  # Negative 1 allows any number of examples.
+        "examples": 538779
+    },
+    "validate": {
+        "shards": 100,
+        "examples": 34499
+    },
+    "test": {
+        "shards": 100,
+        "examples": 68847
+    },
+    "custom": {
+        "csv": None,  # Add a CSV for your own data here.
+        "shards": 1,  # Change this number to increase sharding.
+        "examples": -1
+    },  # Negative 1 allows any number of examples.
 }
 NUM_CLASSES = 700
 
@@ -112,7 +126,8 @@ class Kinetics(object):
     self.path_to_data = path_to_data
 
   def as_dataset(self, split, shuffle=False, repeat=False,
-                 serialized_prefetch_size=32, decoded_prefetch_size=32):
+                 serialized_prefetch_size=32, decoded_prefetch_size=32,
+                 parse_labels=True):
     """Returns Kinetics as a tf.data.Dataset.
 
     After running this function, calling padded_batch() on the Dataset object
@@ -126,20 +141,29 @@ class Kinetics(object):
       repeat: if true, repeats the data set forever.
       serialized_prefetch_size: the buffer size for reading from disk.
       decoded_prefetch_size: the buffer size after decoding.
+      parse_labels: if true, also returns the "labels" below. The only
+        case where this should be false is if the data set was not constructed
+        with a label map, resulting in this field being missing.
     Returns:
       A tf.data.Dataset object with the following structure: {
         "images": float tensor, shape [time, height, width, channels]
         "flow": float tensor, shape [time, height, width, 2]
-        "labels": float32 tensor, shape [num_classes], one hot encoded
         "num_frames": int32 tensor, shape [], number of frames in the sequence
+        "labels": float32 tensor, shape [num_classes], one hot encoded. Only
+          present if parse_labels is true.
     """
+    logging.info("If you see an error about labels, and you don't supply "
+                 "labels in your CSV, set parse_labels=False")
     def parse_fn(sequence_example):
       """Parses a Kinetics example."""
       context_features = {
           ms.get_example_id_key(): ms.get_example_id_default_parser(),
-          ms.get_clip_label_string_key(): tf.FixedLenFeature((), tf.string),
-          ms.get_clip_label_index_key(): tf.FixedLenFeature((), tf.int64),
       }
+      if parse_labels:
+        context_features[
+            ms.get_clip_label_string_key()] = tf.FixedLenFeature((), tf.string)
+        context_features[
+            ms.get_clip_label_index_key()] = tf.FixedLenFeature((), tf.int64)
 
       sequence_features = {
           ms.get_image_encoded_key(): ms.get_image_encoded_default_parser(),
@@ -148,8 +172,6 @@ class Kinetics(object):
       }
       parsed_context, parsed_sequence = tf.io.parse_single_sequence_example(
           sequence_example, context_features, sequence_features)
-
-      target = tf.one_hot(parsed_context[ms.get_clip_label_index_key()], 700)
 
       images = tf.image.convert_image_dtype(
           tf.map_fn(tf.image.decode_jpeg,
@@ -168,15 +190,17 @@ class Kinetics(object):
       flow = (flow[:, :, :, :2] - 0.5) * 2 * 20.
 
       output_dict = {
-          "labels": target,
           "images": images,
           "flow": flow,
           "num_frames": num_frames,
       }
+      if parse_labels:
+        target = tf.one_hot(parsed_context[ms.get_clip_label_index_key()], 700)
+        output_dict["labels"] = target
       return output_dict
 
     if split not in SPLITS:
-      raise ValueError("Split %s not in %s" % split, str(SPLITS.keys()))
+      raise ValueError("Split %s not in %s" % split, str(list(SPLITS.keys())))
     all_shards = tf.io.gfile.glob(
         os.path.join(self.path_to_data, FILEPATTERN % split + "-*-of-*"))
     random.shuffle(all_shards)
@@ -280,11 +304,12 @@ class Kinetics(object):
           continue
         # rename the row with a constitent set of names.
         if len(csv_row) == 5:
-          row = dict(zip(["label_name", "video", "start", "end", "split"],
-                         csv_row))
+          row = dict(
+              list(
+                  zip(["label_name", "video", "start", "end", "split"],
+                      csv_row)))
         else:
-          row = dict(zip(["video", "start", "end", "split"],
-                         csv_row))
+          row = dict(list(zip(["video", "start", "end", "split"], csv_row)))
         metadata = tf.train.SequenceExample()
         ms.set_example_id(bytes23(row["video"] + "_" + row["start"]),
                           metadata)
@@ -306,24 +331,22 @@ class Kinetics(object):
     if sys.version_info >= (3, 0):
       urlretrieve = urllib.request.urlretrieve
     else:
-      urlretrieve = urllib.urlretrieve
+      urlretrieve = urllib.request.urlretrieve
     logging.info("Creating data directory.")
     tf.io.gfile.makedirs(self.path_to_data)
     logging.info("Downloading annotations.")
     paths = {}
     if download_labels_for_map:
-      zip_path = os.path.join(self.path_to_data, ANNOTATION_URL.split("/")[-1])
-      if not tf.io.gfile.exists(zip_path):
-        urlretrieve(ANNOTATION_URL, zip_path)
-        with zipfile.ZipFile(zip_path) as annotations_zip:
-          annotations_zip.extractall(self.path_to_data)
-      for split in ["train", "test", "val"]:
-        zip_path = os.path.join(self.path_to_data,
-                                "kinetics_700_%s.zip" % split)
-        csv_path = zip_path.replace(".zip", ".csv")
+      tar_path = os.path.join(self.path_to_data, ANNOTATION_URL.split("/")[-1])
+      if not tf.io.gfile.exists(tar_path):
+        urlretrieve(ANNOTATION_URL, tar_path)
+        with tarfile.open(tar_path) as annotations_tar:
+          annotations_tar.extractall(self.path_to_data)
+      for split in ["train", "test", "validate"]:
+        csv_path = os.path.join(self.path_to_data, "kinetics700/%s.csv" % split)
         if not tf.io.gfile.exists(csv_path):
-          with zipfile.ZipFile(zip_path) as annotations_zip:
-            annotations_zip.extractall(self.path_to_data)
+          with tarfile.open(tar_path) as annotations_tar:
+            annotations_tar.extractall(self.path_to_data)
         paths[split] = csv_path
     for split, contents in SPLITS.items():
       if "csv" in contents and contents["csv"]:
@@ -384,7 +407,7 @@ class Kinetics(object):
         assert NUM_CLASSES == num_keys, (
             "Found %d labels for split: %s, should be %d" % (
                 num_keys, name, NUM_CLASSES))
-        label_map = dict(zip(classes, range(len(classes))))
+        label_map = dict(list(zip(classes, list(range(len(classes))))))
       if SPLITS[name]["examples"] > 0:
         assert SPLITS[name]["examples"] == num_examples, (
             "Found %d examples for split: %s, should be %d" % (

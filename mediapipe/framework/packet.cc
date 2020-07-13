@@ -40,8 +40,27 @@ Packet Create(HolderBase* holder, Timestamp timestamp) {
   return result;
 }
 
+Packet Create(std::shared_ptr<HolderBase> holder, Timestamp timestamp) {
+  Packet result;
+  result.holder_ = std::move(holder);
+  result.timestamp_ = timestamp;
+  return result;
+}
+
 const HolderBase* GetHolder(const Packet& packet) {
   return packet.holder_.get();
+}
+
+::mediapipe::StatusOr<Packet> PacketFromDynamicProto(
+    const std::string& type_name, const std::string& serialized) {
+  ASSIGN_OR_RETURN(
+      auto message_holder,
+      packet_internal::MessageHolderRegistry::CreateByName(type_name));
+  auto* message =
+      const_cast<proto_ns::MessageLite*>(message_holder->GetProtoMessageLite());
+  RET_CHECK_NE(message, nullptr);
+  RET_CHECK(message->ParseFromString(serialized));
+  return packet_internal::Create(message_holder.release());
 }
 
 }  // namespace packet_internal
@@ -105,6 +124,14 @@ const proto_ns::MessageLite& Packet::GetProtoMessageLite() const {
   CHECK(proto != nullptr) << "The Packet stores '" << holder_->DebugTypeName()
                           << "', it cannot be converted to MessageLite type.";
   return *proto;
+}
+
+StatusOr<std::vector<const proto_ns::MessageLite*>>
+Packet::GetVectorOfProtoMessageLitePtrs() {
+  if (holder_ == nullptr) {
+    return ::mediapipe::InternalError("Packet is empty.");
+  }
+  return holder_->GetVectorOfProtoMessageLite();
 }
 
 MEDIAPIPE_REGISTER_TYPE(::mediapipe::Packet, "::mediapipe::Packet", nullptr,

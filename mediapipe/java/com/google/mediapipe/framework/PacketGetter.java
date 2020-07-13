@@ -14,7 +14,10 @@
 
 package com.google.mediapipe.framework;
 
+import com.google.common.base.Preconditions;
 import com.google.common.flogger.FluentLogger;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Parser;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -132,6 +135,22 @@ public final class PacketGetter {
 
   public static double[] getFloat64Vector(final Packet packet) {
     return nativeGetFloat64Vector(packet.getNativeHandle());
+  }
+
+  public static <T> List<T> getProtoVector(final Packet packet, Parser<T> messageParser) {
+    byte[][] protoVector = nativeGetProtoVector(packet.getNativeHandle());
+    Preconditions.checkNotNull(
+        protoVector, "Vector of protocol buffer objects should not be null!");
+    try {
+      List<T> parsedMessageList = new ArrayList<>();
+      for (byte[] message : protoVector) {
+        T parsedMessage = messageParser.parseFrom(message);
+        parsedMessageList.add(parsedMessage);
+      }
+      return parsedMessageList;
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   public static int getImageWidth(final Packet packet) {
@@ -253,6 +272,10 @@ public final class PacketGetter {
    * <p>Note: in order for the application to be able to use the texture, its GL context must be
    * linked with MediaPipe's. This is ensured by calling {@link Graph#createGlRunner(String,long)}
    * with the native handle to the application's GL context as the second argument.
+   *
+   * <p>The returned GraphTextureFrame must be released by the caller. If this method is called
+   * multiple times, each returned GraphTextureFrame is an independent reference to the underlying
+   * texture data, and must be released individually.
    */
   public static GraphTextureFrame getTextureFrame(final Packet packet) {
     return new GraphTextureFrame(
@@ -277,6 +300,9 @@ public final class PacketGetter {
   private static native long[] nativeGetInt64Vector(long nativePacketHandle);
   private static native float[] nativeGetFloat32Vector(long nativePacketHandle);
   private static native double[] nativeGetFloat64Vector(long nativePacketHandle);
+
+  private static native byte[][] nativeGetProtoVector(long nativePacketHandle);
+
   private static native int nativeGetImageWidth(long nativePacketHandle);
   private static native int nativeGetImageHeight(long nativePacketHandle);
   private static native boolean nativeGetImageData(long nativePacketHandle, ByteBuffer buffer);

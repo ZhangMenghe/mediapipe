@@ -23,13 +23,13 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
 #include "mediapipe/framework/calculator.pb.h"
 #include "mediapipe/framework/calculator_base.h"
@@ -91,6 +91,9 @@ typedef ::mediapipe::StatusOr<OutputStreamPoller> StatusOrPoller;
 //       {{"video_id", mediapipe::MakePacket<std::string>("Ex-uGhDzue4")}}));
 //   // See mediapipe/framework/graph_runner.h for an interface
 //   // to insert and extract packets from a graph as it runs.
+//   // Once it is done using the graph, close its streams and wait till done.
+//   MP_RETURN_IF_ERROR(graph->CloseAllInputStreams());
+//   MP_RETURN_IF_ERROR(graph->WaitUntilDone());
 class CalculatorGraph {
  public:
   // Defines possible modes for adding a packet to a graph input stream.
@@ -143,7 +146,7 @@ class CalculatorGraph {
       const std::string& graph_type = "",
       const Subgraph::SubgraphOptions* options = nullptr);
 
-  // Resturns the canonicalized CalculatorGraphConfig for this graph.
+  // Returns the canonicalized CalculatorGraphConfig for this graph.
   const CalculatorGraphConfig& Config() const {
     return validated_graph_->Config();
   }
@@ -157,8 +160,9 @@ class CalculatorGraph {
       std::function<::mediapipe::Status(const Packet&)> packet_callback);
 
   // Adds an OutputStreamPoller for a stream. This provides a synchronous,
-  // polling API for accessing a stream's output. For asynchronous output, use
-  // ObserveOutputStream. See also the helpers in tool/sink.h.
+  // polling API for accessing a stream's output. Should only be called before
+  // Run() or StartRun(). For asynchronous output, use ObserveOutputStream. See
+  // also the helpers in tool/sink.h.
   StatusOrPoller AddOutputStreamPoller(const std::string& stream_name);
 
   // Gets output side packet by name after the graph is done. However, base
@@ -298,7 +302,14 @@ class CalculatorGraph {
   // Callback when an error is encountered.
   // Adds the error to the vector of errors.
   void RecordError(const ::mediapipe::Status& error)
-      LOCKS_EXCLUDED(error_mutex_);
+      ABSL_LOCKS_EXCLUDED(error_mutex_);
+
+  // Combines errors into a status. Returns true if the vector of errors is
+  // non-empty.
+  bool GetCombinedErrors(const std::string& error_prefix,
+                         ::mediapipe::Status* error_status);
+  // Convenience overload which specifies a default error prefix.
+  bool GetCombinedErrors(::mediapipe::Status* error_status);
 
   // Returns the maximum input stream queue size.
   int GetMaxInputStreamQueueSize();
@@ -339,13 +350,14 @@ class CalculatorGraph {
 
   // Returns true if this node or graph input stream is connected to
   // any input stream whose queue has hit maximum capacity.
-  bool IsNodeThrottled(int node_id) LOCKS_EXCLUDED(full_input_streams_mutex_);
+  bool IsNodeThrottled(int node_id)
+      ABSL_LOCKS_EXCLUDED(full_input_streams_mutex_);
 
   // If any active source node or graph input stream is throttled and not yet
   // closed, increases the max_queue_size for each full input stream in the
   // graph.
   // Returns true if at least one max_queue_size has been grown.
-  bool UnthrottleSources() LOCKS_EXCLUDED(full_input_streams_mutex_);
+  bool UnthrottleSources() ABSL_LOCKS_EXCLUDED(full_input_streams_mutex_);
 
   // Returns the scheduler's runtime measures for overhead measurement.
   // Only meant for test purposes.
@@ -460,13 +472,13 @@ class CalculatorGraph {
   //
   // Only called by InitializeExecutors().
   ::mediapipe::Status InitializeDefaultExecutor(
-      const ThreadPoolExecutorOptions& default_executor_options,
+      const ThreadPoolExecutorOptions* default_executor_options,
       bool use_application_thread);
 
   // Creates a thread pool as the default executor. The num_threads argument
   // overrides the num_threads field in default_executor_options.
   ::mediapipe::Status CreateDefaultThreadPool(
-      const ThreadPoolExecutorOptions& default_executor_options,
+      const ThreadPoolExecutorOptions* default_executor_options,
       int num_threads);
 
   // Returns true if |name| is a reserved executor name.
@@ -498,14 +510,7 @@ class CalculatorGraph {
   // handler fails, it appends its error to errors_, and CleanupAfterRun sets
   // |*status| to the new combined errors on return.
   void CleanupAfterRun(::mediapipe::Status* status)
-      LOCKS_EXCLUDED(error_mutex_);
-
-  // Combines errors into a status. Returns true if the vector of errors is
-  // non-empty.
-  bool GetCombinedErrors(const std::string& error_prefix,
-                         ::mediapipe::Status* error_status);
-  // Convenience overload which specifies a default error prefix.
-  bool GetCombinedErrors(::mediapipe::Status* error_status);
+      ABSL_LOCKS_EXCLUDED(error_mutex_);
 
   // Calls HandlePreRunStatus or HandleStatus on the StatusHandlers. Which one
   // is called depends on the GraphRunState parameter (PRE_RUN or POST_RUN).
@@ -571,7 +576,7 @@ class CalculatorGraph {
   // Mode for adding packets to a graph input stream. Set to block until all
   // affected input streams are not full by default.
   GraphInputStreamAddMode graph_input_stream_add_mode_
-      GUARDED_BY(full_input_streams_mutex_);
+      ABSL_GUARDED_BY(full_input_streams_mutex_);
 
   // For a source node or graph input stream (specified using id),
   // this stores the set of dependent input streams that have hit their
@@ -579,18 +584,18 @@ class CalculatorGraph {
   // A node is scheduled only if this set is empty.  Similarly, a packet
   // is added to a graph input stream only if this set is empty.
   // Note that this vector contains an unused entry for each non-source node.
-  std::vector<std::unordered_set<InputStreamManager*>> full_input_streams_
-      GUARDED_BY(full_input_streams_mutex_);
+  std::vector<absl::flat_hash_set<InputStreamManager*>> full_input_streams_
+      ABSL_GUARDED_BY(full_input_streams_mutex_);
 
   // Maps stream names to graph input stream objects.
-  std::unordered_map<std::string, std::unique_ptr<GraphInputStream>>
+  absl::flat_hash_map<std::string, std::unique_ptr<GraphInputStream>>
       graph_input_streams_;
 
   // Maps graph input streams to their virtual node ids.
-  std::unordered_map<std::string, int> graph_input_stream_node_ids_;
+  absl::flat_hash_map<std::string, int> graph_input_stream_node_ids_;
 
   // Maps graph input streams to their max queue size.
-  std::unordered_map<std::string, int> graph_input_stream_max_queue_size_;
+  absl::flat_hash_map<std::string, int> graph_input_stream_max_queue_size_;
 
   // The factory for making counters associated with this graph.
   std::unique_ptr<CounterFactory> counter_factory_;
@@ -606,7 +611,7 @@ class CalculatorGraph {
 
   // Vector of errors encountered while running graph. Always use RecordError()
   // to add an error to this vector.
-  std::vector<::mediapipe::Status> errors_ GUARDED_BY(error_mutex_);
+  std::vector<::mediapipe::Status> errors_ ABSL_GUARDED_BY(error_mutex_);
 
   // True if the default executor uses the application thread.
   bool use_application_thread_ = false;
@@ -614,7 +619,7 @@ class CalculatorGraph {
   // Condition variable that waits until all input streams that depend on a
   // graph input stream are below the maximum queue size.
   absl::CondVar wait_to_add_packet_cond_var_
-      GUARDED_BY(full_input_streams_mutex_);
+      ABSL_GUARDED_BY(full_input_streams_mutex_);
 
   // Mutex for the vector of errors.
   absl::Mutex error_mutex_;

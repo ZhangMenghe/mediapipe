@@ -96,7 +96,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:port",
-        "@com_github_glog_glog//:glog",
+        "//third_party:glog",
     ],
 )
 
@@ -129,10 +129,12 @@ cc_library(
     name = "image_resizer",
     hdrs = ["image_resizer.h"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//mediapipe/framework/deps:image_resizer",
-        "//third_party:opencv",
-    ],
+    deps = select({
+        "//conditions:default": [
+            "//mediapipe/framework/deps:image_resizer",
+            "//mediapipe/framework/port:opencv_core",
+        ],
+    }),
 )
 
 cc_library(
@@ -152,6 +154,33 @@ cc_library(
 )
 
 cc_library(
+    name = "re2",
+    hdrs = [
+        "re2.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/deps:re2",
+    ],
+)
+
+cc_library(
+    name = "gtest",
+    testonly = 1,
+    hdrs = [
+        "gmock.h",
+        "gtest.h",
+        "status_matchers.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":status_matchers",
+        "//mediapipe/framework:port",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "gtest_main",
     testonly = 1,
     hdrs = [
@@ -161,6 +190,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":status_matchers",
         "//mediapipe/framework:port",
         "//mediapipe/framework/deps:status_matchers",
         "@com_google_googletest//:gtest_main",
@@ -175,7 +205,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:port",
-        "@com_github_glog_glog//:glog",
+        "//third_party:glog",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -240,6 +271,27 @@ cc_library(
 cc_library(
     name = "opencv_video",
     hdrs = ["opencv_video_inc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":opencv_core",
+        "//mediapipe/framework:port",
+        "//third_party:opencv",
+    ],
+)
+
+cc_library(
+    name = "opencv_features2d",
+    hdrs = ["opencv_features2d_inc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":opencv_core",
+        "//third_party:opencv",
+    ],
+)
+
+cc_library(
+    name = "opencv_calib3d",
+    hdrs = ["opencv_calib3d_inc.h"],
     visibility = ["//visibility:public"],
     deps = [
         ":opencv_core",
@@ -328,6 +380,7 @@ cc_library(
         ":source_location",
         "//mediapipe/framework:port",
         "//mediapipe/framework/deps:status",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -341,6 +394,18 @@ cc_library(
     deps = [
         "//mediapipe/framework:port",
         "//mediapipe/framework/deps:statusor",
+    ],
+)
+
+cc_library(
+    name = "status_matchers",
+    testonly = 1,
+    hdrs = ["status_matchers.h"],
+    # Use this library through "mediapipe/framework/port:gtest_main".
+    visibility = ["//mediapipe/framework/port:__pkg__"],
+    deps = [
+        ":status",
+        "//mediapipe/framework/deps:status_matchers",
     ],
 )
 
