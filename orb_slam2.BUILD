@@ -68,7 +68,7 @@ cc_library(
         "src/MapPoint.cc",
         "src/KeyFrame.cc",
         "src/Map.cc",
-        "src/MapDrawer.cc",
+        # "src/MapDrawer.cc",
         "src/Optimizer.cc",
         "src/PnPsolver.cc",
         "src/Frame.cc",

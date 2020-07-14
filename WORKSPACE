@@ -184,7 +184,11 @@ new_local_repository(
     build_file = "orb_slam2.BUILD",
     path = "/home/eevee/Github/ORB_SLAM2",
 )
-
+new_local_repository(
+    name = "helmsley_vr",
+    build_file = "helmsley_vr.BUILD",
+    path = "/home/eevee/Github/volume-rendering/volume-rendering-cpp",
+)
 new_local_repository(
     name = "linux_opengl",
     build_file = "@//third_party:opengl_linux.BUILD",

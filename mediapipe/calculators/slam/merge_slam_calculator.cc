@@ -141,7 +141,8 @@ private:
     float plane_point[4* MAX_TRACK_POINT];
 
 		::mediapipe::Status LoadOptions(CalculatorContext* cc);
-    
+    //Setup functions
+    Status setup_volume_renderer();
     //Rendering functions
     Status draw_plane(planeData pd, glm::mat4 vp);
     Status draw_keypoints(PointRenderer* kprenderer, float* data, int num);
@@ -156,6 +157,9 @@ private:
 		::mediapipe::Status Close(CalculatorContext* cc) override;
 };
 
+Status MergeSLAMCalculator::setup_volume_renderer(){
+  return ::mediapipe::OkStatus();
+}
 Status MergeSLAMCalculator::draw_plane(planeData pd, glm::mat4 vp){
   if(!pd.valid) return ::mediapipe::OkStatus();
 
@@ -261,11 +265,13 @@ Status MergeSLAMCalculator::draw_mappoints(cvPoints mapPoints, CameraData camera
 }
 
 Status MergeSLAMCalculator::draw_objects(glm::mat4 vp){
-	CubeRenderer* cube_r = cube_renderer_.get();
-	cube_r->GlRender(vp, 
-			glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)),
-			glm::vec4(.0, 0.8, 0.8, 0.5));
+	// CubeRenderer* cube_r = cube_renderer_.get();
 
+	return cube_renderer_->GlRender(vp, 
+			glm::translate(glm::mat4(1.0f), glm::vec3(.0,.0,1.0f)) 
+      * glm::rotate(glm::mat4(1.0f),20.0f, glm::vec3(1,0,0)) 
+      * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f)),
+			glm::vec4(.0, 0.8, 0.8, 1.0));
 }
 Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
     auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
@@ -291,8 +297,7 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
       auto cam = slam_data->camera;
 
       if(cam.valid){
-        std::cout<<"CAMERA VALID"<<std::endl;
-        LOG(INFO)<<"CAMERA VALID";
+        // std::cout<<"CAMERA VALID"<<std::endl;
         cv::Mat rVec;
         cv::Rodrigues(cam.pose.colRange(0, 3).rowRange(0, 3), rVec);
         cv::Mat tVec = cam.pose.col(3).rowRange(0, 3);
@@ -303,13 +308,13 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         MP_RETURN_IF_ERROR(draw_mappoints(slam_data->refPoints, slam_data->camera, mvp_gl));
         
         // MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
-        // MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
+        MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
       }
       // else{
       //   std::cout<<"CAMERA in VALID"<<std::endl;
 
       //   LOG(INFO)<<"CAMERA IN VALID";
-        draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
+        // draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
       // }
 
     glActiveTexture(GL_TEXTURE1);
@@ -336,9 +341,8 @@ Status MergeSLAMCalculator::GetContract(CalculatorContract* cc) {
 Status MergeSLAMCalculator::Open(CalculatorContext* cc){
   cc->SetOffset(TimestampDiff(0));
   LoadOptions(cc);
-  MP_RETURN_IF_ERROR(gpu_helper.Open(cc));
-  // cv::namedWindow("MapDrawer", /*flags=WINDOW_AUTOSIZE*/ 1);
 
+  MP_RETURN_IF_ERROR(gpu_helper.Open(cc));
   return ::mediapipe::OkStatus();
 }
 
@@ -372,7 +376,7 @@ Status MergeSLAMCalculator::LoadOptions(
         MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.vs_path(), &vs_txt));
 		    MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.frag_path(), &fs_txt));
         // LOG(INFO)<<"VS: "<<vs_txt;
-        // LOG(INFO)<<"Shader readed: "<<file.shader_name();
+        LOG(INFO)<<"Shader readed: "<<file.shader_name();
         
         cube_renderer_ = absl::make_unique<CubeRenderer>();
         MP_RETURN_IF_ERROR(cube_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));

@@ -23,6 +23,8 @@ cc_library(
     ]+ select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
+            "@helmsley_vr//:HELMSLEY_VR",
+
             "@linux_usr//:glm",
             
             "//mediapipe/gpu:gl_shader_helper_cc_proto",
