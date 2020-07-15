@@ -53,6 +53,8 @@ private:
 	std::unordered_map<GLenum, std::string> mShadersToLink;
 
 	bool LinkShader(std::vector<std::string> keywords, ShaderProgram& pgm);
+GLuint CompileShader(GLenum type, std::string content, std::vector<std::string> keywords);
+
 };
 }
 #endif

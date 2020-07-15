@@ -7,7 +7,10 @@ n=0
 while(True):
     # Capture frame-by-frame
     ret, frame = cap.read()
-
+    #  768, 430,
+    # 480 640
+    frame = frame[:, 186:454, :]
+    frame = cv2.resize(frame, (430,768), interpolation = cv2.INTER_AREA)
     # Our operations on the frame come here
     # rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame[:,:,0] = frame[:,:,0] *0.8

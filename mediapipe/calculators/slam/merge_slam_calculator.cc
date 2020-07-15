@@ -10,6 +10,7 @@
 #include "mediapipe/gpu/glrenderer/gl_point_renderer.h"
 #include "mediapipe/gpu/glrenderer/gl_cube_renderer.h"
 #include "mediapipe/calculators/slam/slam_calculators.h"
+#include "mediapipe/calculators/slam/helmsley_vr.h"
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp> 
 #include <glm/gtx/string_cast.hpp>
@@ -129,6 +130,8 @@ private:
 
     std::unique_ptr<CubeRenderer> cube_renderer_;
     std::unique_ptr<CubeRenderer> plane_renderer_;
+
+    std::unique_ptr<helmsleyVR> dicom_;
 
     float* point_cloud;
     int point_num;
@@ -297,7 +300,7 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
       auto cam = slam_data->camera;
 
       if(cam.valid){
-        // std::cout<<"CAMERA VALID"<<std::endl;
+        std::cout<<"CAMERA VALID"<<std::endl;
         cv::Mat rVec;
         cv::Rodrigues(cam.pose.colRange(0, 3).rowRange(0, 3), rVec);
         cv::Mat tVec = cam.pose.col(3).rowRange(0, 3);
@@ -308,7 +311,8 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         MP_RETURN_IF_ERROR(draw_mappoints(slam_data->refPoints, slam_data->camera, mvp_gl));
         
         // MP_RETURN_IF_ERROR(draw_plane(slam_data->plane, mvp_gl));
-        MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
+        // MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
+        dicom_->onDraw(view_mat, proj_mat, mvp_gl);
       }
       // else{
       //   std::cout<<"CAMERA in VALID"<<std::endl;
@@ -358,26 +362,34 @@ Status MergeSLAMCalculator::Open(CalculatorContext* cc){
     }
 
   return gpu_helper.RunInGlContext(
-      [this, cc]() -> ::mediapipe::Status { 
+      [this, cc]() -> ::mediapipe::Status {
         return RenderGPU(cc); 
         });
 }
 ::mediapipe::Status MergeSLAMCalculator::Close(CalculatorContext* cc) {
+  dicom_->onDestroy();
 	return ::mediapipe::OkStatus();
 }
 Status MergeSLAMCalculator::LoadOptions(
     CalculatorContext* cc) {
   // Get calculator options specified in the graph.
 	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
+  
+
+
   if(options.shader_files_size()){
+      dicom_ = absl::make_unique<helmsleyVR>();
+    dicom_->onSetup(options.shader_res_path());
+
+    // std::cout<<"===="<<options.shader_res_path()<<std::endl;
     for(auto file : options.shader_files()){
       if(file.shader_name() == kRaycastShaderName){
         std::string vs_txt, fs_txt, geo_txt;
         MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.vs_path(), &vs_txt));
 		    MP_RETURN_IF_ERROR(mediapipe::GetResourceContents(file.frag_path(), &fs_txt));
-        // LOG(INFO)<<"VS: "<<vs_txt;
-        LOG(INFO)<<"Shader readed: "<<file.shader_name();
-        
+
+        // LOG(INFO)<<"Shader readed: "<<file.shader_name();
+        // LOG(INFO)<<file
         cube_renderer_ = absl::make_unique<CubeRenderer>();
         MP_RETURN_IF_ERROR(cube_renderer_->GlSetup(vs_txt, fs_txt, geo_txt));
         
@@ -386,6 +398,9 @@ Status MergeSLAMCalculator::LoadOptions(
 
         point_renderer_ = absl::make_unique<PointRenderer>();
         MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
+
+
+        
       old_one = false;
       }
     }

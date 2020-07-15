@@ -62,12 +62,15 @@ private:
   cv::VideoWriter writer;
   cv::Size frame_size = cv::Size(0,0);
   size_t frame_timestamp = 0;
+
+  const cv::Rect crop_rect = cv::Rect(186.0f, .0f, 454.f, .0f);
+
   mediapipe::GlCalculatorHelper gpu_helper;
 
   const char kInputStream[12] = "input_video";
   const char kOutputStream[13] = "output_video";
   const char kWindowName[10] = "MediaPipe";
-  const int write_fps = 20;//capture.get(cv::CAP_PROP_FPS)
+  const int write_fps = 30;//capture.get(cv::CAP_PROP_FPS)
   std::vector<std::string> frame_paths;
   std::vector<size_t> frame_timestamp_vec;
   size_t frame_nums;
@@ -160,22 +163,29 @@ Status GPUTask::Initilization(){
                 mediapipe::fourcc('a', 'v', 'c', '1'),  // .mp4
                 write_fps, getFrameSize());
     RET_CHECK(writer.isOpened());
-  } 
+  } else {
     cv::namedWindow(kWindowName, /*flags=WINDOW_AUTOSIZE*/ 1);
+  }
 
   return OkStatus();
 }
 cv::Size GPUTask::getFrameSize(){
   if(frame_size.width == 0){
-    if(load_type!=FROM_FRAMES){
-      cv::Mat frame;
-      capture.read(frame);                    // Consume first frame.
+    cv::Mat tframe;
+    switch (load_type){
+    case FROM_CAMERA:
+      frame_size = cv::Size(430, 768);
+      break;
+    case FROM_FRAMES:
+      if(getFrame(tframe))
+        frame_size = tframe.size();
+      break;
+    case FROM_VIDEO:
+      capture.read(tframe);                    // Consume first frame.
       capture.set(cv::CAP_PROP_POS_AVI_RATIO, 0);  // Rewind to beginning.
-      frame_size = frame.size();
-    }else{
-      cv::Mat tframe;
-      if(!getFrame(tframe)) return frame_size;
-      frame_size = tframe.size(); 
+      frame_size = tframe.size();
+    default:
+      break;
     }
   }
   return frame_size;
@@ -192,7 +202,18 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
     capture >> camera_frame_raw;
     // LOG(INFO)<<"CAPTURE"<< camera_frame_raw.cols;
     if (camera_frame_raw.empty()) return false;  // End of video.
-    cv::cvtColor(camera_frame_raw, camera_frame, cv::COLOR_BGR2RGB);
+    
+    cv::Mat rframe;
+    cv::Mat crop_img = camera_frame_raw(cv::Rect(186,0,268,480));
+    // std::cout<<camera_frame_raw.cols<<" "<<camera_frame_raw.rows<<std::endl;
+
+    // std::cout<<crop_img.cols<<" "<<crop_img.rows<<std::endl;
+    cv::resize(crop_img, rframe, cv::Size(430, 768),
+                 0, 0, cv::INTER_AREA);
+
+
+    cv::cvtColor(rframe, camera_frame, cv::COLOR_BGR2RGB);
+    // std::cout<<camera_frame.cols<<" "<<camera_frame.rows<<std::endl;
     
 
     if(FLAGS_output_frame_path.length() > 0)
@@ -205,22 +226,20 @@ bool GPUTask::getFrame(cv::Mat& camera_frame){
   return true;
 }
 bool GPUTask::postProcessVideo(cv::Mat frame){
-  // if () {
+  if (FLAGS_output_video_path.empty()) {
     cv::imshow(kWindowName, frame);
     
     if(FLAGS_output_framewpoint_path.length() > 0)
 		  cv::imwrite( FLAGS_output_framewpoint_path + std::to_string(frame_timestamp) +".png" , frame);
-    if(!FLAGS_output_video_path.empty())
-      writer.write(frame);
 
       const int pressed_key = cv::waitKey(5);
       if(pressed_key == 32){//space to pause
         while(cv::waitKey(0) != 32);
-      }else if(pressed_key == 27 || pressed_key == 81 || pressed_key == 113){//esc, q, Q to exit
-        writer.release();
+      }else if(pressed_key == 27 || pressed_key == 81 || pressed_key == 113)//esc, q, Q to exit
         return false;
-      }
-    // } else {
+    } else {
+      writer.write(frame);
+    }
     return true;
 }
 Status GPUTask::Run(){
@@ -237,6 +256,7 @@ Status GPUTask::Run(){
   // Wrap Mat into an ImageFrame.
 
   cv::Size m_frame_size = getFrameSize();
+  std::cout<<"size "<<m_frame_size.height<<"  "<< m_frame_size.width<<std::endl;
   auto input_frame = absl::make_unique<mediapipe::ImageFrame>(
       mediapipe::ImageFormat::SRGB, m_frame_size.width, m_frame_size.height,
       mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);

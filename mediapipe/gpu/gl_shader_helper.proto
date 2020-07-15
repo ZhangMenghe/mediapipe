@@ -30,5 +30,5 @@ message glShaderHelperOptions {
 //   optional string tex_path = 4;
   }
   repeated shaderInfo shader_files = 1;
-  
+  optional string shader_res_path = 2;
 }

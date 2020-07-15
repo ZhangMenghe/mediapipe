@@ -8,11 +8,22 @@ exports_files(["LICENSE"])
 #vrNative
 cc_library(
     name = "vrNative",
-    srcs = glob(
-        [
-            "build/libvrNative.so"
-        ],
-    ),
+    srcs = [
+        "platforms/desktop/utils/dicomLoader.cpp",
+        "platforms/desktop/utils/uiController.cpp",
+        "vrController.cpp",
+        "overlayController.cpp",
+        "Manager.cpp",
+        "dicomRenderer/raycastRenderer.cpp",
+        "dicomRenderer/texturebasedRenderer.cpp",
+        "dicomRenderer/cuttingController.cpp",
+        "dicomRenderer/colorbarRenderer.cpp",
+        "dicomRenderer/graphRenderer.cpp",
+        "dicomRenderer/screenQuad.cpp",
+        "GLPipeline/Shader.cpp",
+        "GLPipeline/Mesh.cpp",
+        "GLPipeline/Texture.cpp",
+    ],
     hdrs = glob(
         [
             "*.h",
@@ -20,12 +31,20 @@ cc_library(
             "dicomRenderer/*.h",
             "Utils/*.h",
             "platforms/*.h",
+            "platforms/desktop/*.h",
+            "platforms/desktop/utils/*.h",
         ]
     ),
     includes=[
-        "./"
+        "./",
+        "platforms/desktop",
+        "platforms/desktop/utils/*.h",
     ],
-    deps = ["@linux_opengl//:opengl",],
+    defines = ["MEDIAPIPE"],
+    deps = [
+        "@linux_opengl//:opengl",
+        "@linux_usr//:glm",
+    ],
     linkstatic = 1,
     visibility = ["//visibility:public"],
 )
@@ -58,6 +77,7 @@ cc_library(
         "@linux_opengl//:opengl",
         "@linux_usr//:glm",
     ],
+    # defines = ["ASSET_PATH=\"../app/src/main/assets/\""],
     visibility = ["//visibility:public"],
     alwayslink = 1,
 )

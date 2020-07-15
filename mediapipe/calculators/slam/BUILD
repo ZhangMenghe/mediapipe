@@ -6,8 +6,39 @@ exports_files(["LICENSE"])
 load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library")
 
 cc_library(
+    name = "helmsley_vr",
+    srcs = ["helmsley_vr.cc"],
+    hdrs = ["helmsley_vr.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/util:resource_util",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ]+ select({
+        "//mediapipe/gpu:disable_gpu": [],
+        "//conditions:default": [
+            "@helmsley_vr//:vrNative",
+
+            "@linux_usr//:glm",
+            
+        "//mediapipe/gpu/glPipeline:Shader",
+        "//mediapipe/gpu/glPipeline:Mesh",
+            "//mediapipe/gpu:gl_simple_shaders",
+
+
+            "//mediapipe/gpu:shader_util",    
+
+
+                    "//mediapipe/gpu:gl_base",
+
+        ],
+    }),
+    alwayslink = 1,
+)
+
+cc_library(
     name = "merge_slam_calculator",
-    srcs = ["merge_slam_calculator.cc",],
+    srcs = ["merge_slam_calculator.cc"],
     hdrs = ["slam_calculators.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -23,7 +54,8 @@ cc_library(
     ]+ select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
-            "@helmsley_vr//:HELMSLEY_VR",
+            ":helmsley_vr",
+            # "@helmsley_vr//:HELMSLEY_VR",
 
             "@linux_usr//:glm",
             

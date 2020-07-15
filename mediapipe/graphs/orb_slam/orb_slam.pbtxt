@@ -75,6 +75,8 @@ node: {
         frag_path : "mediapipe/res/shaders/raycastVolume.frag"
         geom_path : "mediapipe/res/shaders/raycastVolume.glsl"
       }
+      shader_res_path : "/home/eevee/Github/volume-rendering/app/src/main/assets/"
+      
       # shader_files{
       #   shader_name:"point"
       #   vs_path : "mediapipe/res/shaders/raycastVolume.vert"

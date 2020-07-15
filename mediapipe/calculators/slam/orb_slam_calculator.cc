@@ -93,12 +93,11 @@ REGISTER_CALCULATOR(OrbSLAMCalculator);
 		//calibration
 		SLAM->GetTracking()->GetCalibration(camera.intrinsic, camera.DistCoef);
 
-		// Pass the image to the SLAM system
 		camera.pose = SLAM->TrackMonocular(input_mat, (double)cc->InputTimestamp().Seconds());
 		camera.valid = !camera.pose.empty();
 		slam_data_out->camera = camera;
 		if(!camera.valid){
-			std::cout<<"INVALID CAMERA"<<std::endl;
+			// std::cout<<"INVALID CAMERA"<<std::endl;
 		 	cc->Outputs().Tag(kOutputSLAMTag).AddPacket(MakePacket<SLAMData*>(slam_data_out.get()).At(cc->InputTimestamp()));
 			return ::mediapipe::OkStatus();
 		}

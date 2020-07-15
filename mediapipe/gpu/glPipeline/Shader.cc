@@ -80,7 +80,7 @@ GLuint Shader::Use(){
     return p;
 }
 
-GLuint CompileShader(GLenum type, string content, vector<string> keywords) {
+GLuint Shader::CompileShader(GLenum type, string content, vector<string> keywords) {
     //construct key_word line
     string key_word_str = "";
     if(!keywords.empty()){
