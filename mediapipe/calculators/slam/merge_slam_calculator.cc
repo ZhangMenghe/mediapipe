@@ -6,7 +6,7 @@
 //gpu
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gpu_buffer.h"
-#include "mediapipe/gpu/gl_quad_renderer.h"
+#include "mediapipe/gpu/glrenderer/gl_arbg_renderer.h"
 #include "mediapipe/gpu/glrenderer/gl_point_renderer.h"
 #include "mediapipe/gpu/glrenderer/gl_cube_renderer.h"
 #include "mediapipe/calculators/slam/slam_calculators.h"
@@ -124,7 +124,7 @@ namespace {
 class MergeSLAMCalculator : public CalculatorBase {
 private:
     GlCalculatorHelper gpu_helper;
-    std::unique_ptr<QuadRenderer> quad_renderer_;
+    std::unique_ptr<backgroundRenderer> quad_renderer_;
     std::unique_ptr<PointRenderer> point_renderer_;
     std::unique_ptr<PointRenderer> ppoint_renderer_;
 
@@ -276,6 +276,7 @@ Status MergeSLAMCalculator::draw_objects(glm::mat4 vp){
       * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f)),
 			glm::vec4(.0, 0.8, 0.8, 1.0));
 }
+
 Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
     auto& input = cc->Inputs().Tag(kInputVideoTag).Get<GpuBuffer>();
     GlTexture src1 = gpu_helper.CreateSourceTexture(input);
@@ -287,14 +288,13 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(src1.target(), src1.name());
 
-    
     if(!quad_renderer_){
-        quad_renderer_ = absl::make_unique<QuadRenderer>();
+        quad_renderer_ = absl::make_unique<backgroundRenderer>();
         MP_RETURN_IF_ERROR(quad_renderer_->GlSetup());
     }
-    QuadRenderer* qrenderer = quad_renderer_.get();
     
-    MP_RETURN_IF_ERROR(qrenderer->GlRender(
+    
+    MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
       src1.width(), src1.height(), dst.width(), dst.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
       auto slam_data =  cc->Inputs().Tag(kInputSLAMTag).Get<SLAMData*>();
       auto cam = slam_data->camera;
@@ -314,12 +314,7 @@ Status MergeSLAMCalculator::RenderGPU(CalculatorContext* cc){
         // MP_RETURN_IF_ERROR(draw_objects(mvp_gl));
         dicom_->onDraw(view_mat, proj_mat, mvp_gl);
       }
-      // else{
-      //   std::cout<<"CAMERA in VALID"<<std::endl;
-
-      //   LOG(INFO)<<"CAMERA IN VALID";
         // draw_keypoints(point_renderer_.get(), slam_data->keyPoints, slam_data->kp_num);
-      // }
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(src1.target(), 0);

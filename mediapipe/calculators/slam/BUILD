@@ -64,7 +64,7 @@ cc_library(
             "//mediapipe/gpu:gl_simple_shaders",
             "//mediapipe/gpu/glrenderer:gl_point_renderer",
             "//mediapipe/gpu/glrenderer:gl_cube_renderer",
-           "//mediapipe/gpu:gl_quad_renderer",
+           "//mediapipe/gpu/glrenderer:gl_arbg_renderer",
 
             "//mediapipe/gpu:shader_util",
             "//mediapipe/util:resource_util",
@@ -95,7 +95,7 @@ cc_library(
             "@linux_usr//:glm",
             "//mediapipe/gpu:gl_calculator_helper",
             "//mediapipe/gpu:gl_simple_shaders",
-            "//mediapipe/gpu:gl_quad_renderer",
+            # "//mediapipe/gpu:gl_quad_renderer",
             "//mediapipe/gpu:shader_util",
         ],
     }),
