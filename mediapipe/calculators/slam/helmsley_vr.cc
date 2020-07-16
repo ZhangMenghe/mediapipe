@@ -33,7 +33,7 @@ void helmsleyVR::onSetup(std::string shader_path){
 
     //setup gl
     ui_.InitAll();
-	vrc->onViewCreated();
+	vrc->onViewCreated(false);
 	overlayController::instance()->onViewCreated();
 	ui_.AddTuneParams();
 

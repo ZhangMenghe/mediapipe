@@ -51,8 +51,8 @@ node: {
   #output_stream:"KEY_POINTS:key_points"
   options {
     [mediapipe.OrbSLAMCalculatorOptions.ext] {
-      # voc_path: "../data/slam/vocabulary.txt"
-      voc_path: "../data/slam/seevee.yml"
+      voc_path: "../data/slam/vocabulary.txt"
+      # voc_path: "../data/slam/seevee.yml"
       # camera_path: "../data/slam/camera.yaml"
       camera_path: "../data/slam/Microsoft_webcam.yaml"
 
