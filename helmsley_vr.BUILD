@@ -4,6 +4,31 @@ package(default_visibility = ["//visibility:private"])
 
 exports_files(["LICENSE"])
 
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+
+
+proto_library(
+    name = "helm_proto",
+    srcs = [
+        "proto/common.proto",
+        "proto/transManager.proto",
+        "proto/inspectorSync.proto",
+        ],
+)
+
+cc_proto_library(
+    name = "helm_cc_proto",
+    deps = [":helm_proto"],
+)
+
+cc_grpc_library(
+    name = "helm_cc_grpc",
+    srcs = [":helm_proto"],
+    grpc_only = True,
+    deps = [":helm_cc_proto"],
+)
 
 #vrNative
 cc_library(
@@ -23,7 +48,19 @@ cc_library(
         "GLPipeline/Shader.cpp",
         "GLPipeline/Mesh.cpp",
         "GLPipeline/Texture.cpp",
-    ],
+    ]+ select({
+            ":rpc_disabled": [],
+            "//conditions:default": [
+                "platforms/desktop/RPCs/rpcHandler.cpp",
+                # "platforms/desktop/RPCs/proto/transManager.grpc.pb.cc",
+                # "platforms/desktop/RPCs/proto/inspectorSync.grpc.pb.cc",
+                # "platforms/desktop/RPCs/proto/common.grpc.pb.cc",
+
+                # "platforms/desktop/RPCs/proto/transManager.pb.cc",
+                # "platforms/desktop/RPCs/proto/inspectorSync.pb.cc",
+                # "platforms/desktop/RPCs/proto/common.pb.cc",
+        ],
+    }),
     hdrs = glob(
         [
             "*.h",
@@ -34,50 +71,47 @@ cc_library(
             "platforms/desktop/*.h",
             "platforms/desktop/utils/*.h",
         ]
-    ),
+    )+ select({
+            ":rpc_disabled": [],
+            "//conditions:default": 
+                glob([
+                # "platforms/desktop/RPCs/proto/*.grpc.pb.h",
+                # "platforms/desktop/RPCs/proto/*.pb.h",
+                # "platforms/desktop/RPCs/proto/*.h",
+                "platforms/desktop/RPCs/*.h",]
+                )
+                
+    }),
     includes=[
         "./",
         "platforms/desktop",
         "platforms/desktop/utils/*.h",
     ],
-    defines = ["MEDIAPIPE"],
+    # + select({
+    #         ":rpc_disabled": [],
+    #         "//conditions:default": [
+    #             "platforms/desktop/RPCs"
+    #     ],
+    # }),
+    defines = ["MEDIAPIPE"]+ select({
+            ":rpc_disabled": [],
+            "//conditions:default": [
+                "RPC_ENABLED"
+        ],
+    }),
     deps = [
+        ":helm_cc_grpc",
+        "@com_github_grpc_grpc//:grpc++",
         "@linux_opengl//:opengl",
         "@linux_usr//:glm",
     ],
     linkstatic = 1,
     visibility = ["//visibility:public"],
 )
-
-cc_library(
-    name = "HELMSLEY_VR",
-    srcs = [
-        "platforms/desktop/utils/dicomLoader.cpp",
-        "platforms/desktop/utils/uiController.cpp",
-
-        # "platforms/desktop/RPCs/proto/transManager.grpc.pb.cc"
-        # "platforms/desktop/RPCs/proto/inspectorSync.grpc.pb.cc"
-        # "platforms/desktop/RPCs/proto/common.grpc.pb.cc"
-
-        # "platforms/desktop/RPCs/proto/transManager.pb.cc"
-        # "platforms/desktop/RPCs/proto/inspectorSync.pb.cc"
-        # "platforms/desktop/RPCs/proto/common.pb.cc"
-        ],
-    hdrs= glob([
-        "platforms/desktop/*.h",
-        "platforms/desktop/utils/*.h",
-        ]),
-    includes=[
-        "platforms/desktop",
-        "platforms/desktop/utils",
-        "./"
-        ],
-    deps = [
-        ":vrNative",
-        "@linux_opengl//:opengl",
-        "@linux_usr//:glm",
-    ],
-    # defines = ["ASSET_PATH=\"../app/src/main/assets/\""],
+config_setting(
+    name = "rpc_disabled",
+    define_values = {
+        "RPC_ENABLED": "0",
+    },
     visibility = ["//visibility:public"],
-    alwayslink = 1,
 )

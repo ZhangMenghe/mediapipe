@@ -3,20 +3,6 @@
 #include "mediapipe/framework/port/ret_check.h"
 
 using namespace std;
-// using namespace mediapipe;
-void helmsleyVR::onSetup(std::string shader_path, std::string vs_txt, std::string frag_txt){
-    Shader* shader_ = new Shader();
-     shader_->AddShader(GL_VERTEX_SHADER, vs_txt);
-    shader_->AddShader(GL_FRAGMENT_SHADER, frag_txt);
-    std::cout<<"before link "<<vs_txt<<std::endl;
-    if(shader_->CompileAndLink())
-    std::cout<<"vr succes"<<std::endl;
-    else
-    {
-           std::cout<<"fail"<<std::endl;
-
-    }
-}
 
 void helmsleyVR::onSetup(std::string shader_path){
     spath = shader_path;
@@ -27,10 +13,6 @@ void helmsleyVR::onSetup(std::string shader_path){
     loader_.setupDCMIConfig(512,512,144,-1,-1,-1,true);
     // std::cout<<"asdfasd"<<Manager::shader_contents[dvr::SHADER_TEXTUREVOLUME_VERT]<<std::endl;
     
-   
-    
-
-
     //setup gl
     ui_.InitAll();
 	vrc->onViewCreated(false);
@@ -49,15 +31,33 @@ void helmsleyVR::onSetup(std::string shader_path){
 		loader_.reset();
 	}
 
-    manager.onViewChange(640, 480);
+
+    #ifdef RPC_ENABLED
+        rpc_handler = new rpcHandler("localhost:23333");
+        rpc_thread = new thread(&rpcHandler::Run, rpc_handler);
+        rpc_handler->setManager(&manager_);
+        rpc_handler->setUIController(&ui_);
+        rpc_handler->setVRController(vrc);
+        rpc_handler->setDataLoader(&loader_);
+        std::cout<<"=========rpc====="<<std::endl;
+    #else
+        std::cout<<"====NO =====rpc====="<<std::endl;
+
+	#endif
+    std::cout<<"====print sth"<<std::endl;
+
+    manager_.onViewChange(640, 480);
 	vrc->onViewChange(640, 480);
 	overlayController::instance()->onViewChange(640, 480);
-
-    // vrc->onScale(.1f, 0.1f);
 }
 void helmsleyVR::onDraw(){
     vrc->onDraw();
 	// if(vrc->isDrawing()) overlayController::instance()->onDraw();
+    if(Manager::new_data_available){
+		Manager::new_data_available = false;
+		loader_.startToAssemble(vrc);
+		loader_.reset();
+	}
 }
 void helmsleyVR::onDraw(glm::mat4 view_mat, glm::mat4 proj_mat, glm::mat4 camera_pose_col_major_){
     Manager::camera->setProjMat(proj_mat);

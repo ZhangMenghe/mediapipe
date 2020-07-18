@@ -25,13 +25,15 @@ cc_library(
         "//mediapipe/gpu/glPipeline:Mesh",
             "//mediapipe/gpu:gl_simple_shaders",
 
-
             "//mediapipe/gpu:shader_util",    
-
-
-                    "//mediapipe/gpu:gl_base",
+             "//mediapipe/gpu:gl_base",
 
         ],
+    }),
+    # defines = ["RPC_ENABLED"],
+    defines = select({
+            ":irpc_disabled": [],
+            "//conditions:default": ["RPC_ENABLED"],
     }),
     alwayslink = 1,
 )
@@ -113,4 +115,11 @@ proto_library(
     srcs = ["orb_slam_calculator.proto"],
     visibility = ["//visibility:public"],
     deps = ["//mediapipe/framework:calculator_proto"],
+)
+config_setting(
+    name = "irpc_disabled",
+    define_values = {
+        "RPC_ENABLED": "0",
+    },
+    visibility = ["//visibility:public"],
 )
