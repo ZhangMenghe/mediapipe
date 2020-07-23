@@ -102,14 +102,14 @@ REGISTER_CALCULATOR(RectToRenderDataCalculator);
 
 ::mediapipe::Status RectToRenderDataCalculator::GetContract(
     CalculatorContract* cc) {
-  RET_CHECK_EQ((cc->Inputs().HasTag(kNormRectTag) ? 1 : 0) +
-                   (cc->Inputs().HasTag(kRectTag) ? 1 : 0) +
-                   (cc->Inputs().HasTag(kNormRectsTag) ? 1 : 0) +
-                   (cc->Inputs().HasTag(kRectsTag) ? 1 : 0),
-               1)
-      << "Exactly one of NORM_RECT, RECT, NORM_RECTS or RECTS input stream "
-         "should be provided.";
-  RET_CHECK(cc->Outputs().HasTag(kRenderDataTag));
+  // RET_CHECK_EQ((cc->Inputs().HasTag(kNormRectTag) ? 1 : 0) +
+  //                  (cc->Inputs().HasTag(kRectTag) ? 1 : 0) +
+  //                  (cc->Inputs().HasTag(kNormRectsTag) ? 1 : 0) +
+  //                  (cc->Inputs().HasTag(kRectsTag) ? 1 : 0),
+  //              1)
+  //     << "Exactly one of NORM_RECT, RECT, NORM_RECTS or RECTS input stream "
+  //        "should be provided.";
+  // RET_CHECK(cc->Outputs().HasTag(kRenderDataTag));
 
   if (cc->Inputs().HasTag(kNormRectTag)) {
     cc->Inputs().Tag(kNormRectTag).Set<NormalizedRect>();

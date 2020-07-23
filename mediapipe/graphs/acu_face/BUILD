@@ -27,7 +27,7 @@ cc_library(
         "//mediapipe/calculators/core:flow_limiter_calculator",
         "//mediapipe/calculators/core:previous_loopback_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
-        "//mediapipe/calculators/image:recolor_calculator",
+        "//mediapipe/calculators/merge:merge_face_calculator",
         "//mediapipe/calculators/image:set_alpha_calculator",
         "//mediapipe/calculators/tflite:tflite_converter_calculator",
         "//mediapipe/calculators/tflite:tflite_custom_op_resolver_calculator",
@@ -35,6 +35,7 @@ cc_library(
         "//mediapipe/calculators/tflite:tflite_tensors_to_segmentation_calculator",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
+        "//mediapipe/modules/face_landmark:face_landmark_front_gpu",
     ],
 )
 
