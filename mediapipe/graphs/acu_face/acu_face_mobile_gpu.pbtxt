@@ -155,7 +155,15 @@ node {
     }
   }
 }
-
+# Transfers the input image from GPU to CPU memory for the purpose of
+# demonstrating a CPU-based pipeline. Note that the input image on GPU has the
+# origin defined at the bottom-left corner (OpenGL convention). As a result,
+# the transferred image on CPU also shares the same representation.
+node: {
+  calculator: "GpuBufferToImageFrameCalculator"
+  input_stream: "hair_mask"
+  output_stream: "hair_mask_cpu"
+}
 # # Colors the hair segmentation with the color specified in the option.
 # node {
 #   calculator: "RecolorCalculator"
@@ -453,7 +461,7 @@ node {
 node {
   calculator: "FaceMergeCalculator"
   input_stream: "IMAGE_GPU:throttled_input_video"
-  input_stream: "MASK_GPU:hair_mask"
+  input_stream: "MASK:hair_mask_cpu"
   input_stream: "VECTOR:0:multi_face_landmarks_render_data"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
   input_stream: "DETECTIONS:face_detections"

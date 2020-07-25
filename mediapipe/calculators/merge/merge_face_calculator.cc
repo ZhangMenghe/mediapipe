@@ -249,6 +249,7 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 }
 
 ::mediapipe::Status FaceMergeCalculator::RenderCpu(CalculatorContext* cc) {
+  std::cout<<"render cpu"<<std::endl;
   if (cc->Inputs().Tag(kMaskCpuTag).IsEmpty()) {
     return ::mediapipe::OkStatus();
   }
@@ -310,21 +311,52 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 }
 
 ::mediapipe::Status FaceMergeCalculator::RenderGpu(CalculatorContext* cc) {
-  if (cc->Inputs().Tag(kMaskGpuTag).IsEmpty()) {
+  // if (cc->Inputs().Tag(kMaskGpuTag).IsEmpty()) {
+  //   return ::mediapipe::OkStatus();
+  // }
+  #if defined(MEDIAPIPE_DISABLE_GPU)
     return ::mediapipe::OkStatus();
-  }
-#if !defined(MEDIAPIPE_DISABLE_GPU)
+  #endif  
+
+
   // Get inputs and setup output.
   const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
-  const Packet& mask_packet = cc->Inputs().Tag(kMaskGpuTag).Value();
+  // const Packet& mask_packet = cc->Inputs().Tag(kMaskGpuTag).Value();
 
   const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
-  const auto& mask_buffer = mask_packet.Get<mediapipe::GpuBuffer>();
+  // const auto& mask_buffer = mask_packet.Get<mediapipe::GpuBuffer>();
 
   auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
-  auto mask_tex = gpu_helper_.CreateSourceTexture(mask_buffer);
+  // auto mask_tex = gpu_helper_.CreateSourceTexture(mask_buffer);
   auto dst_tex =
       gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
+
+
+
+  bool mask_cpu, mask_gpu = false;
+  mask_cpu = !cc->Inputs().Tag(kMaskCpuTag).IsEmpty();
+  // mask_gpu = !cc->Inputs().Tag(kMaskGpuTag).IsEmpty();
+  if ( !mask_cpu && !mask_gpu ) 
+    return ::mediapipe::OkStatus();
+  if(mask_cpu){
+    const auto& mask_img = cc->Inputs().Tag(kMaskCpuTag).Get<ImageFrame>();
+    cv::Mat mask_mat = formats::MatView(&mask_img);
+    std::cout<<"mask channel "<<mask_mat.channels()<<std::endl;
+
+      if (mask_mat.channels() > 1) {
+    std::vector<cv::Mat> channels;
+    cv::split(mask_mat, channels);
+    if (mask_channel_ == mediapipe::RecolorCalculatorOptions_MaskChannel_ALPHA)
+      mask_mat = channels[3];
+    else
+      mask_mat = channels[0];
+  }
+    // std::cout<<"after mask channel "<<mask_mat.channels()<<std::endl;
+    // std::cout<<"size: "<<mask_mat.size()<<std::endl;
+    cv::Mat mask_full;
+    cv::resize(mask_mat, mask_full, cv::Size(img_tex.width(), img_tex.height()));
+    // std::cout<<"size: "<<mask_full.size()<<std::endl;
+  }
 
   // Run recolor shader on GPU.
   {
@@ -332,17 +364,19 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(img_tex.target(), img_tex.name());
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(mask_tex.target(), mask_tex.name());
+    // glActiveTexture(GL_TEXTURE2);
+    // glBindTexture(mask_tex.target(), mask_tex.name());
 
     GlRender();
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // glActiveTexture(GL_TEXTURE2);
+    // glBindTexture(GL_TEXTURE_2D, 0);
 
 
     on_process_rects(cc);
     on_process_landmarks(cc);
+
+
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -355,9 +389,9 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 
   // Cleanup
   img_tex.Release();
-  mask_tex.Release();
+  // mask_tex.Release();
   dst_tex.Release();
-#endif  //  !MEDIAPIPE_DISABLE_GPU
+//  !MEDIAPIPE_DISABLE_GPU
 
   return ::mediapipe::OkStatus();
 }
@@ -498,18 +532,19 @@ void FaceMergeCalculator::GlRender() {
 
     in vec2 sample_coordinate;
     uniform sampler2D frame;
-    uniform sampler2D mask;
+    // uniform sampler2D mask;
     uniform vec3 recolor;
 
     void main() {
-      vec4 weight = texture2D(mask, sample_coordinate);
-      vec4 color1 = vec4(1.0);
-      vec4 color2 = vec4(recolor, 1.0);
+      // vec4 weight = texture2D(mask, sample_coordinate);
+      // vec4 color1 = vec4(1.0);
+      // vec4 color2 = vec4(recolor, 1.0);
 
-      float luminance = dot(color1.rgb, vec3(0.299, 0.587, 0.114));
-      float mix_value = weight.MASK_COMPONENT * luminance;
+      // float luminance = dot(color1.rgb, vec3(0.299, 0.587, 0.114));
+      // float mix_value = weight.MASK_COMPONENT * luminance;
 
-      fragColor = mix(color1, color2, mix_value);
+      // fragColor = mix(color1, color2, mix_value);
+      fragColor = texture2D(frame, sample_coordinate);
     }
   )";
 
@@ -520,7 +555,7 @@ void FaceMergeCalculator::GlRender() {
   RET_CHECK(program_) << "Problem initializing the program.";
   glUseProgram(program_);
   glUniform1i(glGetUniformLocation(program_, "frame"), 1);
-  glUniform1i(glGetUniformLocation(program_, "mask"), 2);
+  // glUniform1i(glGetUniformLocation(program_, "mask"), 2);
   glUniform3f(glGetUniformLocation(program_, "recolor"), color_[0] / 255.0,
               color_[1] / 255.0, color_[2] / 255.0);
 #endif  //  !MEDIAPIPE_DISABLE_GPU
