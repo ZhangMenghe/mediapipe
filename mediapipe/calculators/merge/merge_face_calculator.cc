@@ -109,6 +109,10 @@ class FaceMergeCalculator : public CalculatorBase {
   ::mediapipe::Status InitGpu(CalculatorContext* cc);
   ::mediapipe::Status RenderGpu(CalculatorContext* cc);
   ::mediapipe::Status RenderCpu(CalculatorContext* cc);
+
+
+  Status on_process_rects(CalculatorContext* cc);
+  Status on_process_landmarks(CalculatorContext* cc);
   void GlRender();
 
   bool initialized_ = false;
@@ -335,6 +339,11 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+
+    on_process_rects(cc);
+    on_process_landmarks(cc);
+
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();
@@ -353,6 +362,31 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
   return ::mediapipe::OkStatus();
 }
 
+Status FaceMergeCalculator::on_process_rects(CalculatorContext* cc) {
+    if (cc->Inputs().HasTag(kNormRectsTag) &&
+      !cc->Inputs().Tag(kNormRectsTag).IsEmpty()) {
+    const auto& rects =
+        cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>();
+    RET_CHECK(rects.size() == 1)<< "Multi-face not supported"; 
+    // int i=0;
+    // for (auto& rect : rects) {
+    //     std::cout<<"rect: "<<i<<std::endl;
+    //     std::cout<<"left : "<<rect.x_center() - rect.width() / 2.f<<"top"<<rect.y_center() - rect.height() / 2.f<<std::endl;
+
+
+    // //   auto* rectangle = NewRect(options_, render_data.get());
+    // //   SetRect(/*normalized=*/true, rect.x_center() - rect.width() / 2.f,
+    // //           rect.y_center() - rect.height() / 2.f, rect.width(),
+    // //           rect.height(), rect.rotation(), rectangle);
+    // }
+  }
+  return ::mediapipe::OkStatus();
+
+}
+Status FaceMergeCalculator::on_process_landmarks(CalculatorContext* cc){
+  return ::mediapipe::OkStatus();
+
+}
 void FaceMergeCalculator::GlRender() {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   static const GLfloat square_vertices[] = {
@@ -469,7 +503,7 @@ void FaceMergeCalculator::GlRender() {
 
     void main() {
       vec4 weight = texture2D(mask, sample_coordinate);
-      vec4 color1 = texture2D(frame, sample_coordinate);
+      vec4 color1 = vec4(1.0);
       vec4 color2 = vec4(recolor, 1.0);
 
       float luminance = dot(color1.rgb, vec3(0.299, 0.587, 0.114));
