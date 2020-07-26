@@ -27,9 +27,11 @@
 
 #include "mediapipe/framework/formats/detection.pb.h"
 #include "mediapipe/util/render_data.pb.h"
+#include "mediapipe/framework/formats/landmark.pb.h"
 
 
 #if !defined(MEDIAPIPE_DISABLE_GPU)
+#include "mediapipe/gpu/glrenderer/gl_arbg_renderer.h"
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gl_simple_shaders.h"
 #include "mediapipe/gpu/shader_util.h"
@@ -47,8 +49,10 @@ constexpr char kNormRectTag[] = "NORM_RECT";
 constexpr char kRectTag[] = "RECT";
 constexpr char kNormRectsTag[] = "NORM_RECTS";
 constexpr char kRectsTag[] = "RECTS";
-constexpr char kDetectionsTag[] = "DETECTIONS";
+
 constexpr char kInputLandMarksVectorTag[] = "VECTOR";
+constexpr char kLandmarksTag[] = "LANDMARKS";
+constexpr char kNormLandmarksTag[] = "NORM_LANDMARKS";
 
 
 }  // namespace
@@ -93,6 +97,16 @@ namespace mediapipe {
 //
 // Note: Cannot mix-match CPU & GPU inputs/outputs.
 //       CPU-in & CPU-out <or> GPU-in & GPU-out
+struct faceRect{
+	float xmin, ymin;
+	float width, height;
+	float rotation;
+	bool normalized;
+	faceRect(){}
+	faceRect(float xm, float ym, float w, float h, float r, bool bn){
+		xmin=xm;ymin=ym;width=w;height=h;rotation=r;normalized=bn;
+	}
+};
 class FaceMergeCalculator : public CalculatorBase {
  public:
   FaceMergeCalculator() = default;
@@ -110,8 +124,7 @@ class FaceMergeCalculator : public CalculatorBase {
   ::mediapipe::Status RenderGpu(CalculatorContext* cc);
   ::mediapipe::Status RenderCpu(CalculatorContext* cc);
 
-
-  Status on_process_rects(CalculatorContext* cc);
+  bool on_process_rects(CalculatorContext* cc, faceRect& fr);
   Status on_process_landmarks(CalculatorContext* cc);
   void GlRender();
 
@@ -121,39 +134,36 @@ class FaceMergeCalculator : public CalculatorBase {
 
   bool use_gpu_ = false;
 #if !defined(MEDIAPIPE_DISABLE_GPU)
-  mediapipe::GlCalculatorHelper gpu_helper_;
   GLuint program_ = 0;
+
+  	mediapipe::GlCalculatorHelper gpu_helper_;
+	std::unique_ptr<backgroundRenderer> quad_renderer_;
 #endif  //  !MEDIAPIPE_DISABLE_GPU
 };
 REGISTER_CALCULATOR(FaceMergeCalculator);
 
 // static
 ::mediapipe::Status FaceMergeCalculator::GetContract(CalculatorContract* cc) {
-  RET_CHECK(!cc->Inputs().GetTags().empty());
-  RET_CHECK(!cc->Outputs().GetTags().empty());
+RET_CHECK(!cc->Inputs().GetTags().empty());
+RET_CHECK(!cc->Outputs().GetTags().empty());
 
 //RECTS
-   if (cc->Inputs().HasTag(kNormRectTag)) {
-    cc->Inputs().Tag(kNormRectTag).Set<NormalizedRect>();
-  }
-  if (cc->Inputs().HasTag(kRectTag)) {
-    cc->Inputs().Tag(kRectTag).Set<Rect>();
-  }
-  if (cc->Inputs().HasTag(kNormRectsTag)) {
-    cc->Inputs().Tag(kNormRectsTag).Set<std::vector<NormalizedRect>>();
-  }
-  if (cc->Inputs().HasTag(kRectsTag)) {
-    cc->Inputs().Tag(kRectsTag).Set<std::vector<Rect>>();
-  }
+	if (cc->Inputs().HasTag(kNormRectTag)) {
+	cc->Inputs().Tag(kNormRectTag).Set<NormalizedRect>();
+	}
+	if (cc->Inputs().HasTag(kRectTag)) {
+	cc->Inputs().Tag(kRectTag).Set<Rect>();
+	}
+	if (cc->Inputs().HasTag(kNormRectsTag)) {
+	cc->Inputs().Tag(kNormRectsTag).Set<std::vector<NormalizedRect>>();
+	}
+	if (cc->Inputs().HasTag(kRectsTag)) {
+	cc->Inputs().Tag(kRectsTag).Set<std::vector<Rect>>();
+	}
 
-//Detections
-  if (cc->Inputs().HasTag(kDetectionsTag)) {
-    cc->Inputs().Tag(kDetectionsTag).Set<std::vector<Detection>>();
-  }
+  //landmarks
   if(cc->Inputs().HasTag(kInputLandMarksVectorTag)){
-      //todo:should be loop (iterator)
-    //   cc->Inputs().Tag(kLandmarkTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
-cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
+	cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
   }
   bool use_gpu = false;
 
@@ -311,115 +321,113 @@ cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<RenderData>>();
 }
 
 ::mediapipe::Status FaceMergeCalculator::RenderGpu(CalculatorContext* cc) {
-  // if (cc->Inputs().Tag(kMaskGpuTag).IsEmpty()) {
-  //   return ::mediapipe::OkStatus();
-  // }
-  #if defined(MEDIAPIPE_DISABLE_GPU)
-    return ::mediapipe::OkStatus();
-  #endif  
+	#if defined(MEDIAPIPE_DISABLE_GPU)
+		return ::mediapipe::OkStatus();
+	#endif
+	const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
+	faceRect fr;
+	if(!on_process_rects(cc, fr)){
+		cc->Outputs().Tag(kGpuBufferTag).AddPacket(input_packet);
+    	return ::mediapipe::OkStatus();
+	}
+	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
+	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
+	//prepare hair
+	if(!cc->Inputs().Tag(kMaskCpuTag).IsEmpty()){
+		const auto& mask_img = cc->Inputs().Tag(kMaskCpuTag).Get<ImageFrame>();
+		cv::Mat mask_mat = formats::MatView(&mask_img);
+		if (mask_mat.channels() > 1) {
+			std::vector<cv::Mat> channels;
+			cv::split(mask_mat, channels);
+			if (mask_channel_ == mediapipe::RecolorCalculatorOptions_MaskChannel_ALPHA)mask_mat = channels[3];
+			else mask_mat = channels[0];
+		}
+		cv::Mat mask_full;
+		cv::resize(mask_mat, mask_full, cv::Size(img_tex.width(), img_tex.height()));
+	}
+	//prepare landmarks
+	if(cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty()){
+		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+		auto landmarks = nlandmarks_vec[0];
+		// for(auto& landmarks:nlandmarks_vec)
+		// const LandmarkList& landmarks = cc->Inputs().Tag(kLandmarksTag).Get<LandmarkList>();
+		std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
+	}
 
-
-  // Get inputs and setup output.
-  const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
-  // const Packet& mask_packet = cc->Inputs().Tag(kMaskGpuTag).Value();
-
-  const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
-  // const auto& mask_buffer = mask_packet.Get<mediapipe::GpuBuffer>();
-
-  auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
-  // auto mask_tex = gpu_helper_.CreateSourceTexture(mask_buffer);
-  auto dst_tex =
-      gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
-
-
-
-  bool mask_cpu, mask_gpu = false;
-  mask_cpu = !cc->Inputs().Tag(kMaskCpuTag).IsEmpty();
-  // mask_gpu = !cc->Inputs().Tag(kMaskGpuTag).IsEmpty();
-  if ( !mask_cpu && !mask_gpu ) 
-    return ::mediapipe::OkStatus();
-  if(mask_cpu){
-    const auto& mask_img = cc->Inputs().Tag(kMaskCpuTag).Get<ImageFrame>();
-    cv::Mat mask_mat = formats::MatView(&mask_img);
-    std::cout<<"mask channel "<<mask_mat.channels()<<std::endl;
-
-      if (mask_mat.channels() > 1) {
-    std::vector<cv::Mat> channels;
-    cv::split(mask_mat, channels);
-    if (mask_channel_ == mediapipe::RecolorCalculatorOptions_MaskChannel_ALPHA)
-      mask_mat = channels[3];
-    else
-      mask_mat = channels[0];
-  }
-    // std::cout<<"after mask channel "<<mask_mat.channels()<<std::endl;
-    // std::cout<<"size: "<<mask_mat.size()<<std::endl;
-    cv::Mat mask_full;
-    cv::resize(mask_mat, mask_full, cv::Size(img_tex.width(), img_tex.height()));
-    // std::cout<<"size: "<<mask_full.size()<<std::endl;
-  }
-
-  // Run recolor shader on GPU.
+	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
+    if(!quad_renderer_){
+        quad_renderer_ = absl::make_unique<backgroundRenderer>();
+        MP_RETURN_IF_ERROR(quad_renderer_->GlSetup());
+    }
+	
+	//begin to draw
   {
     gpu_helper_.BindFramebuffer(dst_tex);  // GL_TEXTURE0
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(img_tex.target(), img_tex.name());
-    // glActiveTexture(GL_TEXTURE2);
-    // glBindTexture(mask_tex.target(), mask_tex.name());
 
-    GlRender();
+    MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
+    img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
 
-    // glActiveTexture(GL_TEXTURE2);
-    // glBindTexture(GL_TEXTURE_2D, 0);
-
-
-    on_process_rects(cc);
-    on_process_landmarks(cc);
-
-
-
+	//draw others here
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();
   }
-
-  // Send result image in GPU packet.
-  auto output = dst_tex.GetFrame<mediapipe::GpuBuffer>();
-  cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
-
-  // Cleanup
-  img_tex.Release();
-  // mask_tex.Release();
-  dst_tex.Release();
-//  !MEDIAPIPE_DISABLE_GPU
-
-  return ::mediapipe::OkStatus();
+	// Send result image in GPU packet.
+	auto output = dst_tex.GetFrame<mediapipe::GpuBuffer>();
+	cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
+	img_tex.Release();
+	dst_tex.Release();
+	return ::mediapipe::OkStatus();
 }
 
-Status FaceMergeCalculator::on_process_rects(CalculatorContext* cc) {
-    if (cc->Inputs().HasTag(kNormRectsTag) &&
-      !cc->Inputs().Tag(kNormRectsTag).IsEmpty()) {
-    const auto& rects =
-        cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>();
-    RET_CHECK(rects.size() == 1)<< "Multi-face not supported"; 
-    // int i=0;
-    // for (auto& rect : rects) {
-    //     std::cout<<"rect: "<<i<<std::endl;
-    //     std::cout<<"left : "<<rect.x_center() - rect.width() / 2.f<<"top"<<rect.y_center() - rect.height() / 2.f<<std::endl;
-
-
-    // //   auto* rectangle = NewRect(options_, render_data.get());
-    // //   SetRect(/*normalized=*/true, rect.x_center() - rect.width() / 2.f,
-    // //           rect.y_center() - rect.height() / 2.f, rect.width(),
-    // //           rect.height(), rect.rotation(), rectangle);
-    // }
-  }
-  return ::mediapipe::OkStatus();
-
+bool FaceMergeCalculator::on_process_rects(CalculatorContext* cc, faceRect& fr) {
+	if (cc->Inputs().HasTag(kNormRectTag) && !cc->Inputs().Tag(kNormRectTag).IsEmpty()) {
+		const auto& rect = cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>();
+		fr=faceRect(rect.x_center() - rect.width() / 2.f,
+		rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
+		rect.rotation(), true);
+	}else if(cc->Inputs().HasTag(kRectTag) && !cc->Inputs().Tag(kRectTag).IsEmpty()) {
+		const auto& rect = cc->Inputs().Tag(kRectTag).Get<Rect>();
+		fr=faceRect( rect.x_center() - rect.width() / 2.f,
+		rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
+		rect.rotation(), false);
+	}else if (cc->Inputs().HasTag(kNormRectsTag) && !cc->Inputs().Tag(kNormRectsTag).IsEmpty()) {
+		const auto& rects = cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>();
+		if(rects.size() != 1){
+			std::cerr<< "Multi-face not supported";
+			return false;
+		} 
+		auto rect = rects[0];
+		fr=faceRect(rect.x_center() - rect.width() / 2.f, rect.y_center() - rect.height() / 2.f, rect.width(),rect.height(), rect.rotation(), true);
+	}else if(cc->Inputs().HasTag(kRectsTag) &&!cc->Inputs().Tag(kRectsTag).IsEmpty()) {
+		const auto& rects = cc->Inputs().Tag(kRectsTag).Get<std::vector<Rect>>();
+		if(rects.size() != 1){
+			std::cerr<< "Multi-face not supported";
+			return false;
+		} 
+		auto rect = rects[0];
+		fr=faceRect(rect.x_center() - rect.width() / 2.f,rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(), rect.rotation(), false);
+	}else{
+		return false;
+	}
+	return true;
 }
 Status FaceMergeCalculator::on_process_landmarks(CalculatorContext* cc){
-  return ::mediapipe::OkStatus();
+  if(cc->Inputs().HasTag(kInputLandMarksVectorTag) && cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty())
+    return ::mediapipe::OkStatus();
 
+auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+for(auto& landmarks:nlandmarks_vec)
+// const LandmarkList& landmarks = cc->Inputs().Tag(kLandmarksTag).Get<LandmarkList>();
+
+std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
+
+return ::mediapipe::OkStatus();
+
+        
 }
 void FaceMergeCalculator::GlRender() {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
