@@ -368,7 +368,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     glBindTexture(img_tex.target(), img_tex.name());
 
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
-    img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
+    img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, true, false, false));
 
 	//draw others here
     glActiveTexture(GL_TEXTURE1);

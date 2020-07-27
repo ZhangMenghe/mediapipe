@@ -66,57 +66,57 @@ void backgroundRenderer::GlTeardown() {
     glUniform1i(frame_unifs_[i], i + 1);
   }
 
-//   // Determine scale parameter.
-//   if (rotation == FrameRotation::k90 || rotation == FrameRotation::k270) {
-//     std::swap(frame_width, frame_height);
-//   }
-//   GLfloat scale_width = frame_width / view_width;
-//   GLfloat scale_height = frame_height / view_height;
-//   GLfloat scale_adjust;
+  // Determine scale parameter.
+  if (rotation == FrameRotation::k90 || rotation == FrameRotation::k270) {
+    std::swap(frame_width, frame_height);
+  }
+  GLfloat scale_width = frame_width / view_width;
+  GLfloat scale_height = frame_height / view_height;
+  GLfloat scale_adjust;
 
-//   switch (scale_mode) {
-//     case FrameScaleMode::kStretch:
-//       scale_width = scale_height = 1.0;
-//       break;
-//     case FrameScaleMode::kFillAndCrop:
-//       // Make the smallest dimension touch the edge.
-//       scale_adjust = std::min(scale_width, scale_height);
-//       scale_width /= scale_adjust;
-//       scale_height /= scale_adjust;
-//       break;
-//     case FrameScaleMode::kFit:
-//       // Make the largest dimension touch the edge.
-//       scale_adjust = std::max(scale_width, scale_height);
-//       scale_width /= scale_adjust;
-//       scale_height /= scale_adjust;
-//       break;
-//   }
+  switch (scale_mode) {
+    case FrameScaleMode::kStretch:
+      scale_width = scale_height = 1.0;
+      break;
+    case FrameScaleMode::kFillAndCrop:
+      // Make the smallest dimension touch the edge.
+      scale_adjust = std::min(scale_width, scale_height);
+      scale_width /= scale_adjust;
+      scale_height /= scale_adjust;
+      break;
+    case FrameScaleMode::kFit:
+      // Make the largest dimension touch the edge.
+      scale_adjust = std::max(scale_width, scale_height);
+      scale_width /= scale_adjust;
+      scale_height /= scale_adjust;
+      break;
+  }
 
-//   const int h_flip_factor = flip_horizontal ? -1 : 1;
-//   const int v_flip_factor = flip_vertical ? -1 : 1;
-//   GLfloat scale[] = {scale_width * h_flip_factor, scale_height * v_flip_factor,
-//                      1.0, 1.0};
-    GLfloat tmp[4] = {
-        1.0f, 1.0f, 1.0f, 1.0f
-    };
-  glUniform4fv(scale_unif_, 1, tmp);
+  const int h_flip_factor = flip_horizontal ? -1 : 1;
+  const int v_flip_factor = flip_vertical ? -1 : 1;
+  GLfloat scale[] = {scale_width * h_flip_factor, scale_height * v_flip_factor,
+                     1.0, 1.0};
+    // GLfloat tmp[4] = {
+    //     1.0f, 1.0f, 1.0f, 1.0f
+    // };
+  glUniform4fv(scale_unif_, 1, scale);
 
   // Choose vertices for rotation.
   const GLfloat* vertices;  // quad used to render the texture.
-//   switch (rotation) {
-//     case FrameRotation::kNone:
+  switch (rotation) {
+    case FrameRotation::kNone:
       vertices = kBasicSquareVertices;
-//       break;
-//     case FrameRotation::k90:
-//       vertices = kBasicSquareVertices90;
-//       break;
-//     case FrameRotation::k180:
-//       vertices = kBasicSquareVertices180;
-//       break;
-//     case FrameRotation::k270:
-//       vertices = kBasicSquareVertices270;
-//       break;
-//   }
+      break;
+    case FrameRotation::k90:
+      vertices = kBasicSquareVertices90;
+      break;
+    case FrameRotation::k180:
+      vertices = kBasicSquareVertices180;
+      break;
+    case FrameRotation::k270:
+      vertices = kBasicSquareVertices270;
+      break;
+  }
 
   // Draw.
 
