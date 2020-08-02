@@ -1,0 +1,14 @@
+Channel,ID,NameC,NameE,FaceMeshX,FaceMeshY,Localizaion
+RHD,1,印堂穴,Yintang,"Avg(GetX(#8), GetX(#9))","Avg(GetY(#8), GetY(#9))",Midway between the medial ends of the eyebrows
+RHD,2,前发际正中,middle of anterior hairline,GetX(RHD1),GetY(RHD1)+3*U,intersection of anterior hairline and anterior midline
+RHD,3,瞳孔(目中),pupil,"[Avg(GetX(#362), GetX(#263)),Avg(GetX(#133), GetX(#23))]","[Avg(GetY(#362), GetY(#263)),Avg(GetY(#133), GetY(#23))]",Midway between the inner and outer canthus
+,,,,,,
+Channel,ID,NameC,NameE,FaceMeshX,FaceMeshY,Localizaion
+LI,19,口禾髎,Kouheliao,"[GetX(#305),GetX(#75)]",(GetY(#2)-GetY(#0))/3 + GetY(#0),"directly inferior to the lateral margin of the nostril,level with GV 26"
+LI,20,迎香,Yingxiang,"[GetX(#358)+0.5*U,GetX(#129)-0.5*U]","Avg(GetY(#358),GetY(#129))",0.5 cun lateral to the nostril.
+ST,1,承泣,Chengqi,GetX(RHD3),"[GetY(#253),GetY(#23)]","On the face,on the inferior border of the orbit, in the orbicularis oculi muscle, directly below the pupil when eyes are focused forward"
+ST,2,四白,Sibai,GetX(RHD3),GetY(ST1)-0.5*U,"On the face,on the infraorbital foramen, 0.5 cun inferior to ST 1 when eyes are focused forward"
+ST,3,巨髎,Juliao,GetX(RHD3),GetY(#2),"On the face,level with the border of the ala nasi, in line with the pupil when the eyes are focused forward"
+ST,4,地仓,Dicang,GetX(RHD3),"Avg(GetY(#291), GetY(#61))","On the face,0.4 cun lateral to the corner of the mouth, in line with the pupil when the eyes are focused forward"
+ST,6,颊车,Jiache,"[GetX(#167),GetX(#138)]","[GetY(#167),GetY(#138)]","On the cheek, 1 cun anterior and superior to the angle of the mandible, in the belly of masseter muscle"
+ST,7,下关,Xiaguan,"[GetX(#117),GetX(#227)]",GetY(ST2),"On the lateral face, in the depression at the lower border of the zygomatic arch, anterior to the condyloid process of the mandible. ST 7 is located with the mouth closed."

@@ -4,7 +4,29 @@ package(default_visibility = ["//visibility:private"])
 
 exports_files(["LICENSE"])
 load("//mediapipe/framework/port:build_config.bzl", "mediapipe_cc_proto_library")
-
+cc_library(
+    name = "face_acu_generator",
+    srcs = ["acu_generator.cc"],
+    hdrs = ["acu_generator.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/util:resource_util",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ]+ select({
+        "//mediapipe/gpu:disable_gpu": [],
+        "//conditions:default": [
+            "@linux_usr//:glm",
+            "//mediapipe/gpu/glPipeline:Shader",
+            "//mediapipe/gpu/glPipeline:Mesh",
+            "//mediapipe/gpu:gl_simple_shaders",
+            "//mediapipe/gpu:shader_util",    
+            "//mediapipe/gpu:gl_base",
+        ],
+    }),
+    alwayslink = 1,
+)
 cc_library(
     name = "merge_face_calculator",
     srcs = ["merge_face_calculator.cc"],
@@ -28,9 +50,10 @@ cc_library(
     ] + select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
-           "//mediapipe/gpu/glrenderer:gl_arbg_renderer",
-
+            ":face_acu_generator",
+            "//mediapipe/gpu/glrenderer:gl_arbg_renderer",
             "//mediapipe/gpu:gl_calculator_helper",
+            "//mediapipe/gpu:gl_shader_helper_cc_proto",
             "//mediapipe/gpu:gl_simple_shaders",
             "//mediapipe/gpu:gl_quad_renderer",
             "//mediapipe/gpu:shader_util",

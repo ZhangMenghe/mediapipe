@@ -28,6 +28,7 @@
 #include "mediapipe/framework/formats/detection.pb.h"
 #include "mediapipe/util/render_data.pb.h"
 #include "mediapipe/framework/formats/landmark.pb.h"
+#include "mediapipe/calculators/merge/acu_generator.h"
 
 
 #if !defined(MEDIAPIPE_DISABLE_GPU)
@@ -35,6 +36,8 @@
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gl_simple_shaders.h"
 #include "mediapipe/gpu/shader_util.h"
+#include "mediapipe/gpu/gl_shader_helper.pb.h"
+
 #endif  //  !MEDIAPIPE_DISABLE_GPU
 
 namespace {
@@ -97,16 +100,7 @@ namespace mediapipe {
 //
 // Note: Cannot mix-match CPU & GPU inputs/outputs.
 //       CPU-in & CPU-out <or> GPU-in & GPU-out
-struct faceRect{
-	float xmin, ymin;
-	float width, height;
-	float rotation;
-	bool normalized;
-	faceRect(){}
-	faceRect(float xm, float ym, float w, float h, float r, bool bn){
-		xmin=xm;ymin=ym;width=w;height=h;rotation=r;normalized=bn;
-	}
-};
+
 class FaceMergeCalculator : public CalculatorBase {
  public:
   FaceMergeCalculator() = default;
@@ -135,6 +129,8 @@ class FaceMergeCalculator : public CalculatorBase {
   bool use_gpu_ = false;
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   GLuint program_ = 0;
+  float *lmpoints = nullptr;
+	std::unique_ptr<acuGenerator> acu_generator;
 
   	mediapipe::GlCalculatorHelper gpu_helper_;
 	std::unique_ptr<backgroundRenderer> quad_renderer_;
@@ -223,6 +219,8 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 #endif  //  !MEDIAPIPE_DISABLE_GPU
   }
 
+  acu_generator = absl::make_unique<acuGenerator>();
+  
   MP_RETURN_IF_ERROR(LoadOptions(cc));
 
   return ::mediapipe::OkStatus();
@@ -333,6 +331,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
 	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
 	//prepare hair
+	cv::Mat mask_full;
 	if(!cc->Inputs().Tag(kMaskCpuTag).IsEmpty()){
 		const auto& mask_img = cc->Inputs().Tag(kMaskCpuTag).Get<ImageFrame>();
 		cv::Mat mask_mat = formats::MatView(&mask_img);
@@ -342,16 +341,19 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 			if (mask_channel_ == mediapipe::RecolorCalculatorOptions_MaskChannel_ALPHA)mask_mat = channels[3];
 			else mask_mat = channels[0];
 		}
-		cv::Mat mask_full;
 		cv::resize(mask_mat, mask_full, cv::Size(img_tex.width(), img_tex.height()));
 	}
+  bool land_mark_valid = false;
 	//prepare landmarks
 	if(cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty()){
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
-		// for(auto& landmarks:nlandmarks_vec)
-		// const LandmarkList& landmarks = cc->Inputs().Tag(kLandmarksTag).Get<LandmarkList>();
-		std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
+    if(lmpoints == nullptr) lmpoints = new float[3*landmarks.landmark_size()];
+    for(int i=0; i<landmarks.landmark_size();i++){
+      const NormalizedLandmark& landmark = landmarks.landmark(i);
+      lmpoints[3*i] = landmark.x();lmpoints[3*i+1] = landmark.y();lmpoints[3*i+2] = landmark.z();
+    }
+    land_mark_valid = true;
 	}
 
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
@@ -369,7 +371,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
     img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, true, false, false));
-
+    acu_generator->onDraw(fr, mask_full, land_mark_valid?lmpoints:nullptr);
 	//draw others here
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -482,15 +484,17 @@ void FaceMergeCalculator::GlRender() {
 }
 
 ::mediapipe::Status FaceMergeCalculator::LoadOptions(CalculatorContext* cc) {
-  const auto& options = cc->Options<mediapipe::RecolorCalculatorOptions>();
+  // const auto& options = cc->Options<mediapipe::RecolorCalculatorOptions>();
 
-  mask_channel_ = options.mask_channel();
+  // mask_channel_ = options.mask_channel();
 
-  if (!options.has_color()) RET_CHECK_FAIL() << "Missing color option.";
+  // if (!options.has_color()) RET_CHECK_FAIL() << "Missing color option.";
 
-  color_.push_back(options.color().r());
-  color_.push_back(options.color().g());
-  color_.push_back(options.color().b());
+  color_.push_back(0);
+  color_.push_back(0);
+  color_.push_back(0);
+	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
+  acu_generator->onSetup(options.shader_res_path());
 
   return ::mediapipe::OkStatus();
 }

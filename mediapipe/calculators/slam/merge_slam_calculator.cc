@@ -370,8 +370,6 @@ Status MergeSLAMCalculator::LoadOptions(
   // Get calculator options specified in the graph.
 	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
   
-
-
   if(options.shader_files_size()){
       dicom_ = absl::make_unique<helmsleyVR>();
     dicom_->onSetup(options.shader_res_path());

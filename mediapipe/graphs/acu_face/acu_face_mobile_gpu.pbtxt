@@ -185,10 +185,12 @@ node {
   input_stream: "VECTOR:multi_face_landmarks"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
   output_stream: "IMAGE_GPU:output_video"
-  node_options: {
-    [type.googleapis.com/mediapipe.RecolorCalculatorOptions] {
-      color { r: 0 g: 0 b: 255 }
-      mask_channel: RED
+
+  options {
+    [mediapipe.glShaderHelperOptions.ext] {
+
+      shader_res_path : "/home/eevee/Github/volume-rendering/app/src/main/assets/"
+
     }
   }
 }
