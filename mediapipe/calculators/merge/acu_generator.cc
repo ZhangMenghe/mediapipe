@@ -65,7 +65,7 @@ bool acuGenerator::getXY(std::string content, float&r1, float&r2, int& pid){
     if(rtype == '#'){
         int rid = std::stof(content.substr (ns,pid-1-ns));
         // std::cout<<"rid: "<<rid<<std::endl;
-        r1 = (func_name == "GetX")? ptr[2*rid]:ptr[2*rid+1];
+        r1 = (func_name == "GetX")? ptr[3*rid]:ptr[3*rid+1];
     }else{
         std::string key = content.substr(ns-1, pid-ns);
         // std::cout<<"getxy key: "<<key<<std::endl;
@@ -224,26 +224,100 @@ void acuGenerator::on_process(std::map<std::string,acuPoint>& mp){
         // std::cout<<"map assign: "<<((p.second.symmetry)?"sym":"")<<" "<<p.first<<"->"<<glm::to_string(p.second.p1)<<","<<glm::to_string(p.second.p2)<<std::endl;
     }
 }
-void acuGenerator:: onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
+/*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
+void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
     //get unit size
-    auto ms = hair_mask.size();
     
-    float ry = (points[17] + points[19]) * 0.5f;
-    int y = int((1.0-(ry+0.5)) * ms.height);
-    int x = ((points[16] + points[18])*0.5 + 0.5) * ms.width;
-    while(hair_mask.at<uchar>(y--,x) == 0);
+    mask = hair_mask.clone();
+    auto ms = hair_mask.size();
+    int ref_RHD1_ids[2]={8,9};
+    float ref_RHD1_y = avg(points[3*ref_RHD1_ids[0]+1], points[3*ref_RHD1_ids[1]+1]);
+    int ref_RHD1_x_abs = avg(points[3*ref_RHD1_ids[0]], points[3*ref_RHD1_ids[1]]) * ms.width;
 
-    if(y == 0)return;
+    int ref_RHD1_y_abs = ref_RHD1_y* ms.height;
 
-    unit_size = (((1.0 - float(y) / ms.height) - 0.5) - ry) /3;
-    std::cout<<"cal unit size: "<<unit_size<<std::endl;
+    // std::cout<<"hair before "<<ref_RHD1_y_abs<<std::endl;
+    while(hair_mask.at<uchar>(ref_RHD1_y_abs--,ref_RHD1_x_abs)* (1.0 / 255.0) < 0.5);
+    // std::cout<<"hair after "<<ref_RHD1_y_abs<<std::endl;
 
+    if(ref_RHD1_y_abs < 0)return;
+    unit_size = abs(float(ref_RHD1_y_abs)/ms.height - ref_RHD1_y)/3.0f;
     ptr = points;
     
     on_process(acu_ref_map);
     on_process(acu_map);
+
     ptr = nullptr;
+
+    // if(points==nullptr) return;
+    // ptr = points;
 }
+/*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
+void acuGenerator::getDrawingPoints(float*& points, int& num){
+    /*cv::Size ms = mask.size();
+    std::vector<float> buff;
+    for(int y=0;y<ms.height;y++){
+        for(int x=0; x<ms.width;x++){
+            if(mask.at<uchar>(y,x)* (1.0 / 255.0) > 0.5){
+                buff.push_back(float(x)/ms.width);
+                buff.push_back(float(y)/ms.height);
+                std::cout<<"y: "<<float(y)/ms.height<<std::endl;
+                buff.push_back(.0f);
+                buff.push_back(.0f);
+
+            }
+        }
+    }
+    num = buff.size()/4;
+    points = buff.data();*/
+    if(total_num == 0){
+        for(auto p : acu_ref_map)total_num+= p.second.symmetry?2:1;
+        for(auto p : acu_map)total_num+= p.second.symmetry?2:1;
+        std::cout<<"----total num-----"<<total_num<<std::endl;
+        points = new float[4 * total_num];
+    }
+    num = total_num;
+    int idx = 0;
+    for(auto p : acu_ref_map){
+        points[4*idx]  = p.second.p1.x;
+        points[4*idx+1]  = p.second.p1.y;
+        idx++;
+        if(p.second.symmetry){
+            points[4*idx]  = p.second.p2.x;
+            points[4*idx+1]  = p.second.p2.y;
+            idx++;
+        }
+        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
+    }
+        
+    for(auto p : acu_map){
+        points[4*idx]  = p.second.p1.x;
+        points[4*idx+1]  = p.second.p1.y;
+        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
+
+        idx++;
+        if(p.second.symmetry){
+            points[4*idx]  = p.second.p2.x;
+            points[4*idx+1]  = p.second.p2.y;
+        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
+
+            idx++;
+        }
+    }
+
+    /*draw all 468 points
+    // num = 468;
+    // points = new float [4 * num];
+    // for(int i=0;i<num;i++){
+    //     points[4*i] = ptr[3*i];//*2.0-1.0;
+    //     points[4*i+1] = ptr[3*i+1];//*2.0-1.0;
+    //     // if(points[4*i]<-1 || points[4*i]>1) std::cout<<"x outside "<<points[4*i]<<std::endl;
+    //     // if(points[4*i+1]<-1 || points[4*i+1]>1) std::cout<<"y outside "<<points[4*i+1]<<std::endl;
+
+    // }
+    */
+}
+
 void acuGenerator::onDestroy(){
     
 }

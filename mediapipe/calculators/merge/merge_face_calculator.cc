@@ -33,6 +33,7 @@
 
 #if !defined(MEDIAPIPE_DISABLE_GPU)
 #include "mediapipe/gpu/glrenderer/gl_arbg_renderer.h"
+#include "mediapipe/gpu/glrenderer/gl_point_renderer.h"
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gl_simple_shaders.h"
 #include "mediapipe/gpu/shader_util.h"
@@ -121,11 +122,11 @@ class FaceMergeCalculator : public CalculatorBase {
   bool on_process_rects(CalculatorContext* cc, faceRect& fr);
   Status on_process_landmarks(CalculatorContext* cc);
   void GlRender();
-
+  float* point_data;
   bool initialized_ = false;
   std::vector<float> color_;
   mediapipe::RecolorCalculatorOptions::MaskChannel mask_channel_;
-
+std::unique_ptr<PointRenderer> point_renderer_;
   bool use_gpu_ = false;
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   GLuint program_ = 0;
@@ -370,9 +371,12 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     glBindTexture(img_tex.target(), img_tex.name());
 
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
-    img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, true, false, false));
+    img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
     acu_generator->onDraw(fr, mask_full, land_mark_valid?lmpoints:nullptr);
-	//draw others here
+    int num;
+    acu_generator->getDrawingPoints(point_data, num);
+    point_renderer_->GlRender(glm::mat4(1.0),point_data, num);
+  //draw others here
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();
@@ -495,7 +499,8 @@ void FaceMergeCalculator::GlRender() {
   color_.push_back(0);
 	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
   acu_generator->onSetup(options.shader_res_path());
-
+  point_renderer_ = absl::make_unique<PointRenderer>();
+  MP_RETURN_IF_ERROR(point_renderer_->GlSetup());
   return ::mediapipe::OkStatus();
 }
 

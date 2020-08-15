@@ -52,6 +52,7 @@ cc_library(
         "//conditions:default": [
             ":face_acu_generator",
             "//mediapipe/gpu/glrenderer:gl_arbg_renderer",
+            "//mediapipe/gpu/glrenderer:gl_point_renderer",
             "//mediapipe/gpu:gl_calculator_helper",
             "//mediapipe/gpu:gl_shader_helper_cc_proto",
             "//mediapipe/gpu:gl_simple_shaders",

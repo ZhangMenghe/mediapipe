@@ -17,7 +17,18 @@ namespace{
   const GLchar* attr_name[NUM_ATTRIBUTES] = {
       "position"
   };
-  GlhCreateProgram(kNoTextureVertexShader, kFlatColorFragmentShader, NUM_ATTRIBUTES,
+
+  const GLchar* const point_2d_vert =
+  " in vec4 position;\n"
+    "uniform float point_size;\n"
+    "uniform mat4 mvp;\n"
+    "void main() {\n"
+    " gl_PointSize = point_size;\n"
+    " gl_Position = mvp * vec4(position.xy*2.0-1.0, position.z, 1.0);\n"
+    "}";
+
+
+  GlhCreateProgram(point_2d_vert, kFlatColorFragmentShader, NUM_ATTRIBUTES,
                    &attr_name[0], attr_location, &program_);
   RET_CHECK(program_) << "Problem initializing the program.";
 

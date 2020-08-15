@@ -1,6 +1,8 @@
 #ifndef FACE_ACU_GENERATOR_H
 #define FACE_ACU_GENERATOR_H
 
+#define avg(X,Y) (X+Y)*0.5
+
 #include "mediapipe/framework/port/opencv_core_inc.h"
 #include <map>
 #include <algorithm> 
@@ -51,6 +53,9 @@ private:
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
 	const float * ptr = nullptr;
 	float unit_size = .0f;
+	int total_num = 0;
+	cv::Mat mask;
+	float tmp[2];
 
 	void on_process(std::map<std::string,acuPoint>& mp);
     void setup_shader_content();
@@ -59,10 +64,12 @@ private:
 	bool getXY(std::string content, float& r1, float& r2, int& pid);
 	bool get_avg_value(std::string content, float& r1, float& r2, int& pid);
 	std::vector<float> process_line(std::string content);
+	float getGLPos(float p){return p*2.0f-1.0f;}
 public:
 	void onSetup(std::string shader_path);
     void onDraw(faceRect rect, cv::Mat hair_mask, const float* points);
     void onDestroy();
+	void getDrawingPoints(float*& points, int& num);
 };
 }
 #endif
