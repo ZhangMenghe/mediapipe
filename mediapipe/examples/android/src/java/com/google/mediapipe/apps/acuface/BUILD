@@ -39,7 +39,8 @@ android_binary(
         "//mediapipe/graphs/acu_face:mobile_gpu.binarypb",
         "//mediapipe/models:hair_segmentation.tflite",
         "//mediapipe/modules/face_landmark:face_landmark.tflite",
-        "//mediapipe/modules/face_detection:face_detection_front.tflite"
+        "//mediapipe/modules/face_detection:face_detection_front.tflite",
+        "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/acuface/assets:acu.csv"
     ],
     assets_dir = "",
     manifest = "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic:AndroidManifest.xml",

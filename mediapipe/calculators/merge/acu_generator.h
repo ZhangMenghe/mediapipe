@@ -58,6 +58,7 @@ private:
 	cv::Mat mask;
 	bool draw_ref= false;
 	bool draw_all_points = false;
+	bool draw_acu_points = true;
 	std::string targe_ch = "ST";
 	float* pdata_ = nullptr;
 	int data_num = 0;
@@ -73,11 +74,14 @@ private:
 	bool get_avg_value(std::string content, float& r1, float& r2, int& pid);
 	std::vector<float> process_line(std::string content);
 	float getGLPos(float p){return p*2.0f-1.0f;}
+
+	void gen_mapped_points(std::map<std::string,acuPoint> mp, int& num, std::string sel_channel="");
+	void gen_all_points(const float* points,int& data_num);
+
 public:
 	void onSetup(std::string shader_path);
     void onDraw(faceRect rect, cv::Mat hair_mask, const float* points);
     void onDestroy();
-	void getDrawingPoints(float*& points, int& num);
 };
 }
 #endif

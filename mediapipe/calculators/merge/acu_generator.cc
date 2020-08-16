@@ -1,6 +1,8 @@
 #include "acu_generator.h"
 #include <iostream>
 #include <fstream>
+#include "mediapipe/util/resource_util.h"
+
 using namespace mediapipe;
 float acuGenerator::calculate_from_string(std::string s) {
     // std::cout<<"calculate before: "<<s<<std::endl;
@@ -154,14 +156,20 @@ std::vector<float> acuGenerator::process_line(std::string content){
 }
 void acuGenerator::read_from_csv(){
     std::string filename = "acu.csv";//"mediapipe/res/acu.csv";
-    std::ifstream myFile(spath + filename);
-    if(!myFile.is_open()) throw std::runtime_error("Could not open file");
+
+    std::string content;
+    #ifdef __ANDROID__
+    mediapipe::GetResourceContents(filename, &content);
+    #else
+    mediapipe::GetResourceContents(spath + filename, &content);
+    #endif
+    // std::cout<<"load content \n "<<content<<std::endl;
+    if(content.empty()) return;
+
+    std::istringstream myFile(content);
     std::string line, colname;
     std::string val;
 
-    // Read the column names
-    if(!myFile.good()){std::cerr<<"Failed to open file";return;}
-    
     std::string buff[6];
     int idx = 0;
 
@@ -227,6 +235,22 @@ void acuGenerator::on_process(std::map<std::string,acuPoint>& mp){
         // std::cout<<"map assign: "<<((p.second.symmetry)?"sym":"")<<" "<<p.first<<"->"<<glm::to_string(p.second.p1)<<","<<glm::to_string(p.second.p2)<<std::endl;
     }
 }
+void acuGenerator::gen_mapped_points(std::map<std::string,acuPoint> mp, int& idx, std::string sel_channel){
+    for(auto p : mp){
+        if(!sel_channel.empty())if(p.second.channel!=sel_channel) continue;
+
+        pdata_[3*idx]  = p.second.p1.x;
+        pdata_[3*idx+1]  = p.second.p1.y;
+        idx++;
+        if(p.second.symmetry){
+            pdata_[3*idx]  = p.second.p2.x;
+            pdata_[3*idx+1]  = p.second.p2.y;
+            idx++;
+        }
+        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
+    }
+}
+
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
 void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
     //get unit size
@@ -260,7 +284,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     ptr = nullptr;
     */
 
-    on_process(acu_ref_map);
+    /*on_process(acu_ref_map);
     on_process(acu_map);
     ptr = nullptr;
 
@@ -279,69 +303,20 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     }
     int idx = 0;
 
-    if(draw_ref){
-        for(auto p : acu_ref_map){
-            pdata_[3*idx]  = p.second.p1.x;
-            pdata_[3*idx+1]  = p.second.p1.y;
-            idx++;
-            if(p.second.symmetry){
-                pdata_[3*idx]  = p.second.p2.x;
-                pdata_[3*idx+1]  = p.second.p2.y;
-                idx++;
-            }
-            // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
-        }
-    }
+    if(draw_ref) gen_mapped_points(acu_ref_map, idx);
 
+    if(draw_acu_points) gen_mapped_points(acu_map, idx);*/
+
+    gen_all_points(points, data_num);
         
-    for(auto p : acu_map){
-        if(!draw_all_points){
-            if(p.second.channel!=targe_ch) continue;
-        }
-        pdata_[3*idx]  = p.second.p1.x;
-        pdata_[3*idx+1]  = p.second.p1.y;
-        idx++;
-        if(p.second.symmetry){
-            pdata_[3*idx]  = p.second.p2.x;
-            pdata_[3*idx+1]  = p.second.p2.y;
-            idx++;
-        }
-    }
-
     prenderer->Draw(pdata_, data_num);
 
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
-void acuGenerator::getDrawingPoints(float*& points, int& num){
-    /*cv::Size ms = mask.size();
-    std::vector<float> buff;
-    for(int y=0;y<ms.height;y++){
-        for(int x=0; x<ms.width;x++){
-            if(mask.at<uchar>(y,x)* (1.0 / 255.0) > 0.5){
-                buff.push_back(float(x)/ms.width);
-                buff.push_back(float(y)/ms.height);
-                std::cout<<"y: "<<float(y)/ms.height<<std::endl;
-                buff.push_back(.0f);
-                buff.push_back(.0f);
-
-            }
-        }
-    }
-    num = buff.size()/4;
-    points = buff.data();*/
-
-
-    /*draw all 468 points
-    // num = 468;
-    // points = new float [4 * num];
-    // for(int i=0;i<num;i++){
-    //     points[4*i] = ptr[3*i];//*2.0-1.0;
-    //     points[4*i+1] = ptr[3*i+1];//*2.0-1.0;
-    //     // if(points[4*i]<-1 || points[4*i]>1) std::cout<<"x outside "<<points[4*i]<<std::endl;
-    //     // if(points[4*i+1]<-1 || points[4*i+1]>1) std::cout<<"y outside "<<points[4*i+1]<<std::endl;
-
-    // }
-    */
+void acuGenerator::gen_all_points(const float* points, int& data_num){
+    data_num = 468;
+    pdata_ = new float[data_num*3];
+    memcpy(pdata_, points, 3*data_num*sizeof(float));    
 }
 
 void acuGenerator::onDestroy(){
