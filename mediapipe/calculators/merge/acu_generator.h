@@ -55,7 +55,9 @@ private:
 	float unit_size = .0f;
 	int total_num = 0;
 	cv::Mat mask;
-	float tmp[2];
+	bool draw_ref= false;
+	bool draw_all_points = false;
+	std::string targe_ch = "ST";
 
 	void on_process(std::map<std::string,acuPoint>& mp);
     void setup_shader_content();

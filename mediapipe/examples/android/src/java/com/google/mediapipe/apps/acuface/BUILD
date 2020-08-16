@@ -38,6 +38,9 @@ android_binary(
     assets = [
         "//mediapipe/graphs/acu_face:mobile_gpu.binarypb",
         "//mediapipe/models:hair_segmentation.tflite",
+        "//mediapipe/modules/face_landmark:face_landmark.tflite",
+        "//mediapipe/modules/face_detection:face_detection_front.tflite",
+        "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/acuface/assets:acu.csv",
     ],
     assets_dir = "",
     manifest = "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic:AndroidManifest.xml",
@@ -55,5 +58,7 @@ android_binary(
     deps = [
         ":mediapipe_jni_lib",
         "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic:basic_lib",
+        "//mediapipe/framework/formats:landmark_java_proto_lite",
+        "//mediapipe/java/com/google/mediapipe/framework:android_framework",
     ],
 )

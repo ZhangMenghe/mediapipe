@@ -118,6 +118,7 @@ std::vector<float> acuGenerator::process_line(std::string content){
                 if(r2 < MINFINITY){
                     hide_sym_found = true;
                     cline +="[" + std::to_string(res) + "," + std::to_string(r2) + "]";
+                    // std::cout<<"hide sym found "<<cline<<std::endl;
                 }else cline += std::to_string(res);
             }
             else cline+=content[pid++];
@@ -270,37 +271,50 @@ void acuGenerator::getDrawingPoints(float*& points, int& num){
     }
     num = buff.size()/4;
     points = buff.data();*/
+
+
+
+
     if(total_num == 0){
-        for(auto p : acu_ref_map)total_num+= p.second.symmetry?2:1;
-        for(auto p : acu_map)total_num+= p.second.symmetry?2:1;
+        if(draw_ref)for(auto p : acu_ref_map)total_num+= p.second.symmetry?2:1;
+        if(draw_all_points){
+            for(auto p : acu_map)total_num+= p.second.symmetry?2:1;
+        }else{
+            for(auto p : acu_map)
+            if(p.second.channel == targe_ch) total_num+= p.second.symmetry?2:1;
+
+        }
         std::cout<<"----total num-----"<<total_num<<std::endl;
         points = new float[4 * total_num];
     }
     num = total_num;
     int idx = 0;
-    for(auto p : acu_ref_map){
-        points[4*idx]  = p.second.p1.x;
-        points[4*idx+1]  = p.second.p1.y;
-        idx++;
-        if(p.second.symmetry){
-            points[4*idx]  = p.second.p2.x;
-            points[4*idx+1]  = p.second.p2.y;
+
+    if(draw_ref){
+        for(auto p : acu_ref_map){
+            points[4*idx]  = p.second.p1.x;
+            points[4*idx+1]  = p.second.p1.y;
             idx++;
+            if(p.second.symmetry){
+                points[4*idx]  = p.second.p2.x;
+                points[4*idx+1]  = p.second.p2.y;
+                idx++;
+            }
+            // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
         }
-        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
     }
+
         
     for(auto p : acu_map){
+        if(!draw_all_points){
+            if(p.second.channel!=targe_ch) continue;
+        }
         points[4*idx]  = p.second.p1.x;
         points[4*idx+1]  = p.second.p1.y;
-        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
-
         idx++;
         if(p.second.symmetry){
             points[4*idx]  = p.second.p2.x;
             points[4*idx+1]  = p.second.p2.y;
-        // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
-
             idx++;
         }
     }
