@@ -13,6 +13,8 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include <glm/gtx/string_cast.hpp>
+#include <PrimeRenderer/PointCloudRenderer.h>
+
 namespace mediapipe {
 static bool my_isspace(char ch){/*return ch ==' ';*/return std::isspace(static_cast<unsigned char>(ch));}
 const float MINFINITY = std::numeric_limits<float>::max();
@@ -53,11 +55,15 @@ private:
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
 	const float * ptr = nullptr;
 	float unit_size = .0f;
-	int total_num = 0;
 	cv::Mat mask;
 	bool draw_ref= false;
 	bool draw_all_points = false;
 	std::string targe_ch = "ST";
+	float* pdata_ = nullptr;
+	int data_num = 0;
+
+	PointRenderer* prenderer;
+
 
 	void on_process(std::map<std::string,acuPoint>& mp);
     void setup_shader_content();

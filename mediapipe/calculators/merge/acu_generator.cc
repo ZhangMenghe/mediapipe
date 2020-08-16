@@ -153,8 +153,8 @@ std::vector<float> acuGenerator::process_line(std::string content){
     return rv;
 }
 void acuGenerator::read_from_csv(){
-    std::string filename = "mediapipe/res/acu.csv";
-    std::ifstream myFile(filename);
+    std::string filename = "acu.csv";//"mediapipe/res/acu.csv";
+    std::ifstream myFile(spath + filename);
     if(!myFile.is_open()) throw std::runtime_error("Could not open file");
     std::string line, colname;
     std::string val;
@@ -200,6 +200,8 @@ void acuGenerator::setup_shader_content(){
 void acuGenerator::onSetup(std::string shader_path){
     spath = shader_path;
     read_from_csv();
+    prenderer = new PointRenderer();
+
     // for(auto p : acu_map){
     //     std::cout<<p.first<<"->"<<p.second.dx<<"        "<<p.second.dy<<std::endl;
     // }
@@ -245,13 +247,68 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     unit_size = abs(float(ref_RHD1_y_abs)/ms.height - ref_RHD1_y)/3.0f;
     ptr = points;
     
+
+
+
+        //draw all 468 points
+    /*data_num = 468;
+    if(pdata_ == nullptr)pdata_ = new float [3 * data_num];
+    for(int i=0;i<data_num;i++){
+        pdata_[3*i] = ptr[3*i];//*2.0-1.0;
+        pdata_[3*i+1] = ptr[3*i+1];//*2.0-1.0;
+    }*/
+    
+
     on_process(acu_ref_map);
     on_process(acu_map);
-
     ptr = nullptr;
+    
 
-    // if(points==nullptr) return;
-    // ptr = points;
+    if(data_num == 0){
+        if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
+        if(draw_all_points){
+            for(auto p : acu_map)data_num+= p.second.symmetry?2:1;
+        }else{
+            for(auto p : acu_map)
+            if(p.second.channel == targe_ch) data_num+= p.second.symmetry?2:1;
+
+        }
+        std::cout<<"----total num-----"<<data_num<<std::endl;
+        pdata_ = new float[3 * data_num];
+    }
+    int idx = 0;
+
+    if(draw_ref){
+        for(auto p : acu_ref_map){
+            pdata_[3*idx]  = p.second.p1.x;
+            pdata_[3*idx+1]  = p.second.p1.y;
+            idx++;
+            if(p.second.symmetry){
+                pdata_[3*idx]  = p.second.p2.x;
+                pdata_[3*idx+1]  = p.second.p2.y;
+                idx++;
+            }
+            // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
+        }
+    }
+
+        
+    for(auto p : acu_map){
+        if(!draw_all_points){
+            if(p.second.channel!=targe_ch) continue;
+        }
+        pdata_[3*idx]  = p.second.p1.x;
+        pdata_[3*idx+1]  = p.second.p1.y;
+        idx++;
+        if(p.second.symmetry){
+            pdata_[3*idx]  = p.second.p2.x;
+            pdata_[3*idx+1]  = p.second.p2.y;
+            idx++;
+        }
+    }
+
+    prenderer->Draw(pdata_, data_num);
+
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::getDrawingPoints(float*& points, int& num){
@@ -272,52 +329,6 @@ void acuGenerator::getDrawingPoints(float*& points, int& num){
     num = buff.size()/4;
     points = buff.data();*/
 
-
-
-
-    if(total_num == 0){
-        if(draw_ref)for(auto p : acu_ref_map)total_num+= p.second.symmetry?2:1;
-        if(draw_all_points){
-            for(auto p : acu_map)total_num+= p.second.symmetry?2:1;
-        }else{
-            for(auto p : acu_map)
-            if(p.second.channel == targe_ch) total_num+= p.second.symmetry?2:1;
-
-        }
-        std::cout<<"----total num-----"<<total_num<<std::endl;
-        points = new float[4 * total_num];
-    }
-    num = total_num;
-    int idx = 0;
-
-    if(draw_ref){
-        for(auto p : acu_ref_map){
-            points[4*idx]  = p.second.p1.x;
-            points[4*idx+1]  = p.second.p1.y;
-            idx++;
-            if(p.second.symmetry){
-                points[4*idx]  = p.second.p2.x;
-                points[4*idx+1]  = p.second.p2.y;
-                idx++;
-            }
-            // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
-        }
-    }
-
-        
-    for(auto p : acu_map){
-        if(!draw_all_points){
-            if(p.second.channel!=targe_ch) continue;
-        }
-        points[4*idx]  = p.second.p1.x;
-        points[4*idx+1]  = p.second.p1.y;
-        idx++;
-        if(p.second.symmetry){
-            points[4*idx]  = p.second.p2.x;
-            points[4*idx+1]  = p.second.p2.y;
-            idx++;
-        }
-    }
 
     /*draw all 468 points
     // num = 468;

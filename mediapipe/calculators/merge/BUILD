@@ -18,9 +18,7 @@ cc_library(
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [
             "@linux_usr//:glm",
-            "//mediapipe/gpu/glPipeline:Shader",
-            "//mediapipe/gpu/glPipeline:Mesh",
-            "//mediapipe/gpu:gl_simple_shaders",
+            "@acu_face_render//:acuRenderer",
             "//mediapipe/gpu:shader_util",    
             "//mediapipe/gpu:gl_base",
         ],

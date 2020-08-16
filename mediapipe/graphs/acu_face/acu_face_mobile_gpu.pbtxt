@@ -188,9 +188,7 @@ node {
 
   options {
     [mediapipe.glShaderHelperOptions.ext] {
-
-      shader_res_path : "/home/eevee/Github/volume-rendering/app/src/main/assets/"
-
+      shader_res_path : "/home/eevee/Github/acu-face-render/assets/"
     }
   }
 }

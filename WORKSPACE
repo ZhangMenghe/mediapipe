@@ -220,6 +220,11 @@ new_local_repository(
     path = "/home/eevee/Github/volume-rendering/volume-rendering-cpp",
 )
 new_local_repository(
+    name = "acu_face_render",
+    build_file = "acu_face_render.BUILD",
+    path = "/home/eevee/Github/acu-face-render",
+)
+new_local_repository(
     name = "linux_opengl",
     build_file = "@//third_party:opengl_linux.BUILD",
     path = "/usr",
