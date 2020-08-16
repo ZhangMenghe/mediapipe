@@ -29,7 +29,7 @@ cc_library(
     ],
     defines = ["MEDIAPIPE"],
     deps = [
-        "@linux_opengl//:opengl",
+        # "@linux_opengl//:opengl",
         "@linux_usr//:glm",
     ],
     linkstatic = 1,

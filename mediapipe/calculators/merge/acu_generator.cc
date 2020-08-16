@@ -256,13 +256,14 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     for(int i=0;i<data_num;i++){
         pdata_[3*i] = ptr[3*i];//*2.0-1.0;
         pdata_[3*i+1] = ptr[3*i+1];//*2.0-1.0;
-    }*/
-    
+    }
+    ptr = nullptr;
+    */
 
     on_process(acu_ref_map);
     on_process(acu_map);
     ptr = nullptr;
-    
+
 
     if(data_num == 0){
         if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
