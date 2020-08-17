@@ -1,0 +1,2 @@
+bazel build -c opt --copt -DMESA_EGL_NO_X11_HEADERS --copt -DEGL_NO_X11 mediapipe/examples/desktop/acuface:acu_face_gp
+bazel-bin/mediapipe/examples/desktop/acuface/acu_face_gpu --calculator_graph_config_file=mediapipe/graphs/acu_face/acu_face_mobile_gpu.pbtxt 

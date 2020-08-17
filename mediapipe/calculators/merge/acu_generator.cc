@@ -314,9 +314,25 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::gen_all_points(const float* points, int& data_num){
-    data_num = 468;
+    // data_num = 468;
+    // pdata_ = new float[data_num*3];
+    // memcpy(pdata_, points, 3*data_num*sizeof(float));
+
+    data_num = 5;
+
+    int ids[data_num]={
+        10,151,9,8,4
+    };
     pdata_ = new float[data_num*3];
-    memcpy(pdata_, points, 3*data_num*sizeof(float));    
+    std::string tmp;
+    for(int i=0;i<data_num;i++){
+        pdata_[3*i] = points[3*ids[i]];
+        pdata_[3*i+1] = points[3*ids[i]+1];
+
+        pdata_[3*i+2] = points[3*ids[i]+2];
+        tmp += " "+ std::to_string(pdata_[3*i+2]);
+    }
+    std::cout<<" z: "<<tmp<<std::endl;
 }
 
 void acuGenerator::onDestroy(){
