@@ -4,6 +4,10 @@
 #include "mediapipe/util/resource_util.h"
 
 using namespace mediapipe;
+using namespace glm;
+using std::cout;
+using std::endl;
+
 float acuGenerator::calculate_from_string(std::string s) {
     // std::cout<<"calculate before: "<<s<<std::endl;
     float n = s.size(), num = 0, curRes = 0, res = 0;
@@ -67,13 +71,11 @@ bool acuGenerator::getXY(std::string content, float&r1, float&r2, int& pid){
     if(rtype == '#'){
         int rid = std::stof(content.substr (ns,pid-1-ns));
         // std::cout<<"rid: "<<rid<<std::endl;
-        r1 = (func_name == "GetX")? ptr[3*rid]:ptr[3*rid+1];
+        r1 = (func_name == "GetX")? mps[rid].x:mps[rid].y;//ptr[3*rid]:ptr[3*rid+1];
     }else{
         std::string key = content.substr(ns-1, pid-ns);
         // std::cout<<"getxy key: "<<key<<std::endl;
         auto mp = (key[0] == 'R')?acu_ref_map:acu_map;
-
-        //todo: check if symmetry. Tackle with it
         r1 = (func_name == "GetX")?mp[key].p1.x:mp[key].p1.y;
         if(mp[key].symmetry) r2 = (func_name == "GetX")?mp[key].p2.x:mp[key].p2.y;
     }
@@ -238,38 +240,78 @@ void acuGenerator::on_process(std::map<std::string,acuPoint>& mp){
 void acuGenerator::gen_mapped_points(std::map<std::string,acuPoint> mp, int& idx, std::string sel_channel){
     for(auto p : mp){
         if(!sel_channel.empty())if(p.second.channel!=sel_channel) continue;
+        vec2 pt = R * vec2(p.second.p1.x, p.second.p1.y);
 
-        pdata_[3*idx]  = p.second.p1.x;
-        pdata_[3*idx+1]  = p.second.p1.y;
+        pdata_[3*idx]  = pt.x;//p.second.p1.x;
+        pdata_[3*idx+1]  = pt.y;//p.second.p1.y;
         idx++;
         if(p.second.symmetry){
-            pdata_[3*idx]  = p.second.p2.x;
-            pdata_[3*idx+1]  = p.second.p2.y;
+            vec2 pt = R * vec2(p.second.p2.x, p.second.p2.y);
+            pdata_[3*idx]  = pt.x;//p.second.p1.x;
+            pdata_[3*idx+1]  = pt.y;//p.second.p1.y;
             idx++;
         }
         // std::cout<<points[4*idx]<<" "<<points[4*idx+1]<<std::endl;
     }
 }
+bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
+    int pupils[4] ={362,263,133,33};
+    vec2 pup1 = vec2(avg(points[3*pupils[0]], points[3*pupils[1]]), avg(points[3*pupils[0]+1], points[3*pupils[1]+1]));
+    vec2 pup2 = vec2(avg(points[3*pupils[2]], points[3*pupils[3]]), avg(points[3*pupils[2]+1], points[3*pupils[3]+1]));
+    vec2 pmid = (pup1+pup2) *0.5f;
+    vec2 vx = pup1-pup2;
+    if(vx.x <.0f) vx = -vx;
+    vx = glm::normalize(vx);
 
-/*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
-void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
-    //get unit size
-    
-    mask = hair_mask.clone();
+    cos_theta = dot(vx, vec2(1,0));
+    sin_theta = (vx.y>.0f? 1.0: -1.0)*(float)sqrt(1.0 - cos_theta * cos_theta);
+
     auto ms = hair_mask.size();
     int ref_RHD1_ids[2]={8,9};
+    float ref_RHD1_x = avg(points[3*ref_RHD1_ids[0]], points[3*ref_RHD1_ids[1]]);
     float ref_RHD1_y = avg(points[3*ref_RHD1_ids[0]+1], points[3*ref_RHD1_ids[1]+1]);
     int ref_RHD1_x_abs = avg(points[3*ref_RHD1_ids[0]], points[3*ref_RHD1_ids[1]]) * ms.width;
 
     int ref_RHD1_y_abs = ref_RHD1_y* ms.height;
-
+    float y_unit = 1.0f/ms.height;
+    float k = -vx.x/vx.y;
+    float k_inv = 1.0f/k;
+    float b = pmid.y-k*pmid.x;
     // std::cout<<"hair before "<<ref_RHD1_y_abs<<std::endl;
-    while(hair_mask.at<uchar>(ref_RHD1_y_abs--,ref_RHD1_x_abs)* (1.0 / 255.0) < 0.5);
+    int ref_RHD1_x_abs_cos;
+    for(float y_rel = ref_RHD1_y;ref_RHD1_y_abs>=0;ref_RHD1_y_abs--, y_rel+=y_unit){
+        ref_RHD1_x_abs_cos = int((y_rel - b)*k_inv * ms.width);
+        if(hair_mask.at<uchar>(ref_RHD1_y_abs,ref_RHD1_x_abs_cos) > 128.f) break;
+    }
+
+    // while(hair_mask.at<uchar>(ref_RHD1_y_abs--,ref_RHD1_x_abs)* (1.0 / 255.0) < 0.5);
+
     // std::cout<<"hair after "<<ref_RHD1_y_abs<<std::endl;
 
-    if(ref_RHD1_y_abs < 0)return;
-    unit_size = abs(float(ref_RHD1_y_abs)/ms.height - ref_RHD1_y)/3.0f;
+    if(ref_RHD1_y_abs < 0)return false;
+
+    vec2 hair_line_p = vec2(float(ref_RHD1_x_abs_cos)/ms.width, float(ref_RHD1_y_abs)/ms.height);
+    vec2 yintang_p = vec2(ref_RHD1_x, ref_RHD1_y);
+    unit_size = glm::length(hair_line_p -yintang_p) / 3.0f;
+
+    // unit_size = abs(float(ref_RHD1_y_abs)/ms.height - ref_RHD1_y)/3.0f;
+    
+    // y_r = glm::normalize(pmid - yintang_p);
+
+    // mat2 m = mat2(col1row1, col1row2, col2row1, col2row2);
+    R = mat2(cos_theta, sin_theta, -sin_theta, cos_theta);
+    R_prime = glm::inverse(R);
+    return true;
+}
+
+/*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
+void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
+    //get unit size
+    if(!cal_unit_size(hair_mask, points))return;
+
     ptr = points;
+    for(int i=0;i<468;i++)mps[i] = R_prime * vec2(ptr[3*i], ptr[3*i+1]);
+
     
 
 
@@ -284,9 +326,10 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     ptr = nullptr;
     */
 
-    /*on_process(acu_ref_map);
+    on_process(acu_ref_map);
     on_process(acu_map);
     ptr = nullptr;
+    
 
 
     if(data_num == 0){
@@ -305,9 +348,9 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
 
     if(draw_ref) gen_mapped_points(acu_ref_map, idx);
 
-    if(draw_acu_points) gen_mapped_points(acu_map, idx);*/
+    if(draw_acu_points) gen_mapped_points(acu_map, idx);
 
-    gen_all_points(points, data_num);
+    // gen_all_points(points, data_num);
         
     prenderer->Draw(pdata_, data_num);
 

@@ -10,3 +10,6 @@ ST,1,承泣,Chengqi,GetX(RHD3),"[GetY(#253),GetY(#23)]","On the face,on the infe
 ST,2,四白,Sibai,GetX(RHD3),GetY(ST1)+0.5*U,"On the face,on the infraorbital foramen, 0.5 cun inferior to ST 1 when eyes are focused forward"
 ST,3,巨髎,Juliao,GetX(RHD3),GetY(#2),"On the face,level with the border of the ala nasi, in line with the pupil when the eyes are focused forward"
 ST,4,地仓,Dicang,GetX(RHD3),"Avg(GetY(#291), GetY(#61))","On the face,0.4 cun lateral to the corner of the mouth, in line with the pupil when the eyes are focused forward"
+,,,,,,
+ST,6,颊车,Jiache,"[GetX(#167),GetX(#138)]","[GetY(#167),GetY(#138)]","On the cheek, 1 cun anterior and superior to the angle of the mandible, in the belly of masseter muscle"
+ST,7,下关,Xiaguan,"[GetX(#117),GetX(#227)]",GetY(ST2),"On the lateral face, in the depression at the lower border of the zygomatic arch, anterior to the condyloid process of the mandible. ST 7 is located with the mouth closed."

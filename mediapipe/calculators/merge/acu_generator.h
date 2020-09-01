@@ -55,16 +55,17 @@ private:
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
 	const float * ptr = nullptr;
 	float unit_size = .0f;
-	cv::Mat mask;
-	bool draw_ref= false;
+	bool draw_ref= true;
 	bool draw_all_points = false;
-	bool draw_acu_points = true;
+	bool draw_acu_points = false;
 	std::string targe_ch = "ST";
 	float* pdata_ = nullptr;
 	int data_num = 0;
+	float cos_theta, sin_theta;
+	glm::mat2 R, R_prime;
+	glm::vec2 mps[468];
 
 	PointRenderer* prenderer;
-
 
 	void on_process(std::map<std::string,acuPoint>& mp);
     void setup_shader_content();
@@ -77,7 +78,7 @@ private:
 
 	void gen_mapped_points(std::map<std::string,acuPoint> mp, int& num, std::string sel_channel="");
 	void gen_all_points(const float* points,int& data_num);
-
+	bool cal_unit_size(cv::Mat hair_mask, const float* points);
 public:
 	void onSetup(std::string shader_path);
     void onDraw(faceRect rect, cv::Mat hair_mask, const float* points);
