@@ -56,8 +56,8 @@ private:
 
 	// std::vector<std::string> channels_;
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
-	std::unordered_map<std::string, std::vector<unsigned short>[2]> meridian_map;
-	// std::unordered_map<std::string, std::vector<unsigned short>> meridian_map;
+	// std::unordered_map<std::string, std::vector<unsigned short>[2]> meridian_map;
+	std::unordered_map<std::string, std::vector<unsigned short>> meridian_map;
 	
 
 	// const float * ptr = nullptr;

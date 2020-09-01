@@ -181,6 +181,8 @@ void acuGenerator::read_from_csv(){
 
     std::string current_channel;
     unsigned short count = 0;
+    std::vector<unsigned short> r1ind, r2ind;
+    bool has_sym = false;
 
     while(std::getline(myFile, line)){
         if(line.empty() || line.length()<=ACU_INFO_NUMS-1){is_ref = false;std::getline(myFile, line);continue;}
@@ -206,21 +208,38 @@ void acuGenerator::read_from_csv(){
         else{
             acu_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6]);
             if(current_channel != buff[0]){
+                auto it = meridian_map[current_channel].end();
+                meridian_map[current_channel].insert(it, r1ind.begin(), r1ind.end());
+                if(has_sym){
+                    meridian_map[current_channel].push_back(0xffff);
+                    it = meridian_map[current_channel].end();
+                    meridian_map[current_channel].insert(it, r2ind.begin(), r2ind.end());
+                    has_sym = false;
+                }
+                r1ind.clear();r2ind.clear();
                 count = 0;
                 current_channel = buff[0];
             }
-            meridian_map[current_channel][0].push_back(count++);
-            if(acu_map[buff[0] + buff[1]].symmetry)meridian_map[current_channel][1].push_back(count++);
+            if(acu_map[buff[0] + buff[1]].symmetry){
+                has_sym = true;
+                r1ind.push_back(count++);r2ind.push_back(count++);
+            }else{
+                r1ind.push_back(count);r2ind.push_back(count);count++;
+            }
+            // meridian_map[current_channel][0].push_back(count++);
+            // if(acu_map[buff[0] + buff[1]].symmetry)meridian_map[current_channel][1].push_back(count++);
         }
         idx = 0;
     }
-    //process acu map to generate meridian lines
-    // int count = 0;
-    // for(auto p:acu_map){
-    //     meridian_map[p.second.channel].push_back(count++);
-    //     if(p.second.symmetry)meridian_map[p.second.channel].push_back(count++);
-    // }
     
+    auto it = meridian_map[current_channel].end();
+    meridian_map[current_channel].insert(it, r1ind.begin(), r1ind.end());
+    if(has_sym){
+        meridian_map[current_channel].push_back(0xffff);
+        it = meridian_map[current_channel].end();
+        meridian_map[current_channel].insert(it, r2ind.begin(), r2ind.end());
+        has_sym = false;
+    }
 }
 void acuGenerator::setup_shader_content(){
 
@@ -353,7 +372,6 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
         }else{
             for(auto p : acu_map)
             if(p.second.channel == targe_ch){ 
-                std::cout<<p.second.name<<std::endl;
                 data_num+= p.second.symmetry?2:1;}
 
         }
@@ -373,19 +391,8 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     
     prenderer->Draw(pdata_, data_num, GL_POINTS);
     auto target_meridain = meridian_map[targe_ch];
-    int lnum = target_meridain[0].size() + target_meridain[1].size();
     
-    if(target_meridain[1].empty())
-        line_renderer->Draw(pdata_, target_meridain[0].data(), data_num, lnum, GL_LINE_STRIP);
-    else{
-        unsigned short* ld = new unsigned short[lnum+1];
-        memcpy(ld, target_meridain[0].data(), target_meridain[0].size()*sizeof(unsigned short));
-        memcpy(&ld[target_meridain[0].size()+1], target_meridain[1].data(), target_meridain[1].size()*sizeof(unsigned short));
-        ld[target_meridain[0].size()] = 0xffff;
-        line_renderer->Draw(pdata_, ld, data_num, lnum+1, GL_LINE_STRIP);
-        delete[]ld;
-    }
-
+    line_renderer->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::gen_all_points(const float* points, int& data_num){
