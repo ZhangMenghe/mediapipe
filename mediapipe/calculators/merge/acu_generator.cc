@@ -172,19 +172,22 @@ void acuGenerator::read_from_csv(){
     std::string line, colname;
     std::string val;
 
-    std::string buff[6];
+    std::string buff[ACU_INFO_NUMS-1];
     int idx = 0;
 
-    bool ref_finished = false;
+    bool is_ref = true;
     //skip title line
     std::getline(myFile, line);
-    //process ref points
+
+    std::string current_channel;
+    unsigned short count = 0;
+
     while(std::getline(myFile, line)){
-        if(line.empty() || line.length()<=6){ref_finished = true;std::getline(myFile, line);continue;}
+        if(line.empty() || line.length()<=ACU_INFO_NUMS-1){is_ref = false;std::getline(myFile, line);continue;}
         // Create a stringstream of the current line
         std::stringstream ss(line);
         // std::cout<<"on process : "<<line<<std::endl;
-        while(ss.good() && idx < 6) {
+        while(ss.good() && idx < ACU_INFO_NUMS-1) {
             std::string substr;
             getline(ss, substr, ','); //get first string delimited by comma
             if(substr[0] == '\"'){
@@ -199,10 +202,25 @@ void acuGenerator::read_from_csv(){
             }
             else buff[idx++] = substr; //std::cerr<<substr<<" / ";
         }
-        if(ref_finished)acu_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5]);
-        else acu_ref_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5]);
+        if(is_ref)acu_ref_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6]);
+        else{
+            acu_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6]);
+            if(current_channel != buff[0]){
+                count = 0;
+                current_channel = buff[0];
+            }
+            meridian_map[current_channel][0].push_back(count++);
+            if(acu_map[buff[0] + buff[1]].symmetry)meridian_map[current_channel][1].push_back(count++);
+        }
         idx = 0;
     }
+    //process acu map to generate meridian lines
+    // int count = 0;
+    // for(auto p:acu_map){
+    //     meridian_map[p.second.channel].push_back(count++);
+    //     if(p.second.symmetry)meridian_map[p.second.channel].push_back(count++);
+    // }
+    
 }
 void acuGenerator::setup_shader_content(){
 
@@ -210,7 +228,9 @@ void acuGenerator::setup_shader_content(){
 void acuGenerator::onSetup(std::string shader_path){
     spath = shader_path;
     read_from_csv();
-    prenderer = new PointRenderer();
+    prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
+    line_renderer = new PointRenderer(glm::vec4(0.8, 0.5, .0, 1.0), true);
+
 
     // for(auto p : acu_map){
     //     std::cout<<p.first<<"->"<<p.second.dx<<"        "<<p.second.dy<<std::endl;
@@ -309,10 +329,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     //get unit size
     if(!cal_unit_size(hair_mask, points))return;
 
-    ptr = points;
-    for(int i=0;i<468;i++)mps[i] = R_prime * vec2(ptr[3*i], ptr[3*i+1]);
-
-    
+    for(int i=0;i<468;i++)mps[i] = R_prime * vec2(points[3*i], points[3*i+1]);
 
 
 
@@ -328,9 +345,6 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
 
     on_process(acu_ref_map);
     on_process(acu_map);
-    ptr = nullptr;
-    
-
 
     if(data_num == 0){
         if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
@@ -338,7 +352,9 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
             for(auto p : acu_map)data_num+= p.second.symmetry?2:1;
         }else{
             for(auto p : acu_map)
-            if(p.second.channel == targe_ch) data_num+= p.second.symmetry?2:1;
+            if(p.second.channel == targe_ch){ 
+                std::cout<<p.second.name<<std::endl;
+                data_num+= p.second.symmetry?2:1;}
 
         }
         std::cout<<"----total num-----"<<data_num<<std::endl;
@@ -348,11 +364,27 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
 
     if(draw_ref) gen_mapped_points(acu_ref_map, idx);
 
-    if(draw_acu_points) gen_mapped_points(acu_map, idx);
+    if(draw_acu_points) {
+        if(draw_all_points)gen_mapped_points(acu_map, idx);
+        else gen_mapped_points(acu_map, idx, targe_ch);
+    }
 
     // gen_all_points(points, data_num);
-        
-    prenderer->Draw(pdata_, data_num);
+    
+    prenderer->Draw(pdata_, data_num, GL_POINTS);
+    auto target_meridain = meridian_map[targe_ch];
+    int lnum = target_meridain[0].size() + target_meridain[1].size();
+    
+    if(target_meridain[1].empty())
+        line_renderer->Draw(pdata_, target_meridain[0].data(), data_num, lnum, GL_LINE_STRIP);
+    else{
+        unsigned short* ld = new unsigned short[lnum+1];
+        memcpy(ld, target_meridain[0].data(), target_meridain[0].size()*sizeof(unsigned short));
+        memcpy(&ld[target_meridain[0].size()+1], target_meridain[1].data(), target_meridain[1].size()*sizeof(unsigned short));
+        ld[target_meridain[0].size()] = 0xffff;
+        line_renderer->Draw(pdata_, ld, data_num, lnum+1, GL_LINE_STRIP);
+        delete[]ld;
+    }
 
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */

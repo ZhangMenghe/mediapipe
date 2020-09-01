@@ -40,24 +40,31 @@ struct acuPoint{
 	acuPoint(){
 		symmetry = false;
 	}
-	acuPoint(std::string channel_, int id_, std::string n_, std::string dx_, std::string dy_ ){
+	acuPoint(std::string channel_, int id_, std::string n_, std::string dx_, std::string dy_, std::string is_sym){
 		channel = channel_;id=id_;name=n_;dx = dx_; dy=dy_;
 		dx.erase(std::remove_if( dx.begin(),  dx.end(), my_isspace),  dx.end());
 		dy.erase(std::remove_if( dy.begin(),  dy.end(), my_isspace),  dy.end());
-		symmetry = false;
+		symmetry = (is_sym == "TRUE" || is_sym=="True");
 	}
 };
 
 class acuGenerator{
 private:
+	const int ACU_INFO_NUMS = 8;
 	const std::vector<std::string> unit_functions{"GetX","GetY","Avg"};
 	std::string spath;
+
+	// std::vector<std::string> channels_;
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
-	const float * ptr = nullptr;
+	std::unordered_map<std::string, std::vector<unsigned short>[2]> meridian_map;
+	// std::unordered_map<std::string, std::vector<unsigned short>> meridian_map;
+	
+
+	// const float * ptr = nullptr;
 	float unit_size = .0f;
-	bool draw_ref= true;
+	bool draw_ref= false;
 	bool draw_all_points = false;
-	bool draw_acu_points = false;
+	bool draw_acu_points = true;
 	std::string targe_ch = "ST";
 	float* pdata_ = nullptr;
 	int data_num = 0;
@@ -66,6 +73,7 @@ private:
 	glm::vec2 mps[468];
 
 	PointRenderer* prenderer;
+	PointRenderer* line_renderer;
 
 	void on_process(std::map<std::string,acuPoint>& mp);
     void setup_shader_content();
