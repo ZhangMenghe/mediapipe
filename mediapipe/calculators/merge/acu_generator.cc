@@ -16,6 +16,8 @@ float acuGenerator::calculate_from_string(std::string s) {
         char c = s[i];
         if(c == 'U'){
             num  = unit_size;
+        }else if(c == 'H'){
+            num = unit_hair_size;
         }
         else if (c >= '0' && c <= '9') {
             int si = i+1;
@@ -186,6 +188,7 @@ void acuGenerator::read_from_csv(){
 
     while(std::getline(myFile, line)){
         if(line.empty() || line.length()<=ACU_INFO_NUMS-1){is_ref = false;std::getline(myFile, line);continue;}
+        else if(line.length()<ACU_INFO_NUMS+8){std::getline(myFile, line);continue;}
         // Create a stringstream of the current line
         std::stringstream ss(line);
         // std::cout<<"on process : "<<line<<std::endl;
@@ -204,9 +207,9 @@ void acuGenerator::read_from_csv(){
             }
             else buff[idx++] = substr; //std::cerr<<substr<<" / ";
         }
-        if(is_ref)acu_ref_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6]);
+        if(is_ref)acu_ref_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6], buff[6]);
         else{
-            acu_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6]);
+            acu_map[buff[0] + buff[1]] = acuPoint(buff[0],std::stoi(buff[1]), buff[3], buff[4], buff[5], buff[6], buff[7]);
             if(current_channel != buff[0]){
                 auto it = meridian_map[current_channel].end();
                 meridian_map[current_channel].insert(it, r1ind.begin(), r1ind.end());
@@ -333,6 +336,25 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
     vec2 yintang_p = vec2(ref_RHD1_x, ref_RHD1_y);
     unit_size = glm::length(hair_line_p -yintang_p) / 3.0f;
 
+    // int hair_start = ref_RHD1_y_abs;
+    for(float y_rel = float(ref_RHD1_y_abs)/ms.height;ref_RHD1_y_abs>=0;ref_RHD1_y_abs--, y_rel+=y_unit){
+        ref_RHD1_x_abs_cos = int((y_rel - b)*k_inv * ms.width);
+        if(hair_mask.at<uchar>(ref_RHD1_y_abs,ref_RHD1_x_abs_cos) < 20.f) break;
+    }
+    if(ref_RHD1_y_abs < 0)unit_hair_size=.0f;
+    else unit_hair_size = glm::length(hair_line_p-vec2(float(ref_RHD1_x_abs_cos)/ms.width, float(ref_RHD1_y_abs)/ms.height))/4.0f;
+    // float ystart = float(hair_start)/ms.height;
+    // float yend = float(ref_RHD1_y_abs)/ms.height;
+    // pdata_ = new float[3 * 4];
+    // pdata_[0] = .0f;pdata_[1] = ystart;pdata_[3] = 1.0f;pdata_[4] = ystart;
+    // pdata_[6] = .0f;pdata_[7] = yend;pdata_[9] = 1.0f;pdata_[10] = yend;
+    // pind = new unsigned short[5];
+    // pind[0]=0;pind[1]=1;pind[3]=2;pind[4]=3;
+    // pind[2] = 0xffff;
+
+    // std::cout<<"hair length "<<hair_start -ref_RHD1_y_abs<<std::endl;
+
+
     // unit_size = abs(float(ref_RHD1_y_abs)/ms.height - ref_RHD1_y)/3.0f;
     
     // y_r = glm::normalize(pmid - yintang_p);
@@ -344,7 +366,7 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
 }
 
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
-void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points){
+void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
     //get unit size
     if(!cal_unit_size(hair_mask, points))return;
 
@@ -356,11 +378,10 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
     /*data_num = 468;
     if(pdata_ == nullptr)pdata_ = new float [3 * data_num];
     for(int i=0;i<data_num;i++){
-        pdata_[3*i] = ptr[3*i];//*2.0-1.0;
-        pdata_[3*i+1] = ptr[3*i+1];//*2.0-1.0;
-    }
-    ptr = nullptr;
-    */
+        pdata_[3*i] = points[3*i];//*2.0-1.0;
+        pdata_[3*i+1] = points[3*i+1];//*2.0-1.0;
+    }*/
+    
 
     on_process(acu_ref_map);
     on_process(acu_map);
@@ -387,12 +408,11 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat hair_mask, const float* points)
         else gen_mapped_points(acu_map, idx, targe_ch);
     }
 
-    // gen_all_points(points, data_num);
     
     prenderer->Draw(pdata_, data_num, GL_POINTS);
-    auto target_meridain = meridian_map[targe_ch];
+    // auto target_meridain = meridian_map[targe_ch];
     
-    line_renderer->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
+    // line_renderer->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::gen_all_points(const float* points, int& data_num){

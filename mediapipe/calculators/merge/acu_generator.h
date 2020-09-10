@@ -34,14 +34,15 @@ struct acuPoint{
 	std::string channel;
 	int id;
 	std::string name;
+	std::string region;
 	std::string dx, dy;
 	glm::vec3 p1, p2;
 	bool symmetry;
 	acuPoint(){
 		symmetry = false;
 	}
-	acuPoint(std::string channel_, int id_, std::string n_, std::string dx_, std::string dy_, std::string is_sym){
-		channel = channel_;id=id_;name=n_;dx = dx_; dy=dy_;
+	acuPoint(std::string channel_, int id_, std::string n_, std::string region_, std::string dx_, std::string dy_, std::string is_sym){
+		channel = channel_;id=id_;name=n_;dx = dx_; dy=dy_; region=region_;
 		dx.erase(std::remove_if( dx.begin(),  dx.end(), my_isspace),  dx.end());
 		dy.erase(std::remove_if( dy.begin(),  dy.end(), my_isspace),  dy.end());
 		symmetry = (is_sym == "TRUE" || is_sym=="True");
@@ -50,7 +51,7 @@ struct acuPoint{
 
 class acuGenerator{
 private:
-	const int ACU_INFO_NUMS = 8;
+	const int ACU_INFO_NUMS = 9;
 	const std::vector<std::string> unit_functions{"GetX","GetY","Avg"};
 	std::string spath;
 
@@ -62,11 +63,13 @@ private:
 
 	// const float * ptr = nullptr;
 	float unit_size = .0f;
+	float unit_hair_size = .0f;
 	bool draw_ref= false;
 	bool draw_all_points = false;
 	bool draw_acu_points = true;
-	std::string targe_ch = "ST";
+	std::string targe_ch = "LI";
 	float* pdata_ = nullptr;
+	unsigned short* pind = nullptr;
 	int data_num = 0;
 	float cos_theta, sin_theta;
 	glm::mat2 R, R_prime;
@@ -89,7 +92,7 @@ private:
 	bool cal_unit_size(cv::Mat hair_mask, const float* points);
 public:
 	void onSetup(std::string shader_path);
-    void onDraw(faceRect rect, cv::Mat hair_mask, const float* points);
+    void onDraw(faceRect rect, cv::Mat& hair_mask, const float* points);
     void onDestroy();
 };
 }
