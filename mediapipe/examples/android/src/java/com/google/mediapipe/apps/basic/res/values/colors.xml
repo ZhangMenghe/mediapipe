@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#008577</color>
-    <color name="colorPrimaryDark">#00574B</color>
+    <color name="colorPrimary">#35478C</color>
+    <color name="colorPrimaryDark">#16193B</color>
     <color name="colorAccent">#D81B60</color>
+    <color name="paneColor">#16193B</color>
+    <color name="paneTransColor">#3216193B</color>
+
+    <color name="darkBlue">#16193B</color>
+    <color name="midBlue">#023D67</color>
+    <color name="brightBlue">#ADD5F7</color>
+    <color name="near_white_blue">#ebf2f7</color>
+    <color name="redOrange">#D44206</color>
+    <color name="yellowOrange">#FA7204</color>
+    <color name="brightYellow">#F0D277</color>
+
+    <color name="lightGreen">#CDCCFFBB</color>
+
+
+    <color name="middleGrey">#CD5C615B</color>
 </resources>

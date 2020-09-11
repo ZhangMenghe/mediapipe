@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--    order matters for mask bit order!-->
+    <string-array name="masks_list">
+        <item>Refs</item>
+        <item>LI</item>
+        <item>ST</item>
+        <item>SI</item>
+        <item>BL</item>
+        <item>SJ</item>
+        <item>GB</item>
+        <item>RN</item>
+        <item>DU</item>
+        <item>EX-HN</item>
+    </string-array>
+    <string-array name="masks_status">
+        <item>false</item>
+        <item>true</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+        <item>false</item>
+    </string-array>
+</resources>
