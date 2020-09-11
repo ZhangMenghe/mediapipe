@@ -251,8 +251,9 @@ void acuGenerator::onSetup(std::string shader_path){
     spath = shader_path;
     read_from_csv();
     prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
-    line_renderer = new PointRenderer(glm::vec4(0.8, 0.5, .0, 1.0), true);
-
+    for(auto &m: meridian_map)
+        line_renderers[m.first] = new PointRenderer(glm::vec4(0.8, 0.5, .0, 1.0), true);
+    
 
     // for(auto p : acu_map){
     //     std::cout<<p.first<<"->"<<p.second.dx<<"        "<<p.second.dy<<std::endl;
@@ -265,8 +266,11 @@ void acuGenerator::onSetup(std::string shader_path){
     // on_process(acu_ref_map);
     // on_process(acu_map);
 }
-void acuGenerator::on_process(std::map<std::string,acuPoint>& mp){
+void acuGenerator::on_process(std::map<std::string,acuPoint>& mp, bool sel_channel){
     for(auto&p:mp){
+        p.second.draw=!sel_channel || std::find(target_channels.begin(),target_channels.end(),p.second.channel)!=target_channels.end();
+        if(!p.second.draw)continue;
+
         auto rvx = process_line(p.second.dx);
         auto rvy = process_line(p.second.dy);
         if(rvx.size()>1 || rvy.size() > 1){
@@ -276,12 +280,13 @@ void acuGenerator::on_process(std::map<std::string,acuPoint>& mp){
             p.second.p2 = glm::vec3(rvx[1], rvy[1], .0f);
         }
         p.second.p1 = glm::vec3(rvx[0], rvy[0], .0f);
+        
         // std::cout<<"map assign: "<<((p.second.symmetry)?"sym":"")<<" "<<p.first<<"->"<<glm::to_string(p.second.p1)<<","<<glm::to_string(p.second.p2)<<std::endl;
     }
 }
-void acuGenerator::gen_mapped_points(std::map<std::string,acuPoint> mp, int& idx, std::string sel_channel){
+void acuGenerator::gen_mapped_points(std::map<std::string,acuPoint> mp, int& idx){
     for(auto p : mp){
-        if(!sel_channel.empty())if(p.second.channel!=sel_channel) continue;
+        if(!p.second.draw) continue;
         vec2 pt = R * vec2(p.second.p1.x, p.second.p1.y);
 
         pdata_[3*idx]  = pt.x;//p.second.p1.x;
@@ -384,7 +389,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
     
 
     on_process(acu_ref_map);
-    on_process(acu_map);
+    on_process(acu_map, true);
 
     if(data_num == 0){
         if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
@@ -392,9 +397,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
             for(auto p : acu_map)data_num+= p.second.symmetry?2:1;
         }else{
             for(auto p : acu_map)
-            if(p.second.channel == targe_ch){ 
-                data_num+= p.second.symmetry?2:1;}
-
+                if(p.second.draw)data_num+= p.second.symmetry?2:1;
         }
         std::cout<<"----total num-----"<<data_num<<std::endl;
         pdata_ = new float[3 * data_num];
@@ -405,14 +408,16 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
 
     if(draw_acu_points) {
         if(draw_all_points)gen_mapped_points(acu_map, idx);
-        else gen_mapped_points(acu_map, idx, targe_ch);
+        else gen_mapped_points(acu_map, idx);
     }
 
     
     prenderer->Draw(pdata_, data_num, GL_POINTS);
-    // auto target_meridain = meridian_map[targe_ch];
-    
-    // line_renderer->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
+    for(auto&tc:target_channels){
+        auto target_meridain = meridian_map[tc];
+        line_renderers[tc]->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
+    }
+
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::gen_all_points(const float* points, int& data_num){
@@ -420,21 +425,21 @@ void acuGenerator::gen_all_points(const float* points, int& data_num){
     // pdata_ = new float[data_num*3];
     // memcpy(pdata_, points, 3*data_num*sizeof(float));
 
-    data_num = 5;
+    // data_num = 5;
 
-    int ids[data_num]={
-        10,151,9,8,4
-    };
-    pdata_ = new float[data_num*3];
-    std::string tmp;
-    for(int i=0;i<data_num;i++){
-        pdata_[3*i] = points[3*ids[i]];
-        pdata_[3*i+1] = points[3*ids[i]+1];
+    // int ids[data_num]={
+    //     10,151,9,8,4
+    // };
+    // pdata_ = new float[data_num*3];
+    // std::string tmp;
+    // for(int i=0;i<data_num;i++){
+    //     pdata_[3*i] = points[3*ids[i]];
+    //     pdata_[3*i+1] = points[3*ids[i]+1];
 
-        pdata_[3*i+2] = points[3*ids[i]+2];
-        tmp += " "+ std::to_string(pdata_[3*i+2]);
-    }
-    std::cout<<" z: "<<tmp<<std::endl;
+    //     pdata_[3*i+2] = points[3*ids[i]+2];
+    //     tmp += " "+ std::to_string(pdata_[3*i+2]);
+    // }
+    // std::cout<<" z: "<<tmp<<std::endl;
 }
 
 void acuGenerator::onDestroy(){

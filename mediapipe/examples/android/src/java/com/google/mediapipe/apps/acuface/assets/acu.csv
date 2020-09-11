@@ -1,12 +1,45 @@
-Channel,ID,NameC,NameE,FaceMeshX,FaceMeshY,Localizaion
-RHD,1,印堂穴,Yintang,"Avg(GetX(#8), GetX(#9))","Avg(GetY(#8), GetY(#9))",Midway between the medial ends of the eyebrows
-RHD,2,前发际正中,middle of anterior hairline,GetX(RHD1),GetY(RHD1)-3*U,intersection of anterior hairline and anterior midline
-RHD,3,瞳孔(目中),pupil,"[Avg(GetX(#362), GetX(#263)),Avg(GetX(#133), GetX(#33))]","[Avg(GetY(#362), GetY(#263)),Avg(GetY(#133), GetY(#33))]",Midway between the inner and outer canthus
-,,,,,,
-Channel,ID,NameC,NameE,FaceMeshX,FaceMeshY,Localizaion
-LI,19,口禾髎,Kouheliao,"[GetX(#305),GetX(#75)]",(GetY(#0)-GetY(#2))/3 + GetY(#2),"directly inferior to the lateral margin of the nostril,level with GV 26"
-LI,20,迎香,Yingxiang,"[GetX(#358)+0.5*U,GetX(#129)-0.5*U]","Avg(GetY(#358),GetY(#129))",0.5 cun lateral to the nostril.
-ST,1,承泣,Chengqi,GetX(RHD3),"[GetY(#253),GetY(#23)]","On the face,on the inferior border of the orbit, in the orbicularis oculi muscle, directly below the pupil when eyes are focused forward"
-ST,2,四白,Sibai,GetX(RHD3),GetY(ST1)+0.5*U,"On the face,on the infraorbital foramen, 0.5 cun inferior to ST 1 when eyes are focused forward"
-ST,3,巨髎,Juliao,GetX(RHD3),GetY(#2),"On the face,level with the border of the ala nasi, in line with the pupil when the eyes are focused forward"
-ST,4,地仓,Dicang,GetX(RHD3),"Avg(GetY(#291), GetY(#61))","On the face,0.4 cun lateral to the corner of the mouth, in line with the pupil when the eyes are focused forward"
+Channel,ID,NameC,NameE,Region,FaceMeshX,FaceMeshY,Symmetry,Localizaion
+RHD,1,印堂穴,Yintang,forehead,"Avg(GetX(#8), GetX(#9))","Avg(GetY(#8), GetY(#9))",FALSE,Midway between the medial ends of the eyebrows
+RHD,2,前发际正中,middle of anterior hairline,hair,GetX(RHD1),GetY(RHD1)-3*U,FALSE,intersection of anterior hairline and anterior midline
+RHD,3,瞳孔(目中),pupil,eye,"[Avg(GetX(#362), GetX(#263)),Avg(GetX(#133), GetX(#33))]","[Avg(GetY(#362), GetY(#263)),Avg(GetY(#133), GetY(#33))]",TRUE,Midway between the inner and outer canthus
+,,,,,,,,
+Channel,ID,NameC,NameE,Region,FaceMeshX,FaceMeshY,Symmetry,Localizaion
+LI,19,口禾髎,Kouheliao,mouth,"[GetX(#305),GetX(#75)]",(GetY(#0)-GetY(#2))/3 + GetY(#2),TRUE,"directly inferior to the lateral margin of the nostril,level with GV 26"
+LI,20,迎香,Yingxiang,mouth,"[GetX(#358)+0.5*U,GetX(#129)-0.5*U]","Avg(GetY(#358),GetY(#129))",TRUE,0.5 cun lateral to the nostril.
+ST,1,承泣,Chengqi,eye,GetX(RHD3),"[GetY(#253),GetY(#23)]",TRUE,"On the face,on the inferior border of the orbit, in the orbicularis oculi muscle, directly below the pupil when eyes are focused forward"
+ST,2,四白,Sibai,eye,GetX(RHD3),GetY(ST1)+0.5*U,TRUE,"On the face,on the infraorbital foramen, 0.5 cun inferior to ST 1 when eyes are focused forward"
+ST,3,巨髎,Juliao,nose,GetX(RHD3),GetY(#2),TRUE,"On the face,level with the border of the ala nasi, in line with the pupil when the eyes are focused forward"
+ST,4,地仓,Dicang,mouth,GetX(RHD3),"Avg(GetY(#291), GetY(#61))",TRUE,"On the face,0.4 cun lateral to the corner of the mouth, in line with the pupil when the eyes are focused forward"
+ST,5,大迎,Daying,chin,"[GetX(#364),GetX(#135)]","[GetY(#364),GetY(#135)]",TRUE,Anterior to the angle of the mandible on the anterior border of the masseter muscle in a groove like depression when the cheek is bulged
+ST,6,颊车,Jiache,cheek,"[GetX(#367),GetX(#138)]","[GetY(#367),GetY(#138)]",TRUE,"On the cheek, 1 cun anterior and superior to the angle of the mandible, in the belly of masseter muscle"
+ST,7,下关,Xiaguan,face,"[GetX(#447),GetX(#227)]",GetY(ST2),TRUE,"On the lateral face, in the depression at the lower border of the zygomatic arch, anterior to the condyloid process of the mandible. ST 7 is located with the mouth closed."
+ST,8,头维,Touwei,hair,"[GetX(RHD1)+4.5*H, GetX(RHD1)-4.5*H]",GetY(RHD1)-3*U-0.5*H,TRUE,"At the corner of the forehead, 0.5 cun posterior to the anterior hairline, 4.5 cun lateral to the anterior midline"
+SI,18,颧髎 ,Quanliao,cheek,"[GetX(#446),GetX(#226)]","[GetY(#358),GetY(#129)]",TRUE,"On the face, on the lower border of the zygomatic bone, inferior to the outer canthus of the eye. Needle perpendicularly 0.5 - 0.8 cun"
+SI,19,听宫,Tinggong,ear,"[GetX(#323),GetX(#93)]","[GetY(#323),GetY(#93)]",TRUE,"Anterior to the tragus of the ear, in the depression between the tragus and the mandibular joint when the mouth is open slightly"
+BL,1,睛明,Jingming,eye,"[GetX(#362),GetX(#133)]","[GetY(#362)-0.1*U,GetY(#133)-0.1*U]",TRUE,"On the face,0.1 cun superior to the inner canthus of the eye in a depression"
+BL,2,攒竹,Cuanzhu,eye,"[GetX(#441),GetX(#221)]","[GetY(#441)+0.1*U,GetY(#221)+0.1*U]",TRUE,"On the face, at the medial end of the eyebrow, on the supraorbital notch."
+BL,3,眉冲,Meichong,head,"[GetX(#441),GetX(#221)]",GetY(RHD1)-3*U-0.5*H,TRUE,"In the frontal region of the head, 0.5 cun within the anterior hairline and 0.5 cun lateral to GV 24 at the midline."
+BL,4,曲差,Qucha,head,"[GetX(RHD1)+1.5*H, GetX(RHD1)-1.5*H]",GetY(RHD1)-3*U-0.5*H,TRUE,"In the frontal region of the head, 0.5 cun within the anterior hairline, and 1.5 cun lateral to GV 24 at the midline."
+BL,5,五处,Wuchu,head,"[GetX(RHD1)+1.5*H, GetX(RHD1)-1.5*H]",GetY(RHD1)-3*U-1.0*H,TRUE,"On the head, 2.5 cun posterior to anterior hairline, and 1.5 cun lateral to the midline."
+BL,6,承光,Chengguang,head,"[GetX(RHD1)+1.5*H, GetX(RHD1)-1.5*H]",GetY(RHD1)-3*U-1.5*H,TRUE,"On the head, 4 cun posterior to anterior hairline, and 1.5 cun lateral to the midline."
+SJ,21,耳门,Ermen,ear,"[GetX(#454),GetX(#234)]","[GetY(#454),GetY(#234)]",TRUE,"Anterior to the ear, in the depression anterior to the supratragic notch and posterior to the mandibular condyloid process when the mouth is open"
+SJ,22,耳和髎,Erheliao,ear,"[GetX(#323)-0.1*U,GetX(#93)+0.1*U]","[GetY(#263),GetY(#33)]",TRUE,"Anterior to the ear, on the hairline, level with the lateral canthus of the eye"
+SJ,23,丝竹空,Sizhukong,eye,"[GetX(#276),GetX(#46)]","[GetY(#276),GetY(#46)]",TRUE,In the depression at the lateral end of the eyebrow
+GB,1,瞳子髎,Tongziliao,eye,"[GetX(#263)+0.5*U,GetX(#33)-0.5*U]","[GetY(#263),GetY(#33)]",TRUE,"On the lateral face, 0.5 cun lateral to the outer canthus of the eye."
+GB,2,听会,Tinghui,ear,"[GetX(#361),GetX(#132)]","[GetY(#361),GetY(#132)]",TRUE,"With the mouth open, in the depression anterior to the auricular intertragic notch"
+GB,3,上关,Shangguan,ear,"[GetX(#447),GetX(#227)]","[GetY(#454),GetY(#234)]",TRUE,"On the lateral face, anterior to the ear, on the upper border of the zygomatic arch"
+RN,24,承浆,Chengjiang,mouth,GetX(#18),GetY(#18),FALSE,"On the chin, in the depression in the centre of the mentolabial groove, below the middle of the lower lip"
+DU,22,囟会,Xinhui,head,GetX(RHD1),GetY(RHD1)-3*U-2*H,FALSE,"On the midline, 2 cun posterior to the anterior hairline"
+DU,23,上星,Shangxing,head,GetX(RHD1),GetY(RHD1)-3*U-1*H,FALSE,"On the midline, 1 cun posterior to the anterior hairline."
+DU,24,神庭,Shenting,head,GetX(RHD1),GetY(RHD1)-3*U-0.5*H,FALSE,"On the midline, 0.5 cun posterior to the anterior hairline."
+DU,25,素髎,Suliao,nose,GetX(#1),GetY(#1),FALSE,At the tip of the nose
+DU,26,水沟,Shuigou,mouth,GetX(#1),(GetY(#0)-GetY(#2))/3 + GetY(#2),FALSE,"In the philtrum, 1/3 the distance from the nose and the top of the lip"
+DU,27,兑端,DuiDuan,mouth,GetX(#0),GetY(#0),FALSE,At the junction of the philitrum with the upper lip
+DU,28,龈交,Yinjiao,mouth,GetX(#0),GetY(#0),FALSE,"In the mouth, at the junction of the fraenulum of the upper lip with the upper gum"
+EX-HN,2,当阳,Dangyang,head,GetX(RHD3),GetY(RHD1)-3*U-1*H,TRUE,"At the frontal part of the head, 1 cun above the anteri hairline."
+EX-HN,3,印堂,Yintang,head,GetX(RHD1),GetY(RHD1),FALSE,"At the glabella, at the midpoint between the medial extremities of the eyebrows"
+EX-HN,4,鱼腰,Yuyao,eye,GetX(RHD3),"Avg(GetY(#8), GetY(#9))",TRUE,"In the hollow, at the midpoint of the eyebrow, directly above the pupil."
+EX-HN,5,太阳,Taiyang,eye,"[GetX(#359)+1.0*U,GetX(#130)-1.0*U]","[Avg(GetY(#8), GetY(#359)),Avg(GetY(#8),GetY(#130))]",TRUE,"At the temple, in the depression approximately 1 cun posterior to the midpoint between the lateral extremity of the eyebrow and the outer canthus of the eye"
+EX-HN,6,耳尖,Erjian,ear,"[GetX(#323)+1.1*U,GetX(#93)-1.1*U]","[GetY(#356)-0.1*U,GetY(#127)-0.1*U]",TRUE,"On the top region of the auricle, fold the auricle forward, the point is at the apex of the auricle"
+EX-HN,7,球后,Qiuhou,eye,"[GetX(#339),GetX(#110)]","[GetY(#339),GetY(#110)]",TRUE,"On the region of the face, at the junction of the lateral 1/4 and the medial 3/4 of the infraorbital margin"
+EX-HN,8,上迎香,Shangyingxiang,nose,"[GetX(#429),GetX(#209)]","[GetY(#429),GetY(#209)]",TRUE,"Approximately 0.5 cun superior and medial to Yingxiang (LI 20), this point is at the upper end of the nasolabial groove."

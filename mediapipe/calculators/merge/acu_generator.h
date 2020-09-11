@@ -9,6 +9,7 @@
 #include <locale>         // std::locale, std::isspace
 #include <sstream>
 #include <vector>
+#include <set>
 #include <string>
 #include <glm/glm.hpp>
 #include <limits>
@@ -38,14 +39,16 @@ struct acuPoint{
 	std::string dx, dy;
 	glm::vec3 p1, p2;
 	bool symmetry;
+	bool draw;
 	acuPoint(){
-		symmetry = false;
+		symmetry = false;draw=false;
 	}
 	acuPoint(std::string channel_, int id_, std::string n_, std::string region_, std::string dx_, std::string dy_, std::string is_sym){
 		channel = channel_;id=id_;name=n_;dx = dx_; dy=dy_; region=region_;
 		dx.erase(std::remove_if( dx.begin(),  dx.end(), my_isspace),  dx.end());
 		dy.erase(std::remove_if( dy.begin(),  dy.end(), my_isspace),  dy.end());
 		symmetry = (is_sym == "TRUE" || is_sym=="True");
+		draw = false;
 	}
 };
 
@@ -57,7 +60,6 @@ private:
 
 	// std::vector<std::string> channels_;
 	std::map<std::string,acuPoint> acu_ref_map, acu_map;
-	// std::unordered_map<std::string, std::vector<unsigned short>[2]> meridian_map;
 	std::unordered_map<std::string, std::vector<unsigned short>> meridian_map;
 	
 
@@ -67,7 +69,8 @@ private:
 	bool draw_ref= false;
 	bool draw_all_points = false;
 	bool draw_acu_points = true;
-	std::string targe_ch = "LI";
+	std::set<std::string> target_channels=std::set<std::string>{"LI"};
+
 	float* pdata_ = nullptr;
 	unsigned short* pind = nullptr;
 	int data_num = 0;
@@ -76,9 +79,9 @@ private:
 	glm::vec2 mps[468];
 
 	PointRenderer* prenderer;
-	PointRenderer* line_renderer;
+	std::unordered_map<std::string, PointRenderer*> line_renderers;
 
-	void on_process(std::map<std::string,acuPoint>& mp);
+	void on_process(std::map<std::string,acuPoint>& mp, bool sel_channel=false);
     void setup_shader_content();
 	void read_from_csv();
 	float calculate_from_string(std::string str);
@@ -87,7 +90,7 @@ private:
 	std::vector<float> process_line(std::string content);
 	float getGLPos(float p){return p*2.0f-1.0f;}
 
-	void gen_mapped_points(std::map<std::string,acuPoint> mp, int& num, std::string sel_channel="");
+	void gen_mapped_points(std::map<std::string,acuPoint> mp, int& num);
 	void gen_all_points(const float* points,int& data_num);
 	bool cal_unit_size(cv::Mat hair_mask, const float* points);
 public:
