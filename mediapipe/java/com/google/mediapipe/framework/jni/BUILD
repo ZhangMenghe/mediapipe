@@ -180,3 +180,20 @@ cc_library(
         ],
     }),
 )
+cc_library(
+    name = "acu_jni",
+    srcs = ["acu_jni.cpp"],
+    hdrs = ["acu_jni.h"],
+    linkopts = select({
+        "//conditions:default": [],
+        "//mediapipe:android": [
+            "-ljnigraphics",
+            "-lEGL",  # This is needed by compat_jni even if GPU is disabled.
+        ],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":jni_util",
+        "//mediapipe/calculators/merge:face_acu_generator"],
+    alwayslink=1
+)

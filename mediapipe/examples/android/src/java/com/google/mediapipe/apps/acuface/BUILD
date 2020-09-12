@@ -22,6 +22,7 @@ cc_binary(
     linkstatic = 1,
     deps = [
         "//mediapipe/graphs/acu_face:mobile_calculators",
+        "//mediapipe/java/com/google/mediapipe/framework/jni:acu_jni",
         "//mediapipe/java/com/google/mediapipe/framework/jni:mediapipe_framework_jni",
     ],
 )
@@ -31,6 +32,22 @@ cc_library(
     srcs = [":libmediapipe_jni.so"],
     alwayslink = 1,
 )
+
+#android_library(
+#    name = "acu_jni_core",
+#    srcs = ["JNIInterface.java"],
+#    proguard_specs = [":proguard.pgcfg"],
+#    visibility = ["//visibility:public"],
+#)
+#
+#android_library(
+#    name = "acu_jni_framework",
+#    proguard_specs = [":proguard.pgcfg"],
+#    visibility = ["//visibility:public"],
+#    exports = [
+#        ":acu_jni_core",
+#    ],
+#)
 
 android_binary(
     name = "acufacegpu",

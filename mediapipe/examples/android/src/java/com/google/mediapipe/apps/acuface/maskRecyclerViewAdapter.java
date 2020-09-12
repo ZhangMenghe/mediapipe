@@ -13,12 +13,15 @@ import android.widget.TextView;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.common.primitives.Ints;
 import com.google.mediapipe.apps.basic.R;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerViewAdapter.MyView> {
     private final WeakReference<Activity> actRef;
@@ -26,6 +29,7 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
     private List<WeakReference<Button>> buttonRefs;
 
     private List<String> item_names;
+    private Set<String> selected_items;
     private boolean[] values;
     private int card_num = 0;
 
@@ -43,15 +47,16 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
             btn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    //show/hide volume details
                     int item_position = view_pos;//recyRef.get().getChildAdapterPosition((View)v.getParent());
                     values[item_position] = !values[item_position];
-                    Log.e("TAG", "=====onClick: " +item_position);
+                    if(values[item_position])selected_items.add(item_names.get(item_position));
+                    else selected_items.remove(item_names.get(item_position));
                     setButtonStyle((Button)v, item_position);
-//                if(values[item_position]) mask_bits |= 1 << item_position;
-//                else mask_bits &= ~(1 << item_position);
-//                JUIInterface.JUIsetMaskBits(mask_num, mask_bits);
 
+                    String[] arr = new String[selected_items.size()];
+                    selected_items.toArray(arr);
+//                    Log.e("TAG", "===set_change: "+selected_items.size() );
+                    JNIInterface.JNIUpdateMeridianList(selected_items.size(), arr);
                 }
             });
         }
@@ -62,6 +67,7 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
         actRef = new WeakReference<>(activity);
         recyRef = new WeakReference<>(recyclerView);
         buttonRefs = new ArrayList<>();
+        selected_items = new HashSet<>();
 
         highlight_color = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.yellowOrange));
         normal_color = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.brightBlue));
@@ -98,10 +104,14 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
         }
     }
     private void set_initial_values(){
-        mask_bits = 0;
-        for(int i=0; i<item_names.size(); i++)
-            mask_bits+= values[i]? (int)Math.pow(2, i) : 0;
-//        JUIInterface.JUIsetMaskBits(mask_num, mask_bits);
+        for(int i=0;i<item_names.size();i++){
+            if(values[i])selected_items.add(item_names.get(i));
+        }
+        String[] arr = new String[selected_items.size()];
+        selected_items.toArray(arr);
+//        Log.e("TAG", "===set_initial_values: "+selected_items.size() );
+        JNIInterface.JNIUpdateMeridianList(selected_items.size(), arr);
+
     }
     void Reset(){
         TypedArray tvalues = actRef.get().getResources().obtainTypedArray(R.array.masks_status);
@@ -109,19 +119,23 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
             values[i] = tvalues.getBoolean(i, true);
         tvalues.recycle();
         set_initial_values();
+
         for(int i=0; i<buttonRefs.size(); i++)
            setButtonStyle(buttonRefs.get(i).get(), i);
 
     }
     void Reset(boolean[] vs){
         if(vs==null || vs.length!=values.length){Reset(); return;}
-
         values = vs.clone();
         set_initial_values();
+
         for(int i=0; i<buttonRefs.size(); i++)
             setButtonStyle(buttonRefs.get(i).get(), i);
 
     }
     boolean[] getValues(){return values;}
+//    int[] getSelections(){
+//        return Ints.toArray(selected_items);
+//    }
 }
 

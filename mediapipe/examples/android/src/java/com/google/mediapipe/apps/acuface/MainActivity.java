@@ -37,7 +37,12 @@ import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
 import com.google.mediapipe.framework.AndroidAssetUtil;
+import com.google.mediapipe.framework.AndroidPacketCreator;
+import com.google.mediapipe.framework.Packet;
 import com.google.mediapipe.glutil.EglManager;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /** Main activity of MediaPipe basic app. */
 public class MainActivity extends AppCompatActivity {
