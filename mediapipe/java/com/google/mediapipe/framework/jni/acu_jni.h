@@ -9,8 +9,8 @@ extern "C" {
         Java_com_google_mediapipe_apps_acuface_JNIInterface_##funcName
 
 JNI_METHOD(void, JNIUpdateMeridianList)(JNIEnv * , jclass , jint , jobjectArray ) ;
-JNI_METHOD(void, JNITEST)(JNIEnv * , jclass) ;
-
+JNI_METHOD(void, JNIAddMeridian)(JNIEnv * , jclass , jstring ) ;
+JNI_METHOD(void, JNIDelMeridian)(JNIEnv * , jclass , jstring ) ;
 
 }
 

@@ -54,6 +54,8 @@ struct acuPoint{
 
 class acuGenerator{
 private:
+    static acuGenerator* myPtr_;
+
 	const int ACU_INFO_NUMS = 9;
 	const std::vector<std::string> unit_functions{"GetX","GetY","Avg"};
 	std::string spath;
@@ -66,10 +68,11 @@ private:
 	// const float * ptr = nullptr;
 	float unit_size = .0f;
 	float unit_hair_size = .0f;
-	bool draw_ref= false;
+	bool draw_ref=false;
 	bool draw_all_points = false;
 	bool draw_acu_points = true;
-	std::set<std::string> target_channels=std::set<std::string>{"LI"};
+	std::set<std::string> target_channels=std::set<std::string>{"DU"};
+	std::unordered_map<std::string, int> meridian_num_map;
 
 	float* pdata_ = nullptr;
 	unsigned short* pind = nullptr;
@@ -94,6 +97,17 @@ private:
 	void gen_all_points(const float* points,int& data_num);
 	bool cal_unit_size(cv::Mat hair_mask, const float* points);
 public:
+    static acuGenerator* instance();
+	void clearTarget(){target_channels.clear();}
+	void addTargetMerdian(std::string target_meridian){
+		if(target_meridian.compare("Refs")==0)draw_ref = true;
+		else target_channels.insert(target_meridian);
+	}
+	void removeTargetMerdian(std::string target_meridian){
+		if(target_meridian.compare("Refs")==0)draw_ref = false;
+		else target_channels.erase(target_meridian);
+	}
+
 	void onSetup(std::string shader_path);
     void onDraw(faceRect rect, cv::Mat& hair_mask, const float* points);
     void onDestroy();

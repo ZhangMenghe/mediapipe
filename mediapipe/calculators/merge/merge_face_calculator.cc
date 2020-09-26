@@ -131,7 +131,7 @@ class FaceMergeCalculator : public CalculatorBase {
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   GLuint program_ = 0;
   float *lmpoints = nullptr;
-	std::unique_ptr<acuGenerator> acu_generator;
+	// std::unique_ptr<acuGenerator> acu_generator;
 
   	mediapipe::GlCalculatorHelper gpu_helper_;
 	std::unique_ptr<backgroundRenderer> quad_renderer_;
@@ -220,7 +220,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 #endif  //  !MEDIAPIPE_DISABLE_GPU
   }
 
-  acu_generator = absl::make_unique<acuGenerator>();
+  // acu_generator = absl::make_unique<acuGenerator>();
   
   MP_RETURN_IF_ERROR(LoadOptions(cc));
 
@@ -373,7 +373,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
     img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
     
-    acu_generator->onDraw(fr, mask_full, land_mark_valid?lmpoints:nullptr);
+    acuGenerator::instance()->onDraw(fr, mask_full, land_mark_valid?lmpoints:nullptr);
 
   //draw others here
     glActiveTexture(GL_TEXTURE1);
@@ -497,7 +497,7 @@ void FaceMergeCalculator::GlRender() {
   color_.push_back(0);
   color_.push_back(0);
 	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
-  acu_generator->onSetup(options.shader_res_path());
+  acuGenerator::instance()->onSetup(options.shader_res_path());
   return ::mediapipe::OkStatus();
 }
 

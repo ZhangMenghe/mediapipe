@@ -8,6 +8,13 @@ using namespace glm;
 using std::cout;
 using std::endl;
 
+acuGenerator* acuGenerator::myPtr_ = nullptr;
+
+acuGenerator* acuGenerator::instance(){
+    if(!myPtr_) myPtr_ = new acuGenerator;
+    return myPtr_;
+}
+
 float acuGenerator::calculate_from_string(std::string s) {
     // std::cout<<"calculate before: "<<s<<std::endl;
     float n = s.size(), num = 0, curRes = 0, res = 0;
@@ -219,6 +226,7 @@ void acuGenerator::read_from_csv(){
                     meridian_map[current_channel].insert(it, r2ind.begin(), r2ind.end());
                     has_sym = false;
                 }
+                meridian_num_map[current_channel] = count;
                 r1ind.clear();r2ind.clear();
                 count = 0;
                 current_channel = buff[0];
@@ -252,8 +260,9 @@ void acuGenerator::onSetup(std::string shader_path){
     read_from_csv();
     prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
     for(auto &m: meridian_map)
-        line_renderers[m.first] = new PointRenderer(glm::vec4(0.8, 0.5, .0, 1.0), true);
+        line_renderers[m.first] = new PointRenderer(glm::vec4(0.8, 0.1, .0, 1.0), true);
     
+    pdata_ = new float[3 * 468];
 
     // for(auto p : acu_map){
     //     std::cout<<p.first<<"->"<<p.second.dx<<"        "<<p.second.dy<<std::endl;
@@ -302,7 +311,7 @@ void acuGenerator::gen_mapped_points(std::map<std::string,acuPoint> mp, int& idx
     }
 }
 bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
-    int pupils[4] ={362,263,133,33};
+    int pupils[4] = {362,263,133,33};
     vec2 pup1 = vec2(avg(points[3*pupils[0]], points[3*pupils[1]]), avg(points[3*pupils[0]+1], points[3*pupils[1]+1]));
     vec2 pup2 = vec2(avg(points[3*pupils[2]], points[3*pupils[3]]), avg(points[3*pupils[2]+1], points[3*pupils[3]+1]));
     vec2 pmid = (pup1+pup2) *0.5f;
@@ -347,7 +356,7 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
         if(hair_mask.at<uchar>(ref_RHD1_y_abs,ref_RHD1_x_abs_cos) < 20.f) break;
     }
     if(ref_RHD1_y_abs < 0)unit_hair_size=.0f;
-    else unit_hair_size = glm::length(hair_line_p-vec2(float(ref_RHD1_x_abs_cos)/ms.width, float(ref_RHD1_y_abs)/ms.height))/4.0f;
+    else unit_hair_size = glm::length(hair_line_p-vec2(float(ref_RHD1_x_abs_cos)/ms.width, float(ref_RHD1_y_abs)/ms.height))/3.0f;
     // float ystart = float(hair_start)/ms.height;
     // float yend = float(ref_RHD1_y_abs)/ms.height;
     // pdata_ = new float[3 * 4];
@@ -372,6 +381,8 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
 
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
 void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
+    //__android_log_print(ANDROID_LOG_INFO, "MyTag", "The value is %d", some_variable);
+    
     //get unit size
     if(!cal_unit_size(hair_mask, points))return;
 
@@ -391,31 +402,42 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
     on_process(acu_ref_map);
     on_process(acu_map, true);
 
-    if(data_num == 0){
-        if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
-        if(draw_all_points){
-            for(auto p : acu_map)data_num+= p.second.symmetry?2:1;
-        }else{
-            for(auto p : acu_map)
-                if(p.second.draw)data_num+= p.second.symmetry?2:1;
-        }
-        std::cout<<"----total num-----"<<data_num<<std::endl;
-        pdata_ = new float[3 * data_num];
-    }
-    int idx = 0;
-
-    if(draw_ref) gen_mapped_points(acu_ref_map, idx);
-
-    if(draw_acu_points) {
-        if(draw_all_points)gen_mapped_points(acu_map, idx);
-        else gen_mapped_points(acu_map, idx);
-    }
-
+	data_num = 0;
     
+    if(draw_ref)for(auto p : acu_ref_map)data_num+= p.second.symmetry?2:1;
+    if(draw_all_points){
+        for(auto p : acu_map)data_num+= p.second.symmetry?2:1;
+    }else{
+        for(auto p : acu_map)
+            if(p.second.draw)data_num+= p.second.symmetry?2:1;
+    }
+        // std::cout<<"----total num-----"<<data_num<<std::endl;
+        // pdata_ = new float[3 * data_num];
+
+    int idx = 0;
+    if(draw_ref) gen_mapped_points(acu_ref_map, idx);
+    gen_mapped_points(acu_map, idx);
     prenderer->Draw(pdata_, data_num, GL_POINTS);
+    
+    //draw meridian
+    int roffset = draw_ref?12:0;
+    data_num = draw_ref?data_num-4:data_num;
+    
+    int moffset = 0;//draw_ref?4:0;
     for(auto&tc:target_channels){
         auto target_meridain = meridian_map[tc];
-        line_renderers[tc]->Draw(pdata_, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
+        if(moffset){
+            std::vector<unsigned short> mapped_indices(target_meridain.size());
+            int i=0;
+            for(auto id:target_meridain){
+                if(id != 0xffff)mapped_indices[i++]=id+moffset;
+                else mapped_indices[i++]=id;
+            }
+            line_renderers[tc]->Draw(pdata_+roffset, mapped_indices.data(), data_num, mapped_indices.size(), GL_LINE_STRIP);
+
+        }
+        moffset+=meridian_num_map[tc];
+        line_renderers[tc]->Draw(pdata_+roffset, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
     }
 
 }

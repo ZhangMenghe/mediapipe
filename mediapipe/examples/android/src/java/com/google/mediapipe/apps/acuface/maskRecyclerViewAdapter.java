@@ -49,14 +49,10 @@ public class maskRecyclerViewAdapter extends RecyclerView.Adapter<maskRecyclerVi
                 public void onClick(View v) {
                     int item_position = view_pos;//recyRef.get().getChildAdapterPosition((View)v.getParent());
                     values[item_position] = !values[item_position];
-                    if(values[item_position])selected_items.add(item_names.get(item_position));
-                    else selected_items.remove(item_names.get(item_position));
+                    if(values[item_position])JNIInterface.JNIAddMeridian(item_names.get(item_position));//selected_items.add(item_names.get(item_position));
+                    else JNIInterface.JNIDelMeridian(item_names.get(item_position));//selected_items.remove(item_names.get(item_position));
                     setButtonStyle((Button)v, item_position);
 
-                    String[] arr = new String[selected_items.size()];
-                    selected_items.toArray(arr);
-//                    Log.e("TAG", "===set_change: "+selected_items.size() );
-                    JNIInterface.JNIUpdateMeridianList(selected_items.size(), arr);
                 }
             });
         }

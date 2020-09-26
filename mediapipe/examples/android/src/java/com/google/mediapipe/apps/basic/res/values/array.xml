@@ -16,7 +16,7 @@
     <string-array name="masks_status">
         <item>false</item>
         <item>true</item>
-        <item>false</item>
+        <item>true</item>
         <item>false</item>
         <item>false</item>
         <item>false</item>

@@ -5,6 +5,7 @@
 
 #include "acu_jni.h"
 #include "mediapipe/calculators/merge/acu_generator.h"
+#include <set>
 namespace{
     inline static JavaVM *g_vm = nullptr;
 
@@ -15,11 +16,19 @@ namespace{
         return str;
     }
 };
+using namespace mediapipe;
 JNI_METHOD(void, JNIUpdateMeridianList)(JNIEnv* env, jclass, jint num, jobjectArray jkeys){
+    acuGenerator::instance()->clearTarget();
+    std::set<std::string> keys;
     for(int i=0; i<num; i++){
         jstring jkey = (jstring) (env->GetObjectArrayElement(jkeys, i));
-        std::string key = jstring2string(env,jkey);
-//        std::cout<<key<<std::endl;
+        acuGenerator::instance()->addTargetMerdian(jstring2string(env,jkey));
     }
 }
-JNI_METHOD(void, JNITEST)(JNIEnv * , jclass) {}
+JNI_METHOD(void, JNIAddMeridian)(JNIEnv * env, jclass , jstring jkey) {
+    acuGenerator::instance()->addTargetMerdian(jstring2string(env,jkey));
+
+}
+JNI_METHOD(void, JNIDelMeridian)(JNIEnv * env, jclass , jstring jkey) {
+    acuGenerator::instance()->removeTargetMerdian(jstring2string(env,jkey));
+}
