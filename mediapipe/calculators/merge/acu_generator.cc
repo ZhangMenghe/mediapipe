@@ -2,7 +2,12 @@
 #include <iostream>
 #include <fstream>
 #include "mediapipe/util/resource_util.h"
-
+#include <algorithm> 
+#include <chrono> 
+#include <iostream> 
+#include<vector> 
+using namespace std; 
+using namespace std::chrono; 
 using namespace mediapipe;
 using namespace glm;
 using std::cout;
@@ -257,7 +262,18 @@ void acuGenerator::setup_shader_content(){
 }
 void acuGenerator::onSetup(std::string shader_path){
     spath = shader_path;
+    auto start = high_resolution_clock::now(); 
+
     read_from_csv();
+    
+    auto stop = high_resolution_clock::now(); 
+    auto duration = duration_cast<microseconds>(stop - start); 
+
+    #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===setup %d", duration.count());
+    #else
+        std::cout<<"setup "<<duration.count()<<std::endl;
+    #endif
     prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
     for(auto &m: meridian_map)
         line_renderers[m.first] = new PointRenderer(glm::vec4(0.8, 0.1, .0, 1.0), true);
@@ -381,8 +397,18 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
 
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
 void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
-    //__android_log_print(ANDROID_LOG_INFO, "MyTag", "The value is %d", some_variable);
+            auto stop = high_resolution_clock::now(); 
+    auto duration = duration_cast<microseconds>(stop - last_time); 
+last_time = stop;
+    #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    #else
+        std::cout<<"time "<<duration.count()<<std::endl;
+    #endif
+
+
     
+
     //get unit size
     if(!cal_unit_size(hair_mask, points))return;
 
@@ -417,6 +443,10 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
     int idx = 0;
     if(draw_ref) gen_mapped_points(acu_ref_map, idx);
     gen_mapped_points(acu_map, idx);
+
+
+    // std::cout<<"generation "<<duration.count()<<std::endl;
+
     prenderer->Draw(pdata_, data_num, GL_POINTS);
     
     //draw meridian

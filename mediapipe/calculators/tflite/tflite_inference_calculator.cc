@@ -11,11 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// #include <android/log.h>
 
 #include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
+#include <chrono> 
+using namespace std::chrono; 
 
 #include "absl/memory/memory.h"
 #include "mediapipe/calculators/tflite/tflite_inference_calculator.pb.h"
@@ -44,7 +47,6 @@
 #include "tensorflow/lite/delegates/gpu/gl/gl_shader.h"
 #include "tensorflow/lite/delegates/gpu/gl_delegate.h"
 #endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
-
 #if MEDIAPIPE_TFLITE_METAL_INFERENCE
 #import <CoreVideo/CoreVideo.h>
 #import <Metal/Metal.h>
@@ -390,6 +392,8 @@ bool ShouldUseGpu(CC* cc) {
 
 ::mediapipe::Status TfLiteInferenceCalculator::Process(CalculatorContext* cc) {
   return RunInContextIfNeeded([this, cc]() -> ::mediapipe::Status {
+      auto start = high_resolution_clock::now();
+
     // 0. Declare outputs
     auto output_tensors_gpu = absl::make_unique<std::vector<GpuTensor>>();
     auto output_tensors_cpu = absl::make_unique<std::vector<TfLiteTensor>>();
@@ -408,6 +412,13 @@ bool ShouldUseGpu(CC* cc) {
     } else {
       RET_CHECK_EQ(interpreter_->Invoke(), kTfLiteOk);
     }
+          auto stop = high_resolution_clock::now();
+      auto duration = stop-start;
+    //     #ifdef __ANDROID__
+    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    // #else
+        std::cout<<"=====time "<<duration.count()<<std::endl;
+    // #endif
 #else
     RET_CHECK_EQ(interpreter_->Invoke(), kTfLiteOk);
 #endif  // MEDIAPIPE_TFLITE_GL_INFERENCE

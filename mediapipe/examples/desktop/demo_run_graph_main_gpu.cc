@@ -29,7 +29,14 @@
 #include "mediapipe/gpu/gpu_buffer.h"
 #include "mediapipe/gpu/gpu_shared_data_internal.h"
 #include <fstream>
-
+  #include <cstdint>
+#include <ctime>
+#include <algorithm> 
+#include <chrono> 
+#include <iostream> 
+#include<vector> 
+using namespace std; 
+using namespace std::chrono; 
 DEFINE_string(calculator_graph_config_file, "",
               "Name of file containing text format CalculatorGraphConfig proto.");
 DEFINE_string(input_video_path, "",
@@ -49,6 +56,9 @@ DEFINE_string(output_framewpoint_path, "",
               "Full path to output frame points");
 
 namespace mediapipe {
+
+
+
 class GPUTask{
 private:
   enum SrcLoadType{
@@ -247,6 +257,7 @@ Status GPUTask::Run(){
     if(!getFrame(camera_frame)) break;
     cv::Mat input_frame_mat = mediapipe::formats::MatView(input_frame.get());
     camera_frame.copyTo(input_frame_mat);
+    auto start = high_resolution_clock::now(); 
 
     // Prepare and add graph input packet.
     MP_RETURN_IF_ERROR(
@@ -265,6 +276,10 @@ Status GPUTask::Run(){
     // Get the graph result packet, or stop if that fails.
     mediapipe::Packet packet;
     if (!poller.Next(&packet)) break;
+    
+    auto stop = high_resolution_clock::now(); 
+    auto duration = duration_cast<microseconds>(stop - start); 
+    // std::cout<<"time: "<<duration.count()<<std::endl;
     std::unique_ptr<mediapipe::ImageFrame> output_frame;
     // LOG(INFO) << packet.Get<std::string>();
 
@@ -305,6 +320,7 @@ Status GPUTask::Run(){
 }
 
 int main(int argc, char** argv) {
+  std::cout<<"test!!!!"<<std::endl;
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   mediapipe::GPUTask gpu_task;
