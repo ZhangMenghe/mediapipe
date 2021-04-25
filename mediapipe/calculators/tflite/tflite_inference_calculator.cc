@@ -414,11 +414,7 @@ bool ShouldUseGpu(CC* cc) {
     }
           auto stop = high_resolution_clock::now();
       auto duration = stop-start;
-    //     #ifdef __ANDROID__
-    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
-    // #else
-        std::cout<<"=====time "<<duration.count()<<std::endl;
-    // #endif
+
 #else
     RET_CHECK_EQ(interpreter_->Invoke(), kTfLiteOk);
 #endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
