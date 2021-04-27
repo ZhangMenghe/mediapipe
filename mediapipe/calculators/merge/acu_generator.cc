@@ -290,7 +290,9 @@ void acuGenerator::onSetup(std::string shader_path){
     prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
     for(auto &m: meridian_map)
         line_renderers[m.first] = new PointRenderer(glm::vec4(0.8, 0.1, .0, 1.0), true);
-    
+    for(int i=0;i<2;i++)
+        m_quad_renderers.push_back(new QuadRenderer(glm::vec4(1.0, 1.0,.0,1.0)));
+
     pdata_ = new float[3 * 468];
 
     // for(auto p : acu_map){
@@ -409,29 +411,33 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
 }
 
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
-void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
+// void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
+void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points){
+
     auto stop = high_resolution_clock::now(); 
     auto duration = duration_cast<microseconds>(stop - last_time); 
     last_time = stop;
 
 
-    //draw all 468 points
-    // data_num = 468;
-    // if(pdata_ == nullptr)pdata_ = new float [3 * data_num];
-    // for(int i=0;i<data_num;i++){
-    //     pdata_[3*i] = points[3*i];//*2.0-1.0;
-    //     pdata_[3*i+1] = points[3*i+1];//*2.0-1.0;
-    // }
-    // prenderer->Draw(pdata_, data_num, GL_POINTS);
+    // draw all 468 points
+    data_num = 468;
+    if(pdata_ == nullptr)pdata_ = new float [3 * data_num];
+    for(int i=0;i<data_num;i++){
+        pdata_[3*i] = points[3*i];//*2.0-1.0;
+        pdata_[3*i+1] = points[3*i+1];//*2.0-1.0;
+    }
+    prenderer->Draw(pdata_, data_num, GL_POINTS);
+    // int num_ears = std::min(2, ear_rects.size());
+    for(int i=0;i<ear_rects.size();i++)m_quad_renderers[i]->Draw(glm::vec2(ear_rects[i].width, ear_rects[i].height), glm::vec2(ear_rects[i].xmin, ear_rects[i].ymin), GL_TRIANGLES);
+  /*
+    #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    #else
+        std::cout<<"time "<<duration.count()<<std::endl;
+    #endif
 
-    // #ifdef __ANDROID__
-    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
-    // #else
-    //     std::cout<<"time "<<duration.count()<<std::endl;
-    // #endif
 
-
-    
+  
 
     //get unit size
     if(!cal_unit_size(hair_mask, points)){
@@ -488,7 +494,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points
         moffset+=meridian_num_map[tc];
         line_renderers[tc]->Draw(pdata_+roffset, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
     }
-    
+    */
 
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */

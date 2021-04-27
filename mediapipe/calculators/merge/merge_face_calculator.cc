@@ -52,6 +52,7 @@ constexpr char kMaskGpuTag[] = "MASK_GPU";
 constexpr char kNormRectTag[] = "NORM_RECT";
 constexpr char kRectTag[] = "RECT";
 constexpr char kNormRectsTag[] = "NORM_RECTS";
+constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
 constexpr char kRectsTag[] = "RECTS";
 
 constexpr char kInputLandMarksVectorTag[] = "VECTOR";
@@ -154,6 +155,9 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 	if (cc->Inputs().HasTag(kNormRectsTag)) {
 	cc->Inputs().Tag(kNormRectsTag).Set<std::vector<NormalizedRect>>();
 	}
+  if(cc->Inputs().HasTag(kEarNormRectsTag)){
+    cc->Inputs().Tag(kEarNormRectsTag).Set<std::vector<NormalizedRect>>();
+  }
 	if (cc->Inputs().HasTag(kRectsTag)) {
 	cc->Inputs().Tag(kRectsTag).Set<std::vector<Rect>>();
 	}
@@ -356,6 +360,18 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     }
     land_mark_valid = true;
 	}
+  //prepare ear info
+  std::vector<faceRect> ear_rects;
+
+  if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
+		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+    for(auto rect:rects)
+		  ear_rects.push_back(faceRect(
+        rect.x_center() - rect.width() / 2.f, 
+      rect.y_center() - rect.height() / 2.f, 
+      rect.width(),rect.height(), 
+      rect.rotation(), true));
+	}
 
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
     if(!quad_renderer_){
@@ -372,10 +388,10 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
     img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
-    
-    acuGenerator::instance()->onDraw(fr, mask_full, land_mark_valid?lmpoints:nullptr);
 
-  //draw others here
+    acuGenerator::instance()->onDraw(fr, mask_full, ear_rects, land_mark_valid?lmpoints:nullptr);
+
+    //draw others here
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();

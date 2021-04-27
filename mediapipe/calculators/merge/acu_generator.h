@@ -15,6 +15,7 @@
 #include <limits>
 #include <glm/gtx/string_cast.hpp>
 #include <PrimeRenderer/PointCloudRenderer.h>
+#include <PrimeRenderer/QuadRenderer.h>
 
 #include <chrono> 
 
@@ -84,6 +85,7 @@ private:
 	glm::vec2 mps[468];
 
 	PointRenderer* prenderer;
+	std::vector<QuadRenderer*> m_quad_renderers;
 	std::unordered_map<std::string, PointRenderer*> line_renderers;
 
 	void on_process(std::map<std::string,acuPoint>& mp, bool sel_channel=false);
@@ -111,7 +113,7 @@ public:
 	}
 
 	void onSetup(std::string shader_path);
-    void onDraw(faceRect rect, cv::Mat& hair_mask, const float* points);
+    void onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points);
     void onDestroy();
 };
 }

@@ -8,6 +8,7 @@ cc_library(
     name = "acuRenderer",
     srcs = [
         "PrimeRenderer/PointCloudRenderer.cpp",
+        "PrimeRenderer/QuadRenderer.cpp",
         "GLPipeline/Shader.cpp",
         "GLPipeline/Mesh.cpp",
         "GLPipeline/Texture.cpp",

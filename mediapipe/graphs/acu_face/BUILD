@@ -37,7 +37,8 @@ cc_library(
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
         "//mediapipe/modules/face_landmark:face_landmark_front_gpu",
         "//mediapipe/graphs/acu_face/subgraphs:hair_segmentation_gpu",
-
+        "//mediapipe/graphs/acu_face/calculators:ear_rects_from_face_landmarks_calculator",
+        # "//mediapipe/graphs/acu_face/subgraphs:multi_ear_landmarks_gpu",
     ],
 )
 
@@ -54,7 +55,8 @@ cc_library(
         "//mediapipe/calculators/tflite:tflite_inference_calculator",
         "//mediapipe/calculators/tflite:tflite_tensors_to_segmentation_calculator",
         "//mediapipe/graphs/acu_face/subgraphs:hair_segmentation_gpu",
-    
+        "//mediapipe/graphs/acu_face/calculators:ear_rects_from_face_landmarks_calculator",
+        # "//mediapipe/graphs/acu_face/subgraphs:multi_ear_landmarks_gpu",
     ],
 )
 
