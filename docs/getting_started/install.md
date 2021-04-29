@@ -2,7 +2,7 @@
 layout: default
 title: Installation
 parent: Getting Started
-nav_order: 1
+nav_order: 6
 ---
 
 # Installation
@@ -12,7 +12,7 @@ nav_order: 1
 {:toc}
 ---
 
-Note: To interoperate with OpenCV, OpenCV 3.x and above are preferred. OpenCV
+Note: To interoperate with OpenCV, OpenCV 3.x to 4.1 are preferred. OpenCV
 2.x currently works but interoperability support may be deprecated in the
 future.
 
@@ -23,37 +23,22 @@ Note: To make Mediapipe work with TensorFlow, please set Python 3.7 as the
 default Python version and install the Python "six" library by running `pip3
 install --user six`.
 
-Note: To build and run Android example apps, see these
-[instructions](./building_examples.md#android). To build and run iOS example
-apps, see these [instructions](./building_examples.md#ios).
-
 ## Installing on Debian and Ubuntu
 
-1.  Checkout MediaPipe repository.
+1.  Install Bazelisk.
+
+    Follow the official
+    [Bazel documentation](https://docs.bazel.build/versions/master/install-bazelisk.html)
+    to install Bazelisk.
+
+2.  Checkout MediaPipe repository.
 
     ```bash
+    $ cd $HOME
     $ git clone https://github.com/google/mediapipe.git
 
     # Change directory into MediaPipe root directory
     $ cd mediapipe
-    ```
-
-2.  Install Bazel.
-
-    Follow the official
-    [Bazel documentation](https://docs.bazel.build/versions/master/install-ubuntu.html)
-    to install Bazel 2.0 or higher.
-
-    For Nvidia Jetson and Raspberry Pi devices with ARM Ubuntu, Bazel needs to
-    be built from source.
-
-    ```bash
-    # For Bazel 3.0.0
-    wget https://github.com/bazelbuild/bazel/releases/download/3.0.0/bazel-3.0.0-dist.zip
-    sudo apt-get install build-essential openjdk-8-jdk python zip unzip
-    unzip bazel-3.0.0-dist.zip
-    env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" bash ./compile.sh
-    sudo cp output/bazel /usr/local/bin/
     ```
 
 3.  Install OpenCV and FFmpeg.
@@ -70,9 +55,15 @@ apps, see these [instructions](./building_examples.md#ios).
                            libopencv-imgproc-dev libopencv-video-dev
     ```
 
-    [`opencv_linux.BUILD`] is configured for x86_64 by default. For Nvidia
-    Jetson and Raspberry Pi devices with ARM Ubuntu, the lib paths need to be
-    modified.
+    Debian 9 and Ubuntu 18.04 install the packages in
+    `/usr/lib/x86_64-linux-gnu`. MediaPipe's [`opencv_linux.BUILD`] and
+    [`ffmpeg_linux.BUILD`] are configured for this library path. Ubuntu 20.04
+    may install the OpenCV and FFmpeg packages in `/usr/local`, Please follow
+    the option 3 below to modify the [`WORKSPACE`], [`opencv_linux.BUILD`] and
+    [`ffmpeg_linux.BUILD`] files accordingly.
+
+    Moreover, for Nvidia Jetson and Raspberry Pi devices with ARM Ubuntu, the
+    library path needs to be modified like the following:
 
     ```bash
     sed -i "s/x86_64-linux-gnu/aarch64-linux-gnu/g" third_party/opencv_linux.BUILD
@@ -85,16 +76,24 @@ apps, see these [instructions](./building_examples.md#ios).
     [documentation](https://docs.opencv.org/3.4.6/d7/d9f/tutorial_linux_install.html)
     to manually build OpenCV from source code.
 
-    Note: You may need to modify [`WORKSPACE`] and [`opencv_linux.BUILD`] to
-    point MediaPipe to your own OpenCV libraries, e.g., if OpenCV 4 is installed
-    in "/usr/local/", you need to update the "linux_opencv" new_local_repository
-    rule in [`WORKSPACE`] and "opencv" cc_library rule in [`opencv_linux.BUILD`]
-    like the following:
+    Note: You may need to modify [`WORKSPACE`], [`opencv_linux.BUILD`] and
+    [`ffmpeg_linux.BUILD`] to point MediaPipe to your own OpenCV and FFmpeg
+    libraries. For example if OpenCV and FFmpeg are both manually installed in
+    "/usr/local/", you will need to update: (1) the "linux_opencv" and
+    "linux_ffmpeg" new_local_repository rules in [`WORKSPACE`], (2) the "opencv"
+    cc_library rule in [`opencv_linux.BUILD`], and (3) the "libffmpeg"
+    cc_library rule in [`ffmpeg_linux.BUILD`]. These 3 changes are shown below:
 
     ```bash
     new_local_repository(
         name = "linux_opencv",
         build_file = "@//third_party:opencv_linux.BUILD",
+        path = "/usr/local",
+    )
+
+    new_local_repository(
+        name = "linux_ffmpeg",
+        build_file = "@//third_party:ffmpeg_linux.BUILD",
         path = "/usr/local",
     )
 
@@ -110,8 +109,36 @@ apps, see these [instructions](./building_examples.md#ios).
                 "lib/libopencv_videoio.so",
             ],
         ),
-        hdrs = glob(["include/opencv4/**/*.h*"]),
-        includes = ["include/opencv4/"],
+        hdrs = glob([
+            # For OpenCV 3.x
+            "include/opencv2/**/*.h*",
+            # For OpenCV 4.x
+            # "include/opencv4/opencv2/**/*.h*",
+        ]),
+        includes = [
+            # For OpenCV 3.x
+            "include/",
+            # For OpenCV 4.x
+            # "include/opencv4/",
+        ],
+        linkstatic = 1,
+        visibility = ["//visibility:public"],
+    )
+
+    cc_library(
+        name = "libffmpeg",
+        srcs = glob(
+            [
+                "lib/libav*.so",
+            ],
+        ),
+        hdrs = glob(["include/libav*/*.h"]),
+        includes = ["include"],
+        linkopts = [
+            "-lavcodec",
+            "-lavformat",
+            "-lavutil",
+        ],
         linkstatic = 1,
         visibility = ["//visibility:public"],
     )
@@ -132,7 +159,7 @@ apps, see these [instructions](./building_examples.md#ios).
     # when building GPU examples.
     ```
 
-5.  Run the [Hello World desktop example](./hello_world_desktop.md).
+5.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     ```bash
     $ export GLOG_logtostderr=1
@@ -158,11 +185,21 @@ apps, see these [instructions](./building_examples.md#ios).
     # Hello World!
     ```
 
+If you run into a build error, please read
+[Troubleshooting](./troubleshooting.md) to find the solutions of several common
+build issues.
+
 ## Installing on CentOS
 
 **Disclaimer**: Running MediaPipe on CentOS is experimental.
 
-1.  Checkout MediaPipe repository.
+1.  Install Bazelisk.
+
+    Follow the official
+    [Bazel documentation](https://docs.bazel.build/versions/master/install-bazelisk.html)
+    to install Bazelisk.
+
+2.  Checkout MediaPipe repository.
 
     ```bash
     $ git clone https://github.com/google/mediapipe.git
@@ -170,12 +207,6 @@ apps, see these [instructions](./building_examples.md#ios).
     # Change directory into MediaPipe root directory
     $ cd mediapipe
     ```
-
-2.  Install Bazel.
-
-    Follow the official
-    [Bazel documentation](https://docs.bazel.build/versions/master/install-redhat.html)
-    to install Bazel 2.0 or higher.
 
 3.  Install OpenCV.
 
@@ -190,16 +221,24 @@ apps, see these [instructions](./building_examples.md#ios).
 
     Option 2. Build OpenCV from source code.
 
-    Note: You may need to modify [`WORKSPACE`] and [`opencv_linux.BUILD`] to
-    point MediaPipe to your own OpenCV libraries, e.g., if OpenCV 4 is installed
-    in "/usr/local/", you need to update the "linux_opencv" new_local_repository
-    rule in [`WORKSPACE`] and "opencv" cc_library rule in [`opencv_linux.BUILD`]
-    like the following:
+    Note: You may need to modify [`WORKSPACE`], [`opencv_linux.BUILD`] and
+    [`ffmpeg_linux.BUILD`] to point MediaPipe to your own OpenCV and FFmpeg
+    libraries. For example if OpenCV and FFmpeg are both manually installed in
+    "/usr/local/", you will need to update: (1) the "linux_opencv" and
+    "linux_ffmpeg" new_local_repository rules in [`WORKSPACE`], (2) the "opencv"
+    cc_library rule in [`opencv_linux.BUILD`], and (3) the "libffmpeg"
+    cc_library rule in [`ffmpeg_linux.BUILD`]. These 3 changes are shown below:
 
     ```bash
     new_local_repository(
         name = "linux_opencv",
         build_file = "@//third_party:opencv_linux.BUILD",
+        path = "/usr/local",
+    )
+
+    new_local_repository(
+        name = "linux_ffmpeg",
+        build_file = "@//third_party:ffmpeg_linux.BUILD",
         path = "/usr/local",
     )
 
@@ -215,14 +254,42 @@ apps, see these [instructions](./building_examples.md#ios).
                 "lib/libopencv_videoio.so",
             ],
         ),
-        hdrs = glob(["include/opencv4/**/*.h*"]),
-        includes = ["include/opencv4/"],
+        hdrs = glob([
+            # For OpenCV 3.x
+            "include/opencv2/**/*.h*",
+            # For OpenCV 4.x
+            # "include/opencv4/opencv2/**/*.h*",
+        ]),
+        includes = [
+            # For OpenCV 3.x
+            "include/",
+            # For OpenCV 4.x
+            # "include/opencv4/",
+        ],
+        linkstatic = 1,
+        visibility = ["//visibility:public"],
+    )
+
+    cc_library(
+        name = "libffmpeg",
+        srcs = glob(
+            [
+                "lib/libav*.so",
+            ],
+        ),
+        hdrs = glob(["include/libav*/*.h"]),
+        includes = ["include"],
+        linkopts = [
+            "-lavcodec",
+            "-lavformat",
+            "-lavutil",
+        ],
         linkstatic = 1,
         visibility = ["//visibility:public"],
     )
     ```
 
-4.  Run the [Hello World desktop example](./hello_world_desktop.md).
+4.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     ```bash
     $ export GLOG_logtostderr=1
@@ -243,6 +310,10 @@ apps, see these [instructions](./building_examples.md#ios).
     # Hello World!
     ```
 
+If you run into a build error, please read
+[Troubleshooting](./troubleshooting.md) to find the solutions of several common
+build issues.
+
 ## Installing on macOS
 
 1.  Prework:
@@ -251,7 +322,13 @@ apps, see these [instructions](./building_examples.md#ios).
     *   Install [Xcode](https://developer.apple.com/xcode/) and its Command Line
         Tools by `xcode-select --install`.
 
-2.  Checkout MediaPipe repository.
+2.  Install Bazelisk.
+
+    Follow the official
+    [Bazel documentation](https://docs.bazel.build/versions/master/install-bazelisk.html)
+    to install Bazelisk.
+
+3.  Checkout MediaPipe repository.
 
     ```bash
     $ git clone https://github.com/google/mediapipe.git
@@ -259,23 +336,10 @@ apps, see these [instructions](./building_examples.md#ios).
     $ cd mediapipe
     ```
 
-3.  Install Bazel.
-
-    Option 1. Use package manager tool to install Bazel
-
-    ```bash
-    $ brew install bazel
-    # Run 'bazel version' to check version of bazel
-    ```
-
-    Option 2. Follow the official
-    [Bazel documentation](https://docs.bazel.build/versions/master/install-os-x.html#install-with-installer-mac-os-x)
-    to install Bazel 2.0 or higher.
-
 4.  Install OpenCV and FFmpeg.
 
     Option 1. Use HomeBrew package manager tool to install the pre-compiled
-    OpenCV 3.4.5 libraries. FFmpeg will be installed via OpenCV.
+    OpenCV 3 libraries. FFmpeg will be installed via OpenCV.
 
     ```bash
     $ brew install opencv@3
@@ -341,7 +405,6 @@ apps, see these [instructions](./building_examples.md#ios).
         linkstatic = 1,
         visibility = ["//visibility:public"],
     )
-
     ```
 
 5.  Make sure that Python 3 and the Python "six" library are installed.
@@ -354,7 +417,7 @@ apps, see these [instructions](./building_examples.md#ios).
     $ pip3 install --user six
     ```
 
-6.  Run the [Hello World desktop example](./hello_world_desktop.md).
+6.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     ```bash
     $ export GLOG_logtostderr=1
@@ -374,6 +437,10 @@ apps, see these [instructions](./building_examples.md#ios).
     # Hello World!
     # Hello World!
     ```
+
+If you run into a build error, please read
+[Troubleshooting](./troubleshooting.md) to find the solutions of several common
+build issues.
 
 ## Installing on Windows
 
@@ -403,29 +470,36 @@ next section.
 
 4.  Install Visual C++ Build Tools 2019 and WinSDK
 
-    Go to https://visualstudio.microsoft.com/visual-cpp-build-tools, download
-    build tools, and install Microsoft Visual C++ 2019 Redistributable and
-    Microsoft Build Tools 2019.
+    Go to
+    [the VisualStudio website](ttps://visualstudio.microsoft.com/visual-cpp-build-tools),
+    download build tools, and install Microsoft Visual C++ 2019 Redistributable
+    and Microsoft Build Tools 2019.
 
     Download the WinSDK from
-    https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/ and
-    install.
+    [the official MicroSoft website](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/)
+    and install.
 
-5.  Install Bazel and add the location of the Bazel executable to the `%PATH%`
-    environment variable.
+5.  Install Bazel or Bazelisk and add the location of the Bazel executable to
+    the `%PATH%` environment variable.
 
-    Follow the official
-    [Bazel documentation](https://docs.bazel.build/versions/master/install-windows.html)
-    to install Bazel 2.0 or higher.
+    Option 1. Follow
+    [the official Bazel documentation](https://docs.bazel.build/versions/master/install-windows.html)
+    to install Bazel 3.7.2 or higher.
 
-6.  Set Bazel variables.
+    Option 2. Follow the official
+    [Bazel documentation](https://docs.bazel.build/versions/master/install-bazelisk.html)
+    to install Bazelisk.
+
+6.  Set Bazel variables. Learn more details about
+    ["Build on Windows"](https://docs.bazel.build/versions/master/windows.html#build-c-with-msvc)
+    in the Bazel official documentation.
 
     ```
-    # Find the exact paths and version numbers from your local version.
+    # Please find the exact paths and version numbers from your local version.
     C:\> set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools
     C:\> set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC
-    C:\> set BAZEL_VC_FULL_VERSION=14.25.28610
-    C:\> set BAZEL_WINSDK_FULL_VERSION=10.1.18362.1
+    C:\> set BAZEL_VC_FULL_VERSION=<Your local VC version>
+    C:\> set BAZEL_WINSDK_FULL_VERSION=<Your local WinSDK version>
     ```
 
 7.  Checkout MediaPipe repository.
@@ -451,16 +525,16 @@ next section.
     )
     ```
 
-9.  Run the [Hello World desktop example](./hello_world_desktop.md).
+9.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     Note: For building MediaPipe on Windows, please add `--action_env
-    PYTHON_BIN_PATH="C:/path/to/python.exe"` to the build command.
+    PYTHON_BIN_PATH="C://path//to//python.exe"` to the build command.
     Alternatively, you can follow
     [issue 724](https://github.com/google/mediapipe/issues/724) to fix the
     python configuration manually.
 
     ```
-    C:\Users\Username\mediapipe_repo>bazel build -c opt --define MEDIAPIPE_DISABLE_GPU=1 --action_env PYTHON_BIN_PATH="C:/python_36/python.exe" mediapipe/examples/desktop/hello_world
+    C:\Users\Username\mediapipe_repo>bazel build -c opt --define MEDIAPIPE_DISABLE_GPU=1 --action_env PYTHON_BIN_PATH="C://python_36//python.exe" mediapipe/examples/desktop/hello_world
 
     C:\Users\Username\mediapipe_repo>set GLOG_logtostderr=1
 
@@ -477,8 +551,11 @@ next section.
     # I20200514 20:43:12.279618  1200 hello_world.cc:56] Hello World!
     # I20200514 20:43:12.279618  1200 hello_world.cc:56] Hello World!
     # I20200514 20:43:12.280613  1200 hello_world.cc:56] Hello World!
-
     ```
+
+If you run into a build error, please read
+[Troubleshooting](./troubleshooting.md) to find the solutions of several common
+build issues.
 
 ## Installing on Windows Subsystem for Linux (WSL)
 
@@ -509,19 +586,11 @@ cameras. Alternatively, you use a video file as input.
     username@DESKTOP-TMVLBJ1:~$ sudo apt-get update && sudo apt-get install -y build-essential git python zip adb openjdk-8-jdk
     ```
 
-5.  Install Bazel.
+5.  Install Bazelisk.
 
-    ```bash
-    username@DESKTOP-TMVLBJ1:~$ curl -sLO --retry 5 --retry-max-time 10 \
-    https://storage.googleapis.com/bazel/3.0.0/release/bazel-3.0.0-installer-linux-x86_64.sh && \
-    sudo mkdir -p /usr/local/bazel/3.0.0 && \
-    chmod 755 bazel-3.0.0-installer-linux-x86_64.sh && \
-    sudo ./bazel-3.0.0-installer-linux-x86_64.sh --prefix=/usr/local/bazel/3.0.0 && \
-    source /usr/local/bazel/3.0.0/lib/bazel/bin/bazel-complete.bash
-
-    username@DESKTOP-TMVLBJ1:~$ /usr/local/bazel/3.0.0/lib/bazel/bin/bazel version && \
-    alias bazel='/usr/local/bazel/3.0.0/lib/bazel/bin/bazel'
-    ```
+    Follow the official
+    [Bazel documentation](https://docs.bazel.build/versions/master/install-bazelisk.html)
+    to install Bazelisk.
 
 6.  Checkout MediaPipe repository.
 
@@ -581,7 +650,7 @@ cameras. Alternatively, you use a video file as input.
     )
     ```
 
-8.  Run the [Hello World desktop example](./hello_world_desktop.md).
+8.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     ```bash
     username@DESKTOP-TMVLBJ1:~/mediapipe$ export GLOG_logtostderr=1
@@ -602,6 +671,10 @@ cameras. Alternatively, you use a video file as input.
     # Hello World!
     # Hello World!
     ```
+
+If you run into a build error, please
+read [Troubleshooting](./troubleshooting.md) to find the solutions of several
+common build issues.
 
 ## Installing using Docker
 
@@ -633,7 +706,7 @@ This will use a Docker image that will isolate mediapipe's installation from the
     # Successfully tagged mediapipe:latest
     ```
 
-3.  Run the [Hello World desktop example](./hello_world_desktop.md).
+3.  Run the [Hello World! in C++ example](./hello_world_cpp.md).
 
     ```bash
     $ docker run -it --name mediapipe mediapipe:latest
@@ -652,6 +725,10 @@ This will use a Docker image that will isolate mediapipe's installation from the
     # Hello World!
     # Hello World!
     ```
+
+If you run into a build error, please
+read [Troubleshooting](./troubleshooting.md) to find the solutions of several
+common build issues.
 
 4.  Build a MediaPipe Android example.
 
@@ -692,6 +769,7 @@ This will use a Docker image that will isolate mediapipe's installation from the
 
 [`WORKSPACE`]: https://github.com/google/mediapipe/blob/master/WORKSPACE
 [`opencv_linux.BUILD`]: https://github.com/google/mediapipe/tree/master/third_party/opencv_linux.BUILD
+[`ffmpeg_linux.BUILD`]:https://github.com/google/mediapipe/tree/master/third_party/ffmpeg_linux.BUILD
 [`opencv_macos.BUILD`]: https://github.com/google/mediapipe/tree/master/third_party/opencv_macos.BUILD
 [`ffmpeg_macos.BUILD`]:https://github.com/google/mediapipe/tree/master/third_party/ffmpeg_macos.BUILD
 [`setup_opencv.sh`]: https://github.com/google/mediapipe/blob/master/setup_opencv.sh

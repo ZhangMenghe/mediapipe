@@ -11,9 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 package(default_visibility = ["//mediapipe/framework:__subpackages__"])
 
@@ -247,7 +246,7 @@ cc_test(
         "//mediapipe/framework/tool:simulation_clock",
         "//mediapipe/framework/tool:simulation_clock_executor",
         "//mediapipe/framework/tool:status_util",
-        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/time",
     ],
 )
@@ -261,6 +260,7 @@ cc_test(
         "//mediapipe/framework/port:integral_types",
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:threadpool",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
     ],
@@ -268,7 +268,7 @@ cc_test(
 
 cc_library(
     name = "profiler_resource_util",
-    srcs = select({
+    srcs = ["profiler_resource_util_common.cc"] + select({
         "//conditions:default": ["profiler_resource_util.cc"],
         "//mediapipe:android": ["profiler_resource_util_android.cc"],
         "//mediapipe:ios": ["profiler_resource_util_ios.cc"],
@@ -285,17 +285,23 @@ cc_library(
         "//mediapipe/framework:mediapipe_internal",
     ],
     deps = [
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/flags:flag",
         "//mediapipe/framework/port:logging",
+        "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:statusor",
         "//mediapipe/framework/port:status",
+        "//mediapipe/framework/deps:file_path",
     ] + select({
         "//conditions:default": [
+            "//mediapipe/framework/port:file_helpers",
         ],
         "//mediapipe:android": [
             "//mediapipe/java/com/google/mediapipe/framework/jni:jni_util",
+            "//mediapipe/framework/port:file_helpers",
         ],
-        "//mediapipe:apple": [],
+        "//mediapipe:apple": [
+            "//mediapipe/framework/port:file_helpers",
+        ],
     }),
 )
 

@@ -8,44 +8,60 @@ nav_order: 1
 
 --------------------------------------------------------------------------------
 
-## Cross-platform ML solutions made simple
+## Live ML anywhere
 
-[MediaPipe](https://google.github.io/mediapipe/) is the simplest way for researchers
-and developers to build world-class ML solutions and applications for mobile,
-desktop/cloud, web and IoT devices.
+[MediaPipe](https://google.github.io/mediapipe/) offers cross-platform, customizable
+ML solutions for live and streaming media.
 
 ![accelerated.png](images/accelerated_small.png)                                                               | ![cross_platform.png](images/cross_platform_small.png)
 :------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------:
-***End-to-End acceleration***: *built-in fast ML inference and processing accelerated even on common hardware* | ***Build one, deploy anywhere***: *Unified solution works across Android, iOS, desktop/cloud, web and IoT*
+***End-to-End acceleration***: *Built-in fast ML inference and processing accelerated even on common hardware* | ***Build once, deploy anywhere***: *Unified solution works across Android, iOS, desktop/cloud, web and IoT*
 ![ready_to_use.png](images/ready_to_use_small.png)                                                             | ![open_source.png](images/open_source_small.png)
 ***Ready-to-use solutions***: *Cutting-edge ML solutions demonstrating full power of the framework*            | ***Free and open source***: *Framework and solutions both under Apache 2.0, fully extensible and customizable*
 
 ## ML solutions in MediaPipe
 
-Face Detection                                                                                                                 | Face Mesh                                                                                                       | Hands                                                                                                      | Hair Segmentation
-:----------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: | :---------------:
-[![face_detection](images/mobile/face_detection_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/face_detection) | [![face_mesh](images/mobile/face_mesh_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/face_mesh) | [![hand](images/mobile/hand_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/hands) | [![hair_segmentation](images/mobile/hair_segmentation_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/hair_segmentation)
+Face Detection                                                                                                                 | Face Mesh                                                                                                       | Iris                                                                                                      | Hands                                                                                                      | Pose                                                                                                      | Holistic
+:----------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :------:
+[![face_detection](images/mobile/face_detection_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/face_detection) | [![face_mesh](images/mobile/face_mesh_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/face_mesh) | [![iris](images/mobile/iris_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/iris) | [![hand](images/mobile/hand_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/hands) | [![pose](images/mobile/pose_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/pose) | [![hair_segmentation](images/mobile/holistic_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/holistic)
 
-Object Detection                                                                                                                     | Box Tracking                                                                                                                | Objectron                                                                                                             | KNIFT
-:----------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------: | :---:
-[![object_detection](images/mobile/object_detection_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/object_detection) | [![box_tracking](images/mobile/object_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/box_tracking) | [![objectron](images/mobile/objectron_chair_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/objectron) | [![knift](images/mobile/template_matching_android_cpu_small.gif)](https://google.github.io/mediapipe/solutions/knift)
+Hair Segmentation                                                                                                                       | Object Detection                                                                                                                     | Box Tracking                                                                                                                | Instant Motion Tracking                                                                                                                               | Objectron                                                                                                             | KNIFT
+:-------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------: | :---:
+[![hair_segmentation](images/mobile/hair_segmentation_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/hair_segmentation) | [![object_detection](images/mobile/object_detection_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/object_detection) | [![box_tracking](images/mobile/object_tracking_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/box_tracking) | [![instant_motion_tracking](images/mobile/instant_motion_tracking_android_small.gif)](https://google.github.io/mediapipe/solutions/instant_motion_tracking) | [![objectron](images/mobile/objectron_chair_android_gpu_small.gif)](https://google.github.io/mediapipe/solutions/objectron) | [![knift](images/mobile/template_matching_android_cpu_small.gif)](https://google.github.io/mediapipe/solutions/knift)
 
 <!-- []() in the first cell is needed to preserve table formatting in GitHub Pages. -->
 <!-- Whenever this table is updated, paste a copy to solutions/solutions.md. -->
 
-[]()                                                                          | Android | iOS | Desktop | Web | Coral
-:---------------------------------------------------------------------------- | :-----: | :-: | :-----: | :-: | :---:
-[Face Detection](https://google.github.io/mediapipe/solutions/face_detection)       | ✅       | ✅   | ✅       | ✅   | ✅
-[Face Mesh](https://google.github.io/mediapipe/solutions/face_mesh)                 | ✅       | ✅   | ✅       |     |
-[Hands](https://google.github.io/mediapipe/solutions/hands)                         | ✅       | ✅   | ✅       | ✅   |
-[Hair Segmentation](https://google.github.io/mediapipe/solutions/hair_segmentation) | ✅       |     | ✅       | ✅   |
-[Object Detection](https://google.github.io/mediapipe/solutions/object_detection)   | ✅       | ✅   | ✅       |     | ✅
-[Box Tracking](https://google.github.io/mediapipe/solutions/box_tracking)           | ✅       | ✅   | ✅       |     |
-[Objectron](https://google.github.io/mediapipe/solutions/objectron)                 | ✅       |     |         |     |
-[KNIFT](https://google.github.io/mediapipe/solutions/knift)                         | ✅       |     |         |     |
-[AutoFlip](https://google.github.io/mediapipe/solutions/autoflip)                   |         |     | ✅       |     |
-[MediaSequence](https://google.github.io/mediapipe/solutions/media_sequence)        |         |     | ✅       |     |
-[YouTube 8M](https://google.github.io/mediapipe/solutions/youtube_8m)               |         |     | ✅       |     |
+[]()                                                                                      | [Android](https://google.github.io/mediapipe/getting_started/android) | [iOS](https://google.github.io/mediapipe/getting_started/ios) | [C++](https://google.github.io/mediapipe/getting_started/cpp) | [Python](https://google.github.io/mediapipe/getting_started/python) | [JS](https://google.github.io/mediapipe/getting_started/javascript) | [Coral](https://github.com/google/mediapipe/tree/master/mediapipe/examples/coral/README.md)
+:---------------------------------------------------------------------------------------- | :-------------------------------------------------------------: | :-----------------------------------------------------: | :-----------------------------------------------------: | :-----------------------------------------------------------: | :-----------------------------------------------------------: | :--------------------------------------------------------------------:
+[Face Detection](https://google.github.io/mediapipe/solutions/face_detection)                   | ✅                                                               | ✅                                                       | ✅                                                       | ✅                                                             | ✅                                                             | ✅
+[Face Mesh](https://google.github.io/mediapipe/solutions/face_mesh)                             | ✅                                                               | ✅                                                       | ✅                                                       | ✅                                                             | ✅                                                             |
+[Iris](https://google.github.io/mediapipe/solutions/iris)                                       | ✅                                                               | ✅                                                       | ✅                                                       |                                                               |                                                               |
+[Hands](https://google.github.io/mediapipe/solutions/hands)                                     | ✅                                                               | ✅                                                       | ✅                                                       | ✅                                                             | ✅                                                             |
+[Pose](https://google.github.io/mediapipe/solutions/pose)                                       | ✅                                                               | ✅                                                       | ✅                                                       | ✅                                                             | ✅                                                             |
+[Holistic](https://google.github.io/mediapipe/solutions/holistic)                               | ✅                                                               | ✅                                                       | ✅                                                       | ✅                                                             | ✅                                                             |
+[Hair Segmentation](https://google.github.io/mediapipe/solutions/hair_segmentation)             | ✅                                                               |                                                         | ✅                                                       |                                                               |                                                               |
+[Object Detection](https://google.github.io/mediapipe/solutions/object_detection)               | ✅                                                               | ✅                                                       | ✅                                                       |                                                               |                                                               | ✅
+[Box Tracking](https://google.github.io/mediapipe/solutions/box_tracking)                       | ✅                                                               | ✅                                                       | ✅                                                       |                                                               |                                                               |
+[Instant Motion Tracking](https://google.github.io/mediapipe/solutions/instant_motion_tracking) | ✅                                                               |                                                         |                                                         |                                                               |                                                               |
+[Objectron](https://google.github.io/mediapipe/solutions/objectron)                             | ✅                                                               |                                                        | ✅                                                         | ✅                                                             |                                                               |
+[KNIFT](https://google.github.io/mediapipe/solutions/knift)                                     | ✅                                                               |                                                         |                                                         |                                                               |                                                               |
+[AutoFlip](https://google.github.io/mediapipe/solutions/autoflip)                               |                                                                 |                                                         | ✅                                                       |                                                               |                                                               |
+[MediaSequence](https://google.github.io/mediapipe/solutions/media_sequence)                    |                                                                 |                                                         | ✅                                                       |                                                               |                                                               |
+[YouTube 8M](https://google.github.io/mediapipe/solutions/youtube_8m)                           |                                                                 |                                                         | ✅                                                       |                                                               |                                                               |
+
+See also
+[MediaPipe Models and Model Cards](https://google.github.io/mediapipe/solutions/models)
+for ML models released in MediaPipe.
+
+## MediaPipe in Python
+
+MediaPipe offers customizable Python solutions as a prebuilt Python package on
+[PyPI](https://pypi.org/project/mediapipe/), which can be installed simply with
+`pip install mediapipe`. It also provides tools for users to build their own
+solutions. Please see
+[MediaPipe in Python](https://google.github.io/mediapipe/getting_started/python)
+for more info.
 
 ## MediaPipe on the Web
 
@@ -63,8 +79,11 @@ never leaves your device.
 ![visualizer_runner](images/visualizer_runner.png)
 
 *   [MediaPipe Face Detection](https://viz.mediapipe.dev/demo/face_detection)
+*   [MediaPipe Iris](https://viz.mediapipe.dev/demo/iris_tracking)
+*   [MediaPipe Iris: Depth-from-Iris](https://viz.mediapipe.dev/demo/iris_depth)
 *   [MediaPipe Hands](https://viz.mediapipe.dev/demo/hand_tracking)
 *   [MediaPipe Hands (palm/hand detection only)](https://viz.mediapipe.dev/demo/hand_detection)
+*   [MediaPipe Pose](https://viz.mediapipe.dev/demo/pose_tracking)
 *   [MediaPipe Hair Segmentation](https://viz.mediapipe.dev/demo/hair_segmentation)
 
 ## Getting started
@@ -83,6 +102,18 @@ run code search using
 
 ## Publications
 
+*   [MediaPipe Holistic - Simultaneous Face, Hand and Pose Prediction, on Device](https://ai.googleblog.com/2020/12/mediapipe-holistic-simultaneous-face.html)
+    in Google AI Blog
+*   [Background Features in Google Meet, Powered by Web ML](https://ai.googleblog.com/2020/10/background-features-in-google-meet.html)
+    in Google AI Blog
+*   [MediaPipe 3D Face Transform](https://developers.googleblog.com/2020/09/mediapipe-3d-face-transform.html)
+    in Google Developers Blog
+*   [Instant Motion Tracking With MediaPipe](https://developers.googleblog.com/2020/08/instant-motion-tracking-with-mediapipe.html)
+    in Google Developers Blog
+*   [BlazePose - On-device Real-time Body Pose Tracking](https://ai.googleblog.com/2020/08/on-device-real-time-body-pose-tracking.html)
+    in Google AI Blog
+*   [MediaPipe Iris: Real-time Eye Tracking and Depth Estimation](https://ai.googleblog.com/2020/08/mediapipe-iris-real-time-iris-tracking.html)
+    in Google AI Blog
 *   [MediaPipe KNIFT: Template-based feature matching](https://developers.googleblog.com/2020/04/mediapipe-knift-template-based-feature-matching.html)
     in Google Developers Blog
 *   [Alfred Camera: Smart camera features using MediaPipe](https://developers.googleblog.com/2020/03/alfred-camera-smart-camera-features-using-mediapipe.html)
@@ -123,7 +154,7 @@ run code search using
 
 *   [Awesome MediaPipe](https://mediapipe.org) - A curated list of awesome
     MediaPipe related frameworks, libraries and software
-*   [Slack community](https://https://mediapipe.page.link/joinslack) for MediaPipe users
+*   [Slack community](https://mediapipe.page.link/joinslack) for MediaPipe users
 *   [Discuss](https://groups.google.com/forum/#!forum/mediapipe) - General
     community discussion around MediaPipe
 

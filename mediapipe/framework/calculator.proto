@@ -194,9 +194,8 @@ message ProfilerConfig {
   // to be appended to the TraceBuffer.
   int64 trace_log_margin_usec = 12;
 
-  // False specifies an event for each calculator invocation.
-  // True specifies a separate event for each start and finish time.
-  bool trace_log_duration_events = 13;
+  // Deprecated, replaced by trace_log_instant_events.
+  bool trace_log_duration_events = 13 [deprecated = true];
 
   // The number of trace log intervals per file. The total log duration is:
   // trace_log_interval_usec * trace_log_file_count * trace_log_interval_count.
@@ -209,6 +208,10 @@ message ProfilerConfig {
 
   // If true, tracer timing events are recorded and reported.
   bool trace_enabled = 16;
+
+  // False specifies an event for each calculator invocation.
+  // True specifies a separate event for each start and finish time.
+  bool trace_log_instant_events = 17;
 }
 
 // Describes the topology and function of a MediaPipe Graph.  The graph of
@@ -348,7 +351,7 @@ message CalculatorGraphConfig {
   int32 num_threads = 8;
   // Configs for StatusHandlers that will be called after each call to
   // Run() on the graph.  StatusHandlers take zero or more input side
-  // packets and the ::util::Status returned by a graph run.  For example,
+  // packets and the absl::Status returned by a graph run.  For example,
   // a StatusHandler could store information about graph failures and
   // their causes for later monitoring.  Note that graph failures during
   // initialization may cause required input side packets (created by a

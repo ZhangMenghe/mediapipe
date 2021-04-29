@@ -31,21 +31,21 @@ namespace mediapipe {
 namespace {
 class CountAndOutputSummarySidePacketInCloseCalculator : public CalculatorBase {
  public:
-  static ::mediapipe::Status GetContract(CalculatorContract* cc) {
+  static absl::Status GetContract(CalculatorContract* cc) {
     cc->Inputs().Index(0).SetAny();
     cc->OutputSidePackets().Index(0).Set<int>();
-    return ::mediapipe::OkStatus();
+    return absl::OkStatus();
   }
 
-  ::mediapipe::Status Process(CalculatorContext* cc) final {
+  absl::Status Process(CalculatorContext* cc) final {
     ++count_;
-    return ::mediapipe::OkStatus();
+    return absl::OkStatus();
   }
 
-  ::mediapipe::Status Close(CalculatorContext* cc) final {
+  absl::Status Close(CalculatorContext* cc) final {
     cc->OutputSidePackets().Index(0).Set(
         MakePacket<int>(count_).At(Timestamp::Unset()));
-    return ::mediapipe::OkStatus();
+    return absl::OkStatus();
   }
 
   int count_ = 0;
@@ -75,14 +75,14 @@ TEST(CallbackFromGeneratorTest, TestAddVectorSink) {
 
 TEST(CalculatorGraph, OutputSummarySidePacketInClose) {
   CalculatorGraphConfig config =
-      ::mediapipe::ParseTextProtoOrDie<CalculatorGraphConfig>(R"(
+      mediapipe::ParseTextProtoOrDie<CalculatorGraphConfig>(R"pb(
         input_stream: "input_packets"
         node {
           calculator: "CountAndOutputSummarySidePacketInCloseCalculator"
           input_stream: "input_packets"
           output_side_packet: "num_of_packets"
         }
-      )");
+      )pb");
 
   Packet summary_packet;
   tool::AddSidePacketSink("num_of_packets", &config, &summary_packet);

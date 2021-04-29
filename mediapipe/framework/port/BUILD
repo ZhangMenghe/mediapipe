@@ -15,7 +15,7 @@
 # Description:
 #  Port of various libraries and utilities.
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 package(
     default_visibility = ["//visibility:private"],
@@ -44,7 +44,10 @@ cc_library(
     name = "aligned_malloc_and_free",
     hdrs = ["aligned_malloc_and_free.h"],
     visibility = ["//visibility:public"],
-    deps = ["//mediapipe/framework/deps:aligned_malloc_and_free"],
+    deps = [
+        "//mediapipe/framework/deps:aligned_malloc_and_free",
+        "@com_google_absl//absl/base:core_headers",
+    ],
 )
 
 # This proto lib is used by any code that needs to do proto I/O and proto template parsing.
@@ -59,9 +62,8 @@ cc_library(
         ":advanced_proto_lite",
         ":core_proto",
         "//mediapipe/framework:port",
-    ] + select({
-        "//conditions:default": ["@com_google_protobuf//:protobuf"],
-    }),
+        "@com_google_protobuf//:protobuf",
+    ],
 )
 
 cc_library(
@@ -74,9 +76,8 @@ cc_library(
     deps = [
         ":core_proto",
         "//mediapipe/framework:port",
-    ] + select({
-        "//conditions:default": ["@com_google_protobuf//:protobuf"],
-    }),
+        "@com_google_protobuf//:protobuf",
+    ],
 )
 
 cc_library(
@@ -89,18 +90,6 @@ cc_library(
 )
 
 cc_library(
-    name = "commandlineflags",
-    hdrs = [
-        "commandlineflags.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//mediapipe/framework:port",
-        "//third_party:glog",
-    ],
-)
-
-cc_library(
     name = "core_proto",
     hdrs = [
         "core_proto_inc.h",
@@ -109,9 +98,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:port",
-    ] + select({
-        "//conditions:default": ["@com_google_protobuf//:protobuf"],
-    }),
+        "@com_google_protobuf//:protobuf",
+    ],
 )
 
 cc_library(
@@ -307,11 +295,10 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":core_proto",
         ":logging",
         "//mediapipe/framework:port",
-    ] + select({
-        "//conditions:default": ["@com_google_protobuf//:protobuf"],
-    }),
+    ],
 )
 
 cc_library(
@@ -393,7 +380,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:port",
-        "//mediapipe/framework/deps:statusor",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -405,7 +392,7 @@ cc_library(
     visibility = ["//mediapipe/framework/port:__pkg__"],
     deps = [
         ":status",
-        "//mediapipe/framework/deps:status_matchers",
+        "@com_google_googletest//:gtest",
     ],
 )
 
