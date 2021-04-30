@@ -2,10 +2,10 @@
 
 type: "earLandmarkSubgraph"
 
-input_stream: "IMAGE:input_video"
+input_stream: "IMAGE_GPU:input_video"
 input_stream: "NORM_RECT:ear_rect"
 output_stream: "LANDMARKS:ear_landmarks"
-output_stream: "NORM_RECT:ear_rect_for_next_frame"
+output_stream: "NORM_RECT_EAR:ear_rect_for_next_frame"
 output_stream: "PRESENCE:ear_presence"
 #output_stream: "PRESENCE_SCORE:ear_presence_score"
 #output_stream: "earEDNESS:earedness"
@@ -166,17 +166,17 @@ node {
 # locations on the full image before cropping (input to the graph).
 node {
   calculator: "LandmarkProjectionCalculator"
-  input_stream: "LANDMARKS:landmarks"
+  input_stream: "NORM_LANDMARKS:landmarks"
   input_stream: "NORM_RECT:ear_rect"
   output_stream: "NORM_LANDMARKS:ear_landmarks"
 }
 
 # Extracts image size from the input images.
-#node {
-#  calculator: "ImagePropertiesCalculator"
-#  input_stream: "IMAGE_GPU:input_video"
-#  output_stream: "SIZE:image_size"
-#}
+node {
+ calculator: "ImagePropertiesCalculator"
+ input_stream: "IMAGE_GPU:input_video"
+ output_stream: "SIZE:image_size"
+}
 
 # Extracts a subset of the ear landmarks that are relatively more stable across
 # frames (e.g. comparing to finger tips) for computing the bounding box. The box
@@ -209,9 +209,9 @@ node {
 # Converts the ear detection into a rectangle (normalized by image size)
 # that encloses the ear.
 node {
-  calculator: "LandmarksToRectsCalculator"
+  calculator: "EarLandmarksToRectsCalculator"
   input_stream: "LANDMARKS:ear_landmarks"
-  output_stream: "NORM_RECT:ear_rect_from_landmarks"
+  output_stream: "NORM_RECT_EAR:ear_rect_from_landmarks"
   output_stream: "FLAG:ear_presence"
 }
 

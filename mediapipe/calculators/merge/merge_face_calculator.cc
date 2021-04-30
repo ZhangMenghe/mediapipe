@@ -56,9 +56,9 @@ constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
 constexpr char kRectsTag[] = "RECTS";
 
 constexpr char kInputLandMarksVectorTag[] = "VECTOR";
-constexpr char kLandmarksTag[] = "LANDMARKS";
-constexpr char kNormLandmarksTag[] = "NORM_LANDMARKS";
-
+// constexpr char kLandmarksTag[] = "LANDMARKS";
+// constexpr char kNormLandmarksTag[] = "NORM_LANDMARKS";
+constexpr char kInputEarLandMarksVectorTag[] = "LANDMARKS_EAR";
 
 }  // namespace
 
@@ -163,9 +163,13 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 	}
 
   //landmarks
-  if(cc->Inputs().HasTag(kInputLandMarksVectorTag)){
-	cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
-  }
+  if(cc->Inputs().HasTag(kInputLandMarksVectorTag))
+	  cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
+  
+  //ear landmarks
+  if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag))
+	  cc->Inputs().Tag(kInputEarLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
+
   bool use_gpu = false;
 
 #if !defined(MEDIAPIPE_DISABLE_GPU)
@@ -440,15 +444,11 @@ Status FaceMergeCalculator::on_process_landmarks(CalculatorContext* cc){
   if(cc->Inputs().HasTag(kInputLandMarksVectorTag) && cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty())
     return ::mediapipe::OkStatus();
 
-auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
-for(auto& landmarks:nlandmarks_vec)
-// const LandmarkList& landmarks = cc->Inputs().Tag(kLandmarksTag).Get<LandmarkList>();
+  auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+  for(auto& landmarks:nlandmarks_vec)
+    std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
 
-std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
-
-return ::mediapipe::OkStatus();
-
-        
+  return ::mediapipe::OkStatus();        
 }
 void FaceMergeCalculator::GlRender() {
 #if !defined(MEDIAPIPE_DISABLE_GPU)

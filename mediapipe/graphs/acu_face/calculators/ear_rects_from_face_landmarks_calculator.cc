@@ -59,10 +59,10 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 
 ::mediapipe::Status EarRectsFromFaceLandmarksCalculator::Process(CalculatorContext* cc) {
         // std::vector<NormalizedRect> ear_rects;
-    int ear_num = 1;
+    int ear_num = (cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty())?1:0;
     auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(ear_num);
 
-    if(cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty()){
+    if(ear_num > 0){
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
 
@@ -78,15 +78,16 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
         norm_rects->at(i).set_height(height);
         norm_rects->at(i).set_x_center((lbx+ltx) * 0.5f);//center is 0.5
         norm_rects->at(i).set_y_center((lby+lty) * 0.5f);
-	}else{
-        float width = 2.0f;
-        for(int i=0; i<ear_num; i++){
-            norm_rects->at(i).set_width(width);
-            norm_rects->at(i).set_height(1.0);
-            norm_rects->at(i).set_x_center(0.5f*width);
-            norm_rects->at(i).set_y_center(.0f);
-        }
-    }
+	}
+    // else{
+    //     float width = 2.0f;
+    //     for(int i=0; i<ear_num; i++){
+    //         norm_rects->at(i).set_width(width);
+    //         norm_rects->at(i).set_height(1.0);
+    //         norm_rects->at(i).set_x_center(0.5f*width);
+    //         norm_rects->at(i).set_y_center(.0f);
+    //     }
+    // }
 
     cc->Outputs()
         .Tag(kEarNormRectsTag)
