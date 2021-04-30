@@ -19,6 +19,8 @@ cc_library(
         "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
+            "//mediapipe/gpu:gl_calculator_helper",
+
     ],
     alwayslink = 1,
 )

@@ -9,6 +9,7 @@
 
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/gpu/gl_calculator_helper.h"
 
 namespace mediapipe {
 
@@ -16,6 +17,7 @@ namespace mediapipe {
 //   input_stream: "NORM_RECTS:face_rects_from_landmarks"
 //   output_stream: "NORM_RECTS:ear_rects_from_face"
 namespace {
+    constexpr char kGpuBufferTag[] = "IMAGE_GPU";
     constexpr char kInputLandMarksVectorTag[] = "VECTOR";
     constexpr char kNormRectsTag[] = "NORM_RECTS";
     constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
@@ -42,6 +44,10 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 ::mediapipe::Status EarRectsFromFaceLandmarksCalculator::GetContract(CalculatorContract* cc) {
     RET_CHECK(!cc->Inputs().GetTags().empty());
     RET_CHECK(!cc->Outputs().GetTags().empty());
+    //video
+    if (cc->Inputs().HasTag(kGpuBufferTag))
+        cc->Inputs().Tag(kGpuBufferTag).Set<mediapipe::GpuBuffer>();
+
     //landmarks
     if(cc->Inputs().HasTag(kInputLandMarksVectorTag))
         cc->Inputs().Tag(kInputLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
@@ -80,14 +86,16 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
         norm_rects->at(i).set_y_center((lby+lty) * 0.5f);
 	}
     // else{
-    //     float width = 2.0f;
-    //     for(int i=0; i<ear_num; i++){
-    //         norm_rects->at(i).set_width(width);
-    //         norm_rects->at(i).set_height(1.0);
-    //         norm_rects->at(i).set_x_center(0.5f*width);
-    //         norm_rects->at(i).set_y_center(.0f);
-    //     }
+        // float width = 2.0f;
+        // for(int i=0; i<ear_num; i++){
+        //     norm_rects->at(i).set_width(width);
+        //     norm_rects->at(i).set_height(1.0);
+        //     norm_rects->at(i).set_x_center(0.5f*width);
+        //     norm_rects->at(i).set_y_center(.0f);
+        // }
     // }
+    
+    norm_rects->emplace_back(NormalizedRect());
 
     cc->Outputs()
         .Tag(kEarNormRectsTag)
