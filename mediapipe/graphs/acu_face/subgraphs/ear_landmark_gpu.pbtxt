@@ -11,7 +11,7 @@ output_stream: "PRESENCE:ear_presence"
 #output_stream: "earEDNESS:earedness"
 
 # Crops the rectangle that contains a ear from the input image.
-node {
+node: {
   calculator: "ImageCroppingCalculator"
   input_stream: "IMAGE_GPU:input_video"
   input_stream: "NORM_RECT:ear_rect"
@@ -22,7 +22,15 @@ node {
     }
   }
 }
-
+node: {
+  calculator: "GpuBufferToImageFrameCalculator"
+  input_stream: "ear_image"
+  output_stream: "ear_image_cpu"
+}
+node: {
+  calculator: "SaveCPUImageCalculator"
+  input_stream: "ear_image_cpu"
+}
 # Transforms the input image on GPU to a 224x224 image. To scale the input
 # image, the scale_mode option is set to FIT to preserve the aspect ratio,
 # resulting in potential letterboxing in the transformed image.

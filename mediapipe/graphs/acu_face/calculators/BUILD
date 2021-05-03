@@ -41,3 +41,22 @@ cc_library(
     ],
     alwayslink = 1,
 )
+cc_library(
+    name = "save_cpu_image_calculator",
+    srcs = ["save_cpu_image_calculator.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_highgui",
+
+        "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ],
+    alwayslink = 1,
+)

@@ -69,33 +69,39 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
     auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(ear_num);
 
     if(ear_num > 0){
+        //norm landmark, width/height .0-1.0,
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
 
         const NormalizedLandmark& lt = landmarks.landmark(refRightEarIdxs[0]);
         auto lb = landmarks.landmark(refRightEarIdxs[3]);
-        auto ltx = lt.x() * 2.0-1.0, lty = lt.y()* 2.0-1.0;
-        auto lbx = lb.x() * 2.0-1.0, lby = lb.y()* 2.0-1.0;
+        // auto ltx = lt.x() * 2.0-1.0, lty = lt.y()* 2.0-1.0;
+        // auto lbx = lb.x() * 2.0-1.0, lby = lb.y()* 2.0-1.0;
 
-        float height = std::abs(lty - lby) * 1.5f;
-        float width = 0.5f * height;
+        float height = std::abs(lt.y() - lb.y()) * 1.5f;
+        float width = 0.6f * height;
+        // std::cout<<"height: "<<height<<std::endl;
+
         int i=0;
         norm_rects->at(i).set_width(width);
         norm_rects->at(i).set_height(height);
-        norm_rects->at(i).set_x_center((lbx+ltx) * 0.5f);//center is 0.5
-        norm_rects->at(i).set_y_center((lby+lty) * 0.5f);
+        norm_rects->at(i).set_x_center((lb.x()+lt.x() - width) * 0.5f);//center is 0.5
+        norm_rects->at(i).set_y_center((lb.y()+lt.y()) * 0.5f);
 	}
-    // else{
-        // float width = 2.0f;
-        // for(int i=0; i<ear_num; i++){
-        //     norm_rects->at(i).set_width(width);
-        //     norm_rects->at(i).set_height(1.0);
-        //     norm_rects->at(i).set_x_center(0.5f*width);
-        //     norm_rects->at(i).set_y_center(.0f);
-        // }
-    // }
+    else{
+        //debug:, norm rect, width/height .0-1.0, x, left->right, y: top->down
+        float width = 1.0f;
+        float height = 0.5f;
+        for(int i=0; i<ear_num; i++){
+            norm_rects->at(i).set_width(width);
+            norm_rects->at(i).set_height(height);
+            norm_rects->at(i).set_x_center(0.5f*width);
+            norm_rects->at(i).set_y_center(0.5f*height);
+        }
+    }
     
-    norm_rects->emplace_back(NormalizedRect());
+    //empty debug
+    // norm_rects->emplace_back(NormalizedRect());
 
     cc->Outputs()
         .Tag(kEarNormRectsTag)

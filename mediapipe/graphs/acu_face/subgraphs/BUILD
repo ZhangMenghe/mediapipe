@@ -39,6 +39,8 @@ mediapipe_simple_subgraph(
         "//mediapipe/calculators/util:landmark_projection_calculator",
         "//mediapipe/graphs/acu_face/calculators:ear_landmarks_to_rects_calculator",
         "//mediapipe/calculators/util:rect_transformation_calculator",
+        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
+        "//mediapipe/graphs/acu_face/calculators:save_cpu_image_calculator",
     ],
 )
 
