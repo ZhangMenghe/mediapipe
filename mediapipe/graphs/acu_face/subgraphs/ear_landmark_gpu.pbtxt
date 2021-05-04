@@ -5,7 +5,7 @@ type: "earLandmarkSubgraph"
 input_stream: "IMAGE_GPU:input_video"
 input_stream: "NORM_RECT:ear_rect"
 output_stream: "LANDMARKS:ear_landmarks"
-output_stream: "NORM_RECT_EAR:ear_rect_for_next_frame"
+output_stream: "NORM_RECT:ear_rect_fine_crop"
 output_stream: "PRESENCE:ear_presence"
 #output_stream: "PRESENCE_SCORE:ear_presence_score"
 #output_stream: "earEDNESS:earedness"
@@ -34,6 +34,7 @@ node: {
   input_stream: "NORM_RECT:ear_rect"
   output_stream: "fine_cropped_cpu"
   output_stream: "NORM_RECT:ear_rect_fine_crop"
+  output_stream: "FLAG:ear_presence"
 }
 node: {
   calculator: "ImageFrameToGpuBufferCalculator"
@@ -230,29 +231,29 @@ node {
 #   output_stream: "DETECTION:ear_detection"
 # }
 
-# Converts the ear detection into a rectangle (normalized by image size)
-# that encloses the ear.
-node {
-  calculator: "EarLandmarksToRectsCalculator"
-  input_stream: "LANDMARKS:ear_landmarks"
-  output_stream: "NORM_RECT_EAR:ear_rect_from_landmarks"
-  output_stream: "FLAG:ear_presence"
-}
+# # Converts the ear detection into a rectangle (normalized by image size)
+# # that encloses the ear.
+# node {
+#   calculator: "EarLandmarksToRectsCalculator"
+#   input_stream: "LANDMARKS:ear_landmarks"
+#   output_stream: "NORM_RECT_EAR:ear_rect_from_landmarks"
+#   output_stream: "FLAG:ear_presence"
+# }
 
-# Expands the ear rectangle so that the box contains the entire ear and it's
-# big enough so that it's likely to still contain the ear even with some motion
-# in the next video frame .
-node {
-  calculator: "RectTransformationCalculator"
-  input_stream: "NORM_RECT:ear_rect_from_landmarks"
-  input_stream: "IMAGE_SIZE:image_size"
-  output_stream: "ear_rect_for_next_frame"
-  node_options: {
-    [type.googleapis.com/mediapipe.RectTransformationCalculatorOptions] {
-      scale_x: 2.1
-      scale_y: 2.1
-      shift_y: -0.1
-      square_long: true
-    }
-  }
-}
+# # Expands the ear rectangle so that the box contains the entire ear and it's
+# # big enough so that it's likely to still contain the ear even with some motion
+# # in the next video frame .
+# node {
+#   calculator: "RectTransformationCalculator"
+#   input_stream: "NORM_RECT:ear_rect_from_landmarks"
+#   input_stream: "IMAGE_SIZE:image_size"
+#   output_stream: "ear_rect_for_next_frame"
+#   node_options: {
+#     [type.googleapis.com/mediapipe.RectTransformationCalculatorOptions] {
+#       scale_x: 2.1
+#       scale_y: 2.1
+#       shift_y: -0.1
+#       square_long: true
+#     }
+#   }
+# }

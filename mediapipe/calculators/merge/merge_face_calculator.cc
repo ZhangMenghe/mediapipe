@@ -369,13 +369,15 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 
   if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
-    for(auto rect:rects)
+    for(auto rect:rects){
 		  ear_rects.push_back(faceRect(
         rect.x_center() - rect.width() / 2.f, 
-      rect.y_center() - rect.height() / 2.f, 
-      rect.width(),rect.height(), 
-      rect.rotation(), true));
-	}
+        rect.y_center() - rect.height() / 2.f, 
+        rect.width(),rect.height(), 
+        rect.rotation(), true));
+      std::cout<<"rect: "<<rect.x_center()<<" "<<ear_rects.back().xmin<<std::endl;
+    }
+  }
 
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
     if(!quad_renderer_){

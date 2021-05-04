@@ -16,6 +16,7 @@ namespace mediapipe {
 using namespace cv;
 namespace {
     constexpr char kEarNormRectTag[] = "NORM_RECT";
+    constexpr char kFlagTag[] = "FLAG";
 }  
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
 class FineCropEarCpuCalculator : public CalculatorBase {
@@ -29,7 +30,7 @@ class FineCropEarCpuCalculator : public CalculatorBase {
   private:
     cv::Mat open_kernel;
     // Ptr<cv::ximgproc::StructuredEdgeDetection> pDollar;
-    int frame_width = -1, frame_height = -1;
+    float frame_width = -1.0f, frame_height = -1.0f;
 };
 REGISTER_CALCULATOR(FineCropEarCpuCalculator);
 
@@ -44,6 +45,9 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
 
     if (cc->Outputs().HasTag(kEarNormRectTag))
 	    cc->Outputs().Tag(kEarNormRectTag).Set<NormalizedRect>();
+
+    if (cc->Outputs().HasTag(kFlagTag))
+      cc->Outputs().Tag(kFlagTag).Set<bool>();
 
     return ::mediapipe::OkStatus();
 }
@@ -78,9 +82,6 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
           max_area = area; target_c_id = i;
         }
     }
-
-
-  
     auto& input_rect = cc->Inputs().Tag(kEarNormRectTag).Get<NormalizedRect>();
     auto output_rect = absl::make_unique<NormalizedRect>(input_rect);
 
@@ -88,17 +89,21 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
       auto br = boundingRect(contours[target_c_id]);
       //  std::cout<<"bounding rect : "<<bounding_rect.width<<" "<<bounding_rect.height<<" "<<bounding_rect.x<<" "<<bounding_rect.y<<std::endl;
 
-      if(frame_width < 0){
+      if(frame_width < .0f){
         frame_width = frame.cols; frame_height = frame.rows;
       }
 
       frame = frame(br);
+      // std::cout<<"input_rect: "<<input_rect.width()<<" "<<input_rect.height()<<std::endl;
       
-      output_rect->set_width(input_rect.width() * float(br.width / frame_width));
-      output_rect->set_height(input_rect.height() * float(br.height / frame_height));
+      output_rect->set_width(input_rect.width() * br.width / frame_width);
+      output_rect->set_height(input_rect.height() * br.height / frame_height);
       output_rect->set_x_center(input_rect.x_center() + br.x/frame_width * 0.5f);
       output_rect->set_y_center(input_rect.y_center() + br.y/frame_height * 0.5f);
+      // std::cout<<"out_rect: "<<output_rect->width()<<" "<<output_rect->height()<<std::endl;
+
     }
+      // std::cout<<"out_rect: "<<output_rect->width()<<" "<<output_rect->height()<<std::endl;
     
     cc->Outputs().Tag(kEarNormRectTag).Add(output_rect.release(), cc->InputTimestamp());
     auto output_img = absl::make_unique<ImageFrame>(img.Format(), frame.cols, frame.rows);
@@ -106,7 +111,8 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     output_mat = frame.clone();
 
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
-
+    cc->Outputs().Tag(kFlagTag)
+                    .Add(new bool(true), cc->InputTimestamp());
     return ::mediapipe::OkStatus();
 }
 

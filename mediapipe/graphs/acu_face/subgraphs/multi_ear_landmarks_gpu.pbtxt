@@ -29,7 +29,7 @@ node {
   input_stream: "IMAGE_GPU:input_video_cloned"
   input_stream: "NORM_RECT:single_ear_rect"
   output_stream: "LANDMARKS:single_ear_landmarks"
-  output_stream: "NORM_RECT_EAR:single_ear_rect_from_landmarks"
+  output_stream: "NORM_RECT:single_ear_rect_from_landmarks"
   output_stream: "PRESENCE:single_ear_presence"
 }
 
