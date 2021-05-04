@@ -60,3 +60,26 @@ cc_library(
     ],
     alwayslink = 1,
 )
+cc_library(
+    name = "fine_crop_ear_cpu_calculator",
+    srcs = ["fine_crop_ear_cpu_calculator.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/formats:rect_cc_proto",
+
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
+
+        "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ],
+    alwayslink = 1,
+)
+

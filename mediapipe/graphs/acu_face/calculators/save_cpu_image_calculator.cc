@@ -35,8 +35,12 @@ REGISTER_CALCULATOR(SaveCPUImageCalculator);
 }
 
 ::mediapipe::Status SaveCPUImageCalculator::Process(CalculatorContext* cc){
+  if(id %5== 0){
+
   const auto& img = cc->Inputs().Index(0).Get<ImageFrame>();
-  cv::imwrite( OUTPUT_PATH + std::to_string(id++) +".png" , formats::MatView(&img));
+  cv::imwrite( OUTPUT_PATH + std::to_string(id/5) +".png" , formats::MatView(&img));
+  }
+  id++;
   return ::mediapipe::OkStatus();
 }
 

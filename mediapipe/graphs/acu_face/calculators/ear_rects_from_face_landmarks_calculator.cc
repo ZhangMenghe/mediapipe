@@ -24,8 +24,8 @@ namespace {
     const static int refLeftEarIdxs[4] = {
         356,454,323,361
     };
-    const static int refRightEarIdxs[4] = {
-        127, 234, 93, 132
+    const static int refRightEarIdxs[8] = {
+        21,162, 127, 234, 93, 132,58, 172
     };
 }  // namespace
 
@@ -64,41 +64,48 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 }
 
 ::mediapipe::Status EarRectsFromFaceLandmarksCalculator::Process(CalculatorContext* cc) {
-        // std::vector<NormalizedRect> ear_rects;
     int ear_num = (cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty())?1:0;
     auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(ear_num);
 
     if(ear_num > 0){
-        //norm landmark, width/height .0-1.0,
+        //norm landmark, width/height .0 ~ 1.0,
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
 
         const NormalizedLandmark& lt = landmarks.landmark(refRightEarIdxs[0]);
-        auto lb = landmarks.landmark(refRightEarIdxs[3]);
+
+        auto lb = landmarks.landmark(refRightEarIdxs[7]);
+        // auto h_mid = landmarks.landmark(refRightEarIdxs[4]).y();
+
+        auto nose_width = landmarks.landmark(358).x() - landmarks.landmark(129).x();
+        auto test_length = landmarks.landmark(123).x() - landmarks.landmark(93).x();
+        // std::cout<<"test: "<<test_length / nose_width<<std::endl;
+        
         // auto ltx = lt.x() * 2.0-1.0, lty = lt.y()* 2.0-1.0;
         // auto lbx = lb.x() * 2.0-1.0, lby = lb.y()* 2.0-1.0;
+        auto rx = (test_length / nose_width > 0.5f)?landmarks.landmark(58).x():landmarks.landmark(215).x();
 
-        float height = std::abs(lt.y() - lb.y()) * 1.5f;
-        float width = 0.6f * height;
+        float height = std::abs(lt.y() - lb.y());
+        float width = 0.5f * height;
         // std::cout<<"height: "<<height<<std::endl;
 
         int i=0;
         norm_rects->at(i).set_width(width);
         norm_rects->at(i).set_height(height);
-        norm_rects->at(i).set_x_center((lb.x()+lt.x() - width) * 0.5f);//center is 0.5
-        norm_rects->at(i).set_y_center((lb.y()+lt.y()) * 0.5f);
+        norm_rects->at(i).set_x_center(rx - width * 0.5f);//center is 0.5
+        norm_rects->at(i).set_y_center((lb.y()+lt.y()) * 0.5f);//h_mid);//
 	}
-    else{
-        //debug:, norm rect, width/height .0-1.0, x, left->right, y: top->down
-        float width = 1.0f;
-        float height = 0.5f;
-        for(int i=0; i<ear_num; i++){
-            norm_rects->at(i).set_width(width);
-            norm_rects->at(i).set_height(height);
-            norm_rects->at(i).set_x_center(0.5f*width);
-            norm_rects->at(i).set_y_center(0.5f*height);
-        }
-    }
+    // else{
+    //     //debug:, norm rect, width/height .0-1.0, x, left->right, y: top->down
+    //     float width = 1.0f;
+    //     float height = 0.5f;
+    //     for(int i=0; i<ear_num; i++){
+    //         norm_rects->at(i).set_width(width);
+    //         norm_rects->at(i).set_height(height);
+    //         norm_rects->at(i).set_x_center(0.5f*width);
+    //         norm_rects->at(i).set_y_center(0.5f*height);
+    //     }
+    // }
     
     //empty debug
     // norm_rects->emplace_back(NormalizedRect());

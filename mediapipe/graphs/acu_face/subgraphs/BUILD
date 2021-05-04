@@ -40,7 +40,9 @@ mediapipe_simple_subgraph(
         "//mediapipe/graphs/acu_face/calculators:ear_landmarks_to_rects_calculator",
         "//mediapipe/calculators/util:rect_transformation_calculator",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
+        "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
         "//mediapipe/graphs/acu_face/calculators:save_cpu_image_calculator",
+        "//mediapipe/graphs/acu_face/calculators:fine_crop_ear_cpu_calculator",
     ],
 )
 

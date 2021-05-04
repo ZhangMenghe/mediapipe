@@ -22,21 +22,37 @@ node: {
     }
   }
 }
+## For debug only: output cropped rect of rough ear
 node: {
   calculator: "GpuBufferToImageFrameCalculator"
   input_stream: "ear_image"
   output_stream: "ear_image_cpu"
 }
 node: {
-  calculator: "SaveCPUImageCalculator"
+  calculator: "FineCropEarCpuCalculator"
   input_stream: "ear_image_cpu"
+  input_stream: "NORM_RECT:ear_rect"
+  output_stream: "fine_cropped_cpu"
+  output_stream: "NORM_RECT:ear_rect_fine_crop"
 }
+node: {
+  calculator: "ImageFrameToGpuBufferCalculator"
+  input_stream: "fine_cropped_cpu"
+  output_stream: "fine_cropped_gpu"
+}
+
+# node: {
+#   calculator: "SaveCPUImageCalculator"
+#   input_stream: "ear_image_cpu"
+# }
+
 # Transforms the input image on GPU to a 224x224 image. To scale the input
 # image, the scale_mode option is set to FIT to preserve the aspect ratio,
 # resulting in potential letterboxing in the transformed image.
 node: {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE_GPU:ear_image"
+  # input_stream: "IMAGE_GPU:ear_image"
+  input_stream: "IMAGE_GPU:fine_cropped_gpu"
   output_stream: "IMAGE_GPU:transformed_ear_image"
   #output_stream: "LETTERBOX_PADDING:letterbox_padding"
   node_options: {
@@ -175,7 +191,7 @@ node {
 node {
   calculator: "LandmarkProjectionCalculator"
   input_stream: "NORM_LANDMARKS:landmarks"
-  input_stream: "NORM_RECT:ear_rect"
+  input_stream: "NORM_RECT:ear_rect_fine_crop"
   output_stream: "NORM_LANDMARKS:ear_landmarks"
 }
 
