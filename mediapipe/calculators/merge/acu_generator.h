@@ -24,13 +24,13 @@ static bool my_isspace(char ch){/*return ch ==' ';*/return std::isspace(static_c
 const float MINFINITY = std::numeric_limits<float>::max();
 
 struct faceRect{
-	float xmin, ymin;
+	float centerX, centerY;
 	float width, height;
 	float rotation;
 	bool normalized;
 	faceRect(){}
-	faceRect(float xm, float ym, float w, float h, float r, bool bn){
-		xmin=xm;ymin=ym;width=w;height=h;rotation=r;normalized=bn;
+	faceRect(float cx, float cy, float w, float h, float r, bool bn){
+		centerX=cx;centerY=cy;width=w;height=h;rotation=r;normalized=bn;
 	}
 };
 struct acuPoint{

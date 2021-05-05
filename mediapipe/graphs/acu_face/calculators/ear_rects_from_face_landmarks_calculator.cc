@@ -94,6 +94,9 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
         norm_rects->at(i).set_height(height);
         norm_rects->at(i).set_x_center(rx - width * 0.5f);//center is 0.5
         norm_rects->at(i).set_y_center((lb.y()+lt.y()) * 0.5f);//h_mid);//
+
+        // std::cout<<"rect: "<<norm_rects->at(i).x_center()<<" "<<norm_rects->at(i).y_center()<<std::endl;
+
 	}
     // else{
     //     //debug:, norm rect, width/height .0-1.0, x, left->right, y: top->down

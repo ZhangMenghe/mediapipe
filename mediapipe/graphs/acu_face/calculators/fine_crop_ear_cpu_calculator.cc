@@ -21,16 +21,14 @@ namespace {
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
 class FineCropEarCpuCalculator : public CalculatorBase {
  public:
-  FineCropEarCpuCalculator() {}
+    FineCropEarCpuCalculator() {}
 
-  static ::mediapipe::Status GetContract(CalculatorContract* cc);
+    static ::mediapipe::Status GetContract(CalculatorContract* cc);
 
-  ::mediapipe::Status Open(CalculatorContext* cc) override;
-  ::mediapipe::Status Process(CalculatorContext* cc) override;
+    ::mediapipe::Status Open(CalculatorContext* cc) override;
+    ::mediapipe::Status Process(CalculatorContext* cc) override;
   private:
     cv::Mat open_kernel;
-    // Ptr<cv::ximgproc::StructuredEdgeDetection> pDollar;
-    float frame_width = -1.0f, frame_height = -1.0f;
 };
 REGISTER_CALCULATOR(FineCropEarCpuCalculator);
 
@@ -88,20 +86,20 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     if(target_c_id!=-1){
       auto br = boundingRect(contours[target_c_id]);
       //  std::cout<<"bounding rect : "<<bounding_rect.width<<" "<<bounding_rect.height<<" "<<bounding_rect.x<<" "<<bounding_rect.y<<std::endl;
+      float frame_width = frame.cols; float frame_height = frame.rows;
 
-      if(frame_width < .0f){
-        frame_width = frame.cols; frame_height = frame.rows;
-      }
+      float img_width = frame_width / input_rect.width();
+      float c2x_abs = input_rect.x_center() * img_width + (frame_width-br.width)*0.5f;
 
-      frame = frame(br);
-      // std::cout<<"input_rect: "<<input_rect.width()<<" "<<input_rect.height()<<std::endl;
-      
+      float img_height = frame_height / input_rect.height();
+      float c2y_abs = input_rect.y_center() * img_height - (frame_height-br.height)*0.5f;
+
       output_rect->set_width(input_rect.width() * br.width / frame_width);
       output_rect->set_height(input_rect.height() * br.height / frame_height);
-      output_rect->set_x_center(input_rect.x_center() + br.x/frame_width * 0.5f);
-      output_rect->set_y_center(input_rect.y_center() + br.y/frame_height * 0.5f);
-      // std::cout<<"out_rect: "<<output_rect->width()<<" "<<output_rect->height()<<std::endl;
+      output_rect->set_x_center(c2x_abs / img_width);
+      output_rect->set_y_center(c2y_abs / img_height);
 
+      frame = frame(br);
     }
       // std::cout<<"out_rect: "<<output_rect->width()<<" "<<output_rect->height()<<std::endl;
     

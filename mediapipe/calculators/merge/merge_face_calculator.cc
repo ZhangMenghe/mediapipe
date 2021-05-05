@@ -371,11 +371,12 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
     for(auto rect:rects){
 		  ear_rects.push_back(faceRect(
-        rect.x_center() - rect.width() / 2.f, 
-        rect.y_center() - rect.height() / 2.f, 
-        rect.width(),rect.height(), 
+        rect.x_center(), 
+        rect.y_center(), 
+        rect.width(),
+        rect.height(), 
         rect.rotation(), true));
-      std::cout<<"rect: "<<rect.x_center()<<" "<<ear_rects.back().xmin<<std::endl;
+        // std::cout<<"=====rect: "<<rect.x_center()<<" "<<rect.y_center()<<std::endl;
     }
   }
 
@@ -413,13 +414,13 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
 bool FaceMergeCalculator::on_process_rects(CalculatorContext* cc, faceRect& fr) {
 	if (cc->Inputs().HasTag(kNormRectTag) && !cc->Inputs().Tag(kNormRectTag).IsEmpty()) {
 		const auto& rect = cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>();
-		fr=faceRect(rect.x_center() - rect.width() / 2.f,
-		rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
+		fr=faceRect(rect.x_center(), 
+		rect.y_center() , rect.width(), rect.height(),
 		rect.rotation(), true);
 	}else if(cc->Inputs().HasTag(kRectTag) && !cc->Inputs().Tag(kRectTag).IsEmpty()) {
 		const auto& rect = cc->Inputs().Tag(kRectTag).Get<Rect>();
-		fr=faceRect( rect.x_center() - rect.width() / 2.f,
-		rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
+		fr=faceRect( rect.x_center() ,
+		rect.y_center() , rect.width(), rect.height(),
 		rect.rotation(), false);
 	}else if (cc->Inputs().HasTag(kNormRectsTag) && !cc->Inputs().Tag(kNormRectsTag).IsEmpty()) {
 		const auto& rects = cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>();
@@ -428,7 +429,7 @@ bool FaceMergeCalculator::on_process_rects(CalculatorContext* cc, faceRect& fr) 
 			return false;
 		} 
 		auto rect = rects[0];
-		fr=faceRect(rect.x_center() - rect.width() / 2.f, rect.y_center() - rect.height() / 2.f, rect.width(),rect.height(), rect.rotation(), true);
+		fr = faceRect(rect.x_center() , rect.y_center(), rect.width(),rect.height(), rect.rotation(), true);
 	}else if(cc->Inputs().HasTag(kRectsTag) &&!cc->Inputs().Tag(kRectsTag).IsEmpty()) {
 		const auto& rects = cc->Inputs().Tag(kRectsTag).Get<std::vector<Rect>>();
 		if(rects.size() != 1){
@@ -436,7 +437,7 @@ bool FaceMergeCalculator::on_process_rects(CalculatorContext* cc, faceRect& fr) 
 			return false;
 		} 
 		auto rect = rects[0];
-		fr=faceRect(rect.x_center() - rect.width() / 2.f,rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(), rect.rotation(), false);
+		fr=faceRect(rect.x_center() ,rect.y_center() , rect.width(), rect.height(), rect.rotation(), false);
 	}else{
 		return false;
 	}
