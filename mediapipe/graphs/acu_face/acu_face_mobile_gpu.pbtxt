@@ -204,7 +204,7 @@ node {
   input_stream: "MASK:hair_mask_cpu"
   input_stream: "VECTOR:multi_face_landmarks"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
-  #input_stream: "LANDMARKS_EAR:multi_ear_landmarks"
+  input_stream: "VECTOR_EAR:multi_ear_landmarks"
   input_stream: "NORM_RECTS_EAR:multi_ear_rects_from_landmarks"
   output_stream: "IMAGE_GPU:output_video"
 

@@ -167,11 +167,13 @@ node {
   node_options: {
     [type.googleapis.com/mediapipe.TfLiteTensorsToLandmarksCalculatorOptions] {
       num_landmarks: 55
-      input_image_width: 224
-      input_image_height: 224
+      input_image_width: 1
+      input_image_height: 1
       # The additional scaling factor is used to account for the Z coordinate
       # distribution in the training data.
       normalize_z: 0.4
+      flip_vertically: true
+      chunk_tensor: true
     }
   }
 }
@@ -194,14 +196,19 @@ node {
   input_stream: "NORM_LANDMARKS:landmarks"
   input_stream: "NORM_RECT:ear_rect_fine_crop"
   output_stream: "NORM_LANDMARKS:ear_landmarks"
+  node_options: {
+    [type.googleapis.com/mediapipe.LandmarkProjectionCalculatorOptions]{
+      ignore_rotation: true
+    }
+  }
 }
 
 # Extracts image size from the input images.
-node {
- calculator: "ImagePropertiesCalculator"
- input_stream: "IMAGE_GPU:input_video"
- output_stream: "SIZE:image_size"
-}
+# node {
+#  calculator: "ImagePropertiesCalculator"
+#  input_stream: "IMAGE_GPU:input_video"
+#  output_stream: "SIZE:image_size"
+# }
 
 # Extracts a subset of the ear landmarks that are relatively more stable across
 # frames (e.g. comparing to finger tips) for computing the bounding box. The box

@@ -28,6 +28,7 @@ class FineCropEarCpuCalculator : public CalculatorBase {
     ::mediapipe::Status Open(CalculatorContext* cc) override;
     ::mediapipe::Status Process(CalculatorContext* cc) override;
   private:
+    int id = 0;
     cv::Mat open_kernel;
 };
 REGISTER_CALCULATOR(FineCropEarCpuCalculator);
@@ -82,12 +83,16 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     }
     auto& input_rect = cc->Inputs().Tag(kEarNormRectTag).Get<NormalizedRect>();
     auto output_rect = absl::make_unique<NormalizedRect>(input_rect);
+    const int offset = 4;
 
     if(target_c_id!=-1){
       auto br = boundingRect(contours[target_c_id]);
-      //  std::cout<<"bounding rect : "<<bounding_rect.width<<" "<<bounding_rect.height<<" "<<bounding_rect.x<<" "<<bounding_rect.y<<std::endl;
-      float frame_width = frame.cols; float frame_height = frame.rows;
+      int off_x = max(0, br.x - offset), off_y = max(0, br.y-offset);
+      br.width+=abs(off_x - br.x); br.y+=abs(off_y-br.y);
+      br.x = off_x; br.y=off_y;
 
+      // std::cout<<"bounding rect : "<<br.width<<" "<<br.height<<" "<<br.x<<" "<<br.y<<std::endl;
+      float frame_width = frame.cols; float frame_height = frame.rows;
       float img_width = frame_width / input_rect.width();
       float c2x_abs = input_rect.x_center() * img_width + (frame_width-br.width)*0.5f;
 
@@ -100,8 +105,11 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
       output_rect->set_y_center(c2y_abs / img_height);
 
       frame = frame(br);
+      if(id %5 ==0)
+      cv::imwrite( "debug_out/crop_" + std::to_string(id/5) +".png" , frame);
+      id++;
+
     }
-      // std::cout<<"out_rect: "<<output_rect->width()<<" "<<output_rect->height()<<std::endl;
     
     cc->Outputs().Tag(kEarNormRectTag).Add(output_rect.release(), cc->InputTimestamp());
     auto output_img = absl::make_unique<ImageFrame>(img.Format(), frame.cols, frame.rows);

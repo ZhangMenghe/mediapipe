@@ -79,6 +79,7 @@ class TfLiteTensorsToLandmarksCalculator : public CalculatorBase {
   int num_landmarks_ = 0;
   bool flip_vertically_ = false;
   bool flip_horizontally_ = false;
+  bool chunk_tensor_ = false;
 
   ::mediapipe::TfLiteTensorsToLandmarksCalculatorOptions options_;
 };
@@ -165,6 +166,7 @@ REGISTER_CALCULATOR(TfLiteTensorsToLandmarksCalculator);
       !cc->Inputs().Tag("FLIP_VERTICALLY").IsEmpty()) {
     flip_vertically_ = cc->Inputs().Tag("FLIP_VERTICALLY").Get<bool>();
   }
+  chunk_tensor_ = options_.chunk_tensor();
 
   if (cc->Inputs().Tag("TENSORS").IsEmpty()) {
     return ::mediapipe::OkStatus();
@@ -180,36 +182,53 @@ REGISTER_CALCULATOR(TfLiteTensorsToLandmarksCalculator);
     num_values *= raw_tensor->dims->data[i];
   }
   const int num_dimensions = num_values / num_landmarks_;
+
   CHECK_GT(num_dimensions, 0);
 
   const float* raw_landmarks = raw_tensor->data.f;
 
   LandmarkList output_landmarks;
 
-  for (int ld = 0; ld < num_landmarks_; ++ld) {
-    const int offset = ld * num_dimensions;
-    Landmark* landmark = output_landmarks.add_landmark();
-
-    if (flip_horizontally_) {
-      landmark->set_x(options_.input_image_width() - raw_landmarks[offset]);
-    } else {
-      landmark->set_x(raw_landmarks[offset]);
-    }
-    if (num_dimensions > 1) {
-      if (flip_vertically_) {
-        landmark->set_y(options_.input_image_height() -
-                        raw_landmarks[offset + 1]);
+  if(chunk_tensor_ && num_dimensions == 2){
+    int offset = num_landmarks_;
+    for (int ld = 0; ld < num_landmarks_; ++ld) {
+      Landmark* landmark = output_landmarks.add_landmark();
+      if (flip_horizontally_) {
+        landmark->set_x(options_.input_image_width()- raw_landmarks[ld+offset]);
       } else {
-        landmark->set_y(raw_landmarks[offset + 1]);
+        landmark->set_x(raw_landmarks[ld+offset]);
+      }
+
+      if (flip_vertically_) landmark->set_y(options_.input_image_height()-raw_landmarks[ld]);
+      else landmark->set_y(raw_landmarks[ld]);
+    }
+  }else{
+    for (int ld = 0; ld < num_landmarks_; ++ld) {
+      const int offset = ld * num_dimensions;
+      Landmark* landmark = output_landmarks.add_landmark();
+
+      if (flip_horizontally_) {
+        landmark->set_x(options_.input_image_width() - raw_landmarks[offset]);
+      } else {
+        landmark->set_x(raw_landmarks[offset]);
+      }
+      if (num_dimensions > 1) {
+        if (flip_vertically_) {
+          landmark->set_y(options_.input_image_height() -
+                          raw_landmarks[offset + 1]);
+        } else {
+          landmark->set_y(raw_landmarks[offset + 1]);
+        }
+      }
+      if (num_dimensions > 2) {
+        landmark->set_z(raw_landmarks[offset + 2]);
+      }
+      if (num_dimensions > 3) {
+        landmark->set_visibility(raw_landmarks[offset + 3]);
       }
     }
-    if (num_dimensions > 2) {
-      landmark->set_z(raw_landmarks[offset + 2]);
-    }
-    if (num_dimensions > 3) {
-      landmark->set_visibility(raw_landmarks[offset + 3]);
-    }
   }
+
 
   // Output normalized landmarks if required.
   if (cc->Outputs().HasTag("NORM_LANDMARKS")) {

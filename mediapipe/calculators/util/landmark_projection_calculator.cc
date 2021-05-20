@@ -60,6 +60,7 @@ constexpr char kRectTag[] = "NORM_RECT";
 // }
 class LandmarkProjectionCalculator : public CalculatorBase {
  public:
+ int id = 0;
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
     RET_CHECK(cc->Inputs().HasTag(kLandmarksTag) &&
               cc->Inputs().HasTag(kRectTag))
@@ -110,6 +111,9 @@ class LandmarkProjectionCalculator : public CalculatorBase {
 
       const auto& input_landmarks = input_packet.Get<NormalizedLandmarkList>();
       NormalizedLandmarkList output_landmarks;
+      float max_x = -10000, min_x = 10000;
+      float max_y = -10000, min_y = 10000;
+
       for (int i = 0; i < input_landmarks.landmark_size(); ++i) {
         const NormalizedLandmark& landmark = input_landmarks.landmark(i);
         NormalizedLandmark* new_landmark = output_landmarks.add_landmark();
@@ -129,9 +133,18 @@ class LandmarkProjectionCalculator : public CalculatorBase {
         new_landmark->set_x(new_x);
         new_landmark->set_y(new_y);
         new_landmark->set_z(new_z);
+        
+        if(x < min_x) min_x = x;
+        else if(x>max_x) max_x = x;
+
+        if(y < min_y) min_y = y;
+        else if(y > max_y) max_y = y;
+
         // Keep visibility as is.
         new_landmark->set_visibility(landmark.visibility());
       }
+      // if(id%5==0) std::cout<<"width: "<< max_x - min_x<<" height: "<<max_y-min_y<<std::endl;
+      id++;
 
       cc->Outputs().Get(output_id).AddPacket(
           MakePacket<NormalizedLandmarkList>(output_landmarks)

@@ -51,4 +51,7 @@ message TfLiteTensorsToLandmarksCalculatorOptions {
   // when normalized landmarks are needed. It is applied in addition to Z
   // coordinate being re-scaled as X.
   optional float normalize_z = 5 [default = 1.0];
+
+  // For ear detection, tensor values are [xxxxx...,yyyyyy...]
+  optional bool chunk_tensor = 7 [default = false];
 }

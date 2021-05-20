@@ -56,10 +56,7 @@ constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
 constexpr char kRectsTag[] = "RECTS";
 
 constexpr char kInputLandMarksVectorTag[] = "VECTOR";
-// constexpr char kLandmarksTag[] = "LANDMARKS";
-// constexpr char kNormLandmarksTag[] = "NORM_LANDMARKS";
-constexpr char kInputEarLandMarksVectorTag[] = "LANDMARKS_EAR";
-
+constexpr char kInputEarLandMarksVectorTag[] = "VECTOR_EAR";
 }  // namespace
 
 namespace mediapipe {
@@ -131,7 +128,7 @@ class FaceMergeCalculator : public CalculatorBase {
   bool use_gpu_ = false;
 #if !defined(MEDIAPIPE_DISABLE_GPU)
   GLuint program_ = 0;
-  float *lmpoints = nullptr;
+  float *lmpoints = nullptr, *right_ear_points = nullptr;
 	// std::unique_ptr<acuGenerator> acu_generator;
 
   	mediapipe::GlCalculatorHelper gpu_helper_;
@@ -361,12 +358,12 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     for(int i=0; i<landmarks.landmark_size();i++){
       const NormalizedLandmark& landmark = landmarks.landmark(i);
       lmpoints[3*i] = landmark.x();lmpoints[3*i+1] = landmark.y();lmpoints[3*i+2] = landmark.z();
+      // std::cout<<lmpoints[3*i]<<" "<<lmpoints[3*i+1]<<std::endl;
     }
     land_mark_valid = true;
 	}
   //prepare ear info
   std::vector<faceRect> ear_rects;
-
   if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
     for(auto rect:rects){
@@ -379,6 +376,22 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
         // std::cout<<"=====rect: "<<rect.x_center()<<" "<<rect.y_center()<<std::endl;
     }
   }
+  bool ear_landmark_valid = false;
+  //prepare ear landmarks
+	if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag) && !cc->Inputs().Tag(kInputEarLandMarksVectorTag).IsEmpty()){
+		auto& nlandmarks_vec = cc->Inputs().Tag(kInputEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+		auto landmarks = nlandmarks_vec[0];
+
+    if(right_ear_points == nullptr) right_ear_points = new float[3 * landmarks.landmark_size()];
+    for(int i=0; i<landmarks.landmark_size();i++){
+        const NormalizedLandmark& landmark = landmarks.landmark(i);
+        right_ear_points[3*i] = landmark.x();right_ear_points[3*i+1] = landmark.y();right_ear_points[3*i+2] = .0f;
+        // std::cout<<right_ear_points[3*i]<<" "<<right_ear_points[3*i+1]<<std::endl;
+     }
+    //  std::cout<<"======="<<std::endl;
+    ear_landmark_valid = true; 
+  }
+
 
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
     if(!quad_renderer_){
@@ -396,7 +409,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     MP_RETURN_IF_ERROR(quad_renderer_->GlRender(
     img_tex.width(), img_tex.height(), dst_tex.width(), dst_tex.height(), FrameScaleMode::kFit, FrameRotation::kNone, false, false, false));
 
-    acuGenerator::instance()->onDraw(fr, mask_full, ear_rects, land_mark_valid?lmpoints:nullptr);
+    acuGenerator::instance()->onDraw(fr, mask_full, ear_rects, land_mark_valid?lmpoints:nullptr, ear_landmark_valid?right_ear_points:nullptr);
 
     //draw others here
     glActiveTexture(GL_TEXTURE1);

@@ -74,7 +74,7 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 
         const NormalizedLandmark& lt = landmarks.landmark(refRightEarIdxs[0]);
 
-        auto lb = landmarks.landmark(refRightEarIdxs[7]);
+        auto lb = landmarks.landmark(refRightEarIdxs[6]);
         // auto h_mid = landmarks.landmark(refRightEarIdxs[4]).y();
 
         auto nose_width = landmarks.landmark(358).x() - landmarks.landmark(129).x();
@@ -97,21 +97,10 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 
         // std::cout<<"rect: "<<norm_rects->at(i).x_center()<<" "<<norm_rects->at(i).y_center()<<std::endl;
 
-	}
-    // else{
-    //     //debug:, norm rect, width/height .0-1.0, x, left->right, y: top->down
-    //     float width = 1.0f;
-    //     float height = 0.5f;
-    //     for(int i=0; i<ear_num; i++){
-    //         norm_rects->at(i).set_width(width);
-    //         norm_rects->at(i).set_height(height);
-    //         norm_rects->at(i).set_x_center(0.5f*width);
-    //         norm_rects->at(i).set_y_center(0.5f*height);
-    //     }
-    // }
-    
-    //empty debug
-    // norm_rects->emplace_back(NormalizedRect());
+	}else{
+        //empty
+        norm_rects->emplace_back(NormalizedRect());
+    }
 
     cc->Outputs()
         .Tag(kEarNormRectsTag)

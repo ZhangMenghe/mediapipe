@@ -77,14 +77,14 @@ private:
 	std::set<std::string> target_channels=std::set<std::string>{"DU"};
 	std::unordered_map<std::string, int> meridian_num_map;
 
-	float* pdata_ = nullptr;
+	float* pdata_ = nullptr, *right_ear_data = nullptr;
 	unsigned short* pind = nullptr;
 	int data_num = 0;
 	float cos_theta, sin_theta;
 	glm::mat2 R, R_prime;
 	glm::vec2 mps[468];
 
-	PointRenderer* prenderer;
+	PointRenderer* prenderer, *right_ear_renderer;
 	std::vector<QuadRenderer*> m_quad_renderers;
 	std::unordered_map<std::string, PointRenderer*> line_renderers;
 
@@ -113,7 +113,7 @@ public:
 	}
 
 	void onSetup(std::string shader_path);
-    void onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points);
+    void onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points, const float* ear_points);
     void onDestroy();
 };
 }
