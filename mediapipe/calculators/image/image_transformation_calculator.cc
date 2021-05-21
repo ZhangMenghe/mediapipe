@@ -504,7 +504,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   int output_height;
   ComputeOutputDimensions(input_width, input_height, &output_width,
                           &output_height);
-
   if (cc->Outputs().HasTag("LETTERBOX_PADDING")) {
     auto padding = absl::make_unique<std::array<float, 4>>();
     ComputeOutputLetterboxPadding(input_width, input_height, output_width,
@@ -594,7 +593,6 @@ REGISTER_CALCULATOR(ImageTransformationCalculator);
   cc->Outputs().Tag("IMAGE_ALIGN").Add(output_frame.release(), cc->InputTimestamp());
     // dst.Release();
   }
-
   cc->Outputs().Tag("IMAGE_GPU").Add(output.release(), cc->InputTimestamp());
 
 #endif  //  !MEDIAPIPE_DISABLE_GPU

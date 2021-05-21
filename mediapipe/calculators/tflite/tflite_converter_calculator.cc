@@ -275,6 +275,8 @@ bool ShouldUseGpu(CC* cc) {
     // Convert to CPU tensors or Matrix type.
     MP_RETURN_IF_ERROR(ProcessCPU(cc));
   }
+    // std::cout<<"????"<<std::endl;
+
   return ::mediapipe::OkStatus();
 }
 
@@ -417,7 +419,9 @@ bool ShouldUseGpu(CC* cc) {
 
 ::mediapipe::Status TfLiteConverterCalculator::ProcessGPU(
     CalculatorContext* cc) {
+
 #if MEDIAPIPE_TFLITE_GL_INFERENCE
+
   // GpuBuffer to tflite::gpu::GlBuffer conversion.
   const auto& input =
       cc->Inputs().Tag(kGpuBufferTag).Get<mediapipe::GpuBuffer>();
@@ -448,6 +452,7 @@ bool ShouldUseGpu(CC* cc) {
           RET_CHECK_CALL(CreateReadWriteShaderStorageBuffer<float>(
               gpu_data_out_->elements, &tensor));
           RET_CHECK_CALL(CopyBuffer(gpu_data_out_->buffer, tensor));
+
         }
         return ::mediapipe::OkStatus();
       }));
@@ -487,7 +492,6 @@ bool ShouldUseGpu(CC* cc) {
                              from:gpu_data_out_->buffer
                          blocking:false
                     commandBuffer:command_buffer];
-
   cc->Outputs()
       .Tag(kTensorsGpuTag)
       .Add(output_tensors.release(), cc->InputTimestamp());

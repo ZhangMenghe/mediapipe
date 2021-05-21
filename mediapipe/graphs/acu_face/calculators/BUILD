@@ -102,4 +102,21 @@ cc_library(
     ],
     alwayslink = 1,
 )
+cc_library(
+    name = "tflite_tensors_to_flipped_ear",
+    srcs = ["tflite_tensors_to_flipped_ear.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
 
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/port:ret_check",
+        "@org_tensorflow//tensorflow/lite:framework",
+    ],
+    alwayslink = 1,
+)

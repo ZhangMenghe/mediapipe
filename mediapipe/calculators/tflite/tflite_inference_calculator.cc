@@ -328,7 +328,6 @@ bool ShouldUseGpu(CC* cc) {
   if (cc->InputSidePackets().HasTag("MODEL")) {
     cc->InputSidePackets().Tag("MODEL").Set<TfLiteModelPtr>();
   }
-
   if (ShouldUseGpu(cc)) {
 #if MEDIAPIPE_TFLITE_GL_INFERENCE
     MP_RETURN_IF_ERROR(mediapipe::GlCalculatorHelper::UpdateContract(cc));
@@ -393,7 +392,6 @@ bool ShouldUseGpu(CC* cc) {
 ::mediapipe::Status TfLiteInferenceCalculator::Process(CalculatorContext* cc) {
   return RunInContextIfNeeded([this, cc]() -> ::mediapipe::Status {
       auto start = high_resolution_clock::now();
-
     // 0. Declare outputs
     auto output_tensors_gpu = absl::make_unique<std::vector<GpuTensor>>();
     auto output_tensors_cpu = absl::make_unique<std::vector<TfLiteTensor>>();
@@ -480,6 +478,11 @@ bool ShouldUseGpu(CC* cc) {
                   input_tensor->bytes);
     }
   }
+    // const TfLiteTensor* tensor = &input_tensors[0];
+
+    //     for (int d = 0; d < tensor->dims->size; ++d) {
+    //     std::cout<< tensor->dims->data[d]<<std::endl;
+    //   }
 
   return ::mediapipe::OkStatus();
 }
@@ -698,6 +701,7 @@ bool ShouldUseGpu(CC* cc) {
     RET_CHECK_CALL(::tflite::gpu::gl::CreateReadWriteShaderStorageBuffer<float>(
         gpu_data_out_[i]->elements, &gpu_data_out_[i]->buffer));
   }
+
   RET_CHECK_CALL(tflite_gpu_runner_->Build());
 #endif  // MEDIAPIPE_TFLITE_GL_INFERENCE
 
@@ -869,6 +873,7 @@ bool ShouldUseGpu(CC* cc) {
       for (int d = 0; d < tensor->dims->size; ++d) {
         gpu_data_out_[i]->elements *= tensor->dims->data[d];
       }
+
     }
     // Create and bind output buffers.
     interpreter_->SetAllowBufferHandleOutput(true);
