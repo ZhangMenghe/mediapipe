@@ -58,6 +58,11 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     const auto& img = cc->Inputs().Index(0).Get<ImageFrame>();
     auto frame = formats::MatView(&img);
 
+    if (!(frame.type() == CV_8UC3 || frame.type() == CV_8UC4)) {
+      LOG(ERROR) << "Only 3 or 4 channel 8-bit input image supported";
+      
+    }
+
     auto& input_rect = cc->Inputs().Tag(kEarNormRectTag).Get<NormalizedRect>();
     auto output_rect = absl::make_unique<NormalizedRect>(input_rect);
 
@@ -110,16 +115,16 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
         output_rect->set_y_center(c2y_abs / img_height);
 
         frame = frame(br);
-        if(id %5 ==0) cv::imwrite( "debug_out/crop_" + std::to_string(id/5) +".png" , frame);
-        id++;
+        // if(id %5 ==0) cv::imwrite( "debug_out/crop_" + std::to_string(id/5) +".png" , frame);
       }
       cc->Outputs().Tag(kFlagTag).Add(new bool(true), cc->InputTimestamp());
     
     }
     cc->Outputs().Tag(kEarNormRectTag).Add(output_rect.release(), cc->InputTimestamp());
+
     auto output_img = absl::make_unique<ImageFrame>(img.Format(), frame.cols, frame.rows);
     cv::Mat output_mat = mediapipe::formats::MatView(output_img.get());
-    output_mat = frame.clone();
+    frame.copyTo(output_mat);
 
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
 

@@ -36,6 +36,11 @@ node: {
   output_stream: "NORM_RECT:ear_rect_fine_crop"
   output_stream: "FLAG:ear_presence"
 }
+# node: {
+#   calculator: "EarNormalizeCalculator"
+#   input_stream: "fine_cropped_cpu"
+#   output_stream: "normalized_cpu"
+# }
 node: {
   calculator: "ImageFrameToGpuBufferCalculator"
   input_stream: "fine_cropped_cpu"

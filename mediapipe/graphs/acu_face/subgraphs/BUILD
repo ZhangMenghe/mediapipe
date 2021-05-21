@@ -43,6 +43,7 @@ mediapipe_simple_subgraph(
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
         "//mediapipe/graphs/acu_face/calculators:save_cpu_image_calculator",
         "//mediapipe/graphs/acu_face/calculators:fine_crop_ear_cpu_calculator",
+        "//mediapipe/graphs/acu_face/calculators:ear_normalize_calculator",
     ],
 )
 

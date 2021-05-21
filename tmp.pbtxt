@@ -1,0 +1,121 @@
+# MediaPipe ear landmark localization subgraph.
+
+type: "earLandmarkSubgraph"
+
+input_stream: "IMAGE_GPU:input_video"
+input_stream: "NORM_RECT:ear_rect"
+output_stream: "LANDMARKS:ear_landmarks"
+output_stream: "NORM_RECT:ear_rect_fine_crop"
+output_stream: "PRESENCE:ear_presence"
+
+
+# Crops the rectangle that contains a ear from the input image.
+node: {
+  calculator: "ImageCroppingCalculator"
+  input_stream: "IMAGE_GPU:input_video"
+  input_stream: "NORM_RECT:ear_rect"
+  output_stream: "IMAGE_GPU:ear_image"
+  node_options: {
+    [type.googleapis.com/mediapipe.ImageCroppingCalculatorOptions] {
+      border_mode: BORDER_REPLICATE
+    }
+  }
+}
+
+node: {
+  calculator: "GpuBufferToImageFrameCalculator"
+  input_stream: "ear_image"
+  output_stream: "ear_image_cpu"
+}
+node: {
+  calculator: "FineCropEarCpuCalculator"
+  input_stream: "ear_image_cpu"
+  input_stream: "NORM_RECT:ear_rect"
+  output_stream: "fine_cropped_cpu"
+  output_stream: "NORM_RECT:ear_rect_fine_crop"
+  output_stream: "FLAG:ear_presence"
+  output_stream: "EAR_OBSERVER:observe_parameters"
+}
+#EAR_OBSERVER: size, sy, sx, ang, cx, cy
+node: {
+  calculator: "EarNormalizeCalculator"
+  input_stream: "fine_cropped_cpu"
+  input_stream: "EAR_OBSERVER:observe_parameters"
+  output_stream: "normalized_cpu"
+}
+# Subgraph that localizes hand landmarks (see hand_landmark_gpu.pbtxt).
+node: {
+  calculator: "MakeLeftEarGpuSubgraph"
+  input_stream: "IMAGE:normalized_cpu"
+  output_stream: "IMAGE:normalized_cpu_left"
+  output_stream: "EAR_FLIPPED:ear_flipped"
+}
+# Defines side packets for further use in the graph.
+node {
+  calculator: "ConstantSidePacketCalculator"
+  output_side_packet: "PACKET:stage_id_1"
+  node_options: {
+    [type.googleapis.com/mediapipe.ConstantSidePacketCalculatorOptions]: {
+      packet { int_value: 1 }
+    }
+  }
+}
+
+# Subgraph that localizes hand landmarks (see hand_landmark_gpu.pbtxt).
+node: {
+  calculator: "StagedLandmarkDetectionSubgraph"
+  input_stream: "IMAGE:normalized_cpu_left"
+  input_side_packet: "STAGE_ID:stage_id_1"
+  output_stream: "LANDMARKS:landmarks_stage1"
+}
+node: {
+  calculator:"AdjustEarObserverByLandmarksCalculator"
+  input_stream: "LANDMARKS:landmarks_stage1"
+  output_stream: "EAR_OBSERVER:observe_parameters_adj"
+}
+node: {
+  calculator: "EarNormalizeCalculator"
+  input_stream: "normalized_cpu_left"
+  input_stream: "EAR_OBSERVER:observe_parameters_adj"
+  output_stream: "normalized_cpu_stage2"
+  output_stream: "POS_MAT:storedpos_cpu_stage2"
+}
+# Defines side packets for further use in the graph.
+node {
+  calculator: "ConstantSidePacketCalculator"
+  output_side_packet: "PACKET:stage_id_2"
+  node_options: {
+    [type.googleapis.com/mediapipe.ConstantSidePacketCalculatorOptions]: {
+      packet { int_value: 2 }
+    }
+  }
+}
+
+# Subgraph that localizes hand landmarks (see hand_landmark_gpu.pbtxt).
+node: {
+  calculator: "StagedLandmarkDetectionSubgraph"
+  input_stream: "IMAGE:normalized_cpu_stage2"
+  input_side_packet: "STAGE_ID:stage_id_2"
+  output_stream: "LANDMARKS:ear_landmarks_stage2"
+}
+# Calculator that backprojct the landmarks to the original image
+node: {
+  calculator: "LandmarkBackNormalizeCalculator"
+  input_stream: "LANDMARKS:ear_landmarks_stage2"
+  input_stream: "POS_MAT:storedpos_cpu_stage2"
+  input_stream: "EAR_FLIPPED:ear_flipped"
+  output_stream:"NORM_LANDMARKS:ear_landmarks_backnorm"
+}
+# Projects the landmarks from the cropped ear image to the corresponding
+# locations on the full image before cropping (input to the graph).
+node: {
+  calculator: "LandmarkProjectionCalculator"
+  input_stream: "NORM_LANDMARKS:ear_landmarks_backnorm"
+  input_stream: "NORM_RECT:ear_rect_fine_crop"
+  output_stream: "NORM_LANDMARKS:ear_landmarks"
+  node_options: {
+    [type.googleapis.com/mediapipe.LandmarkProjectionCalculatorOptions]{
+      ignore_rotation: true
+    }
+  }
+}
