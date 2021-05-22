@@ -40,6 +40,7 @@ node: {
   calculator: "EarNormalizeCalculator"
   input_stream: "fine_cropped_cpu"
   output_stream: "normalized_cpu"
+  output_stream: "EAR_OBSERVER:original_ear_observer"
 }
 
 node:{
@@ -47,6 +48,13 @@ node:{
   input_stream: "IMAGE:normalized_cpu"
   output_stream: "IMAGE:normalized_cpu_left"
   output_stream: "EAR_FLIPPED:ear_flipped"
+}
+
+node:{
+  calculator: "StageOneEarLandmarkDetectionSubgraph"
+  input_stream: "IMAGE:normalized_cpu_left"
+  input_stream: "EAR_OBSERVER:original_ear_observer"
+  output_stream: "EAR_OBSERVER:modified_ear_observer"
 }
 
 node: {

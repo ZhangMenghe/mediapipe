@@ -107,7 +107,7 @@ REGISTER_CALCULATOR(TfLiteTensorsToFlippedEar);
     }
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
     
-    cv::imwrite( "debug_out/crop_" + std::to_string(id++) +".png" , output_mat);
+    // cv::imwrite( "debug_out/crop_" + std::to_string(id++) +".png" , output_mat);
 
     return ::mediapipe::OkStatus();
 }

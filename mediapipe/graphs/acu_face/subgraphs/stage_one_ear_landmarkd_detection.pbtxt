@@ -1,37 +1,14 @@
-type: "MakeSureEarLeftSubgraph"
+type: "StageOneEarLandmarkDetectionSubgraph"
 
-input_stream: "IMAGE:normalized_cpu"
-output_stream: "IMAGE:normalized_cpu_left"
-output_stream: "EAR_FLIPPED:ear_flipped"
-
-# node: {
-#   calculator: "ImageFrameToGpuBufferCalculator"
-#   input_stream: "normalized_cpu"
-#   output_stream: "normalized_gpu"
-# }
-
-# node: {
-#   calculator: "ImageTransformationCalculator"
-#   # input_stream: "IMAGE_GPU:ear_image"
-#   input_stream: "IMAGE_GPU:normalized_gpu"
-#   output_stream: "IMAGE_GPU:transformed_gpu"
-#   #output_stream: "LETTERBOX_PADDING:letterbox_padding"
-#   node_options: {
-#     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
-#       output_width: 96
-#       output_height: 96
-#       scale_mode: FIT
-#     }
-#   }
-# }
+input_stream: "IMAGE:normalized_cpu_left"
+input_stream: "EAR_OBSERVER:input_observer"
+output_stream: "EAR_OBSERVER:adjust_observer"
 
 # Converts the transformed input image on GPU into an image tensor stored as a
 # TfLiteTensor.
 node {
   calculator: "TfLiteConverterCalculator"
-  # input_stream: "IMAGE_GPU:normalized_gpu"
-  input_stream: "IMAGE:normalized_cpu"
-  # output_stream: "TENSORS_GPU:image_tensor"
+  input_stream: "IMAGE:normalized_cpu_left"
   output_stream: "TENSORS:image_tensor"
 
   node_options: {
@@ -48,7 +25,6 @@ node {
   output_side_packet: "op_resolver"
   node_options: {
     [type.googleapis.com/mediapipe.TfLiteCustomOpResolverCalculatorOptions] {
-      # use_gpu: true
       use_gpu: false
 
     }
@@ -59,23 +35,20 @@ node {
 # scores.
 node {
   calculator: "TfLiteInferenceCalculator"
-  # input_stream: "TENSORS_GPU:image_tensor"
   input_stream: "TENSORS:image_tensor"
-
   output_stream: "TENSORS:output_tensors"
   input_side_packet: "CUSTOM_OP_RESOLVER:op_resolver"
   node_options: {
     [type.googleapis.com/mediapipe.TfLiteInferenceCalculatorOptions] {
-      model_path:"mediapipe/models/ear-landmarks_saved_model/model-side.tflite"
+      model_path:"mediapipe/models/ear-landmarks_saved_model/model-stage1.tflite"
       use_gpu: true
-      # use_gpu: false
     }
   }
 }
+
 node {
-  calculator: "TfLiteTensorsToFlippedEar"
-  input_stream: "normalized_cpu"
+  calculator: "TfLiteTensorsToAdjustEarObserver"
   input_stream: "TENSORS:output_tensors"
-  output_stream: "normalized_cpu_left"
-  output_stream: "EAR_FLIPPED:ear_flipped"
+  input_stream: "EAR_OBSERVER:input_observer"
+  output_stream: "EAR_OBSERVER:adjust_observer"
 }

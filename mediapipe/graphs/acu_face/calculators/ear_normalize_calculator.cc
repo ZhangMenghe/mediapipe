@@ -12,7 +12,7 @@
 namespace mediapipe {
 using namespace cv;
 namespace {
-    constexpr char kInputEarObserversTag[] = "EAR_OBSERVER";
+    constexpr char kEarObserversTag[] = "EAR_OBSERVER";
     constexpr char kOutputPosTag[] = "POS_MAT";
 }  
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
@@ -33,12 +33,14 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
     cc->Inputs().Index(0).Set<ImageFrame>();
     cc->Outputs().Index(0).Set<ImageFrame>();
 
-	if (cc->Inputs().HasTag(kInputEarObserversTag)) 
-        cc->Inputs().Tag(kInputEarObserversTag).Set<std::vector<float>>();
+	if (cc->Inputs().HasTag(kEarObserversTag)) 
+        cc->Inputs().Tag(kEarObserversTag).Set<std::vector<float>>();
 
     if (cc->Outputs().HasTag(kOutputPosTag))
 	    cc->Outputs().Tag(kOutputPosTag).Set<cv::Mat>();
 
+	if (cc->Outputs().HasTag(kEarObserversTag)) 
+        cc->Outputs().Tag(kEarObserversTag).Set<std::vector<float>>();
     return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status EarNormalizeCalculator::Process(CalculatorContext* cc){
@@ -50,15 +52,14 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
     int size;
     float scaley, scalex, ang, cx, cy;
 
-    if (cc->Inputs().HasTag(kInputEarObserversTag)){
-        auto& observers = cc->Inputs().Tag(kInputEarObserversTag).Get<std::vector<float>>();
+    if (cc->Inputs().HasTag(kEarObserversTag)){
+        auto& observers = cc->Inputs().Tag(kEarObserversTag).Get<std::vector<float>>();
         size = int(observers[0]);
         scaley = observers[1], scalex = observers[2], ang = observers[3], cx = observers[4], cy = observers[5];
     }else{
         size = 96;
         scaley = (fmax(image.cols, image.rows) - 1.0)*0.5; scalex = scaley; ang = .0f; cx = (image.cols - 1.0)*0.5f; cy = (image.rows - 1.0)*0.5f;
     }
-
 
     auto output_img = absl::make_unique<ImageFrame>(ImageFormat::GRAY8, size, size);
     cv::Mat interpolated = mediapipe::formats::MatView(output_img.get());
@@ -90,6 +91,22 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
    
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
     if(b_store_pos) cc->Outputs().Index(0).Add(pos_mat.release(), cc->InputTimestamp());
+
+    if(cc->Outputs().HasTag(kEarObserversTag)){
+        auto output_observer = absl::make_unique<std::vector<float>>();
+        output_observer->reserve(6);
+        output_observer->emplace_back(size);
+        output_observer->emplace_back(scaley);output_observer->emplace_back(scalex);
+        output_observer->emplace_back(ang);output_observer->emplace_back(cx);output_observer->emplace_back(cy);
+        
+        std::cout<<"before: ";    
+        for(int i=0;i<6;i++)std::cout<<output_observer->at(i)<<" ";
+        std::cout<<std::endl;
+        
+        cc->Outputs().Tag(kEarObserversTag).Add(output_observer.release(), cc->InputTimestamp());
+
+    }
+
     return ::mediapipe::OkStatus();
 }
 
