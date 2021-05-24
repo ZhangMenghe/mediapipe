@@ -156,9 +156,9 @@ void TfLiteTensorsToAdjustEarObserver::adjustParameters(std::vector<cv::Point2d>
         output_observer->emplace_back(scaley);output_observer->emplace_back(scalex);
         output_observer->emplace_back(ang);output_observer->emplace_back(cx);output_observer->emplace_back(cy);
         
-                std::cout<<"after: ";    
-        for(int i=0;i<6;i++)std::cout<<output_observer->at(i)<<" ";
-        std::cout<<std::endl;
+        // std::cout<<"after: ";    
+        // for(int i=0;i<6;i++)std::cout<<output_observer->at(i)<<" ";
+        // std::cout<<std::endl;
         
         cc->Outputs().Tag(kEarObserversTag).Add(output_observer.release(), cc->InputTimestamp());
     }

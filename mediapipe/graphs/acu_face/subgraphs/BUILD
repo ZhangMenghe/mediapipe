@@ -53,10 +53,22 @@ mediapipe_simple_subgraph(
         "//mediapipe/calculators/tflite:tflite_converter_calculator",
         "//mediapipe/calculators/tflite:tflite_custom_op_resolver_calculator",
         "//mediapipe/calculators/tflite:tflite_inference_calculator",
-        # "//mediapipe/calculators/tflite:tflite_tensors_to_landmarks_calculator",
         "//mediapipe/graphs/acu_face/calculators:tflite_tensors_to_adjust_ear_observer",
     ],
 )
+
+mediapipe_simple_subgraph(
+    name = "stage_two_ear_landmarkd_detection",
+    graph = "stage_two_ear_landmarkd_detection.pbtxt",
+    register_as = "StageTwoEarLandmarkDetectionSubgraph",
+    deps = [
+        "//mediapipe/calculators/tflite:tflite_converter_calculator",
+        "//mediapipe/calculators/tflite:tflite_custom_op_resolver_calculator",
+        "//mediapipe/calculators/tflite:tflite_inference_calculator",
+        "//mediapipe/graphs/acu_face/calculators:tflite_tensors_to_back_project_landmarks_calculator",
+    ],
+)
+
 mediapipe_simple_subgraph(
     name = "ear_landmark_gpu",
     graph = "ear_landmark_gpu.pbtxt",
@@ -64,7 +76,7 @@ mediapipe_simple_subgraph(
     deps = [
         ":make_sure_ear_left",
         ":stage_one_ear_landmarkd_detection",
-
+        ":stage_two_ear_landmarkd_detection",
         "//mediapipe/calculators/image:image_cropping_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/tflite:tflite_converter_calculator",

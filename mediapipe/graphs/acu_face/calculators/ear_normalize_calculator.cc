@@ -24,6 +24,8 @@ class EarNormalizeCalculator : public CalculatorBase {
     ::mediapipe::Status Process(CalculatorContext* cc) override;
   private:
     int id = 0;
+    void normalizeImage(Mat image, Mat &output, Mat& pos_mat, int size, double scaley, double scalex, double ang, double cx, double cy, bool b_store_pos);
+
 };
 REGISTER_CALCULATOR(EarNormalizeCalculator);
 
@@ -43,11 +45,35 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
         cc->Outputs().Tag(kEarObserversTag).Set<std::vector<float>>();
     return ::mediapipe::OkStatus();
 }
+void EarNormalizeCalculator::normalizeImage(Mat image, Mat &output, Mat& pos_mat, int size, double scaley, double scalex, double ang, double cx, double cy, bool b_store_pos) {
+	// output.create(size, size, CV_8UC1);
+	double ratioy = (scaley/((size-1)/2.0)), ratiox = (scalex/((size-1)/2.0));
+	for(int i=0; i < size; i++)
+		for(int j=0; j < size; j++) {
+			double xt = ratiox*(j-(size-1)/2.0), yt = ratioy*(i-(size-1)/2.0);
+			double x = xt*cos(ang)-yt*sin(ang)+cx, y = xt*sin(ang)+yt*cos(ang)+cy;
+			int u = x, v = y;
+			double ul = x-u, vl = y-v;
+			int u1 = u+1, v1 = v+1;
+			u = max(0, min(image.cols-1, u));
+			u1 = max(0, min(image.cols-1, u1));
+			v = max(0, min(image.rows-1, v));
+			v1 = max(0, min(image.rows-1, v1));
+            if(b_store_pos) pos_mat.at<float>(i,j)=v*1000.f+u;
+
+			double tmp = image.at<uchar>(v,u)*(1.0-ul)*(1.0-vl) + image.at<uchar>(v,u1)*ul*(1.0-vl) + image.at<uchar>(v1,u)*(1.0-ul)*vl + image.at<uchar>(v1,u1)*ul*vl;
+			output.at<uchar>(i,j) = max(0.0,min(255.0,tmp));	
+		}
+}
+
 ::mediapipe::Status EarNormalizeCalculator::Process(CalculatorContext* cc){
+    // bool is_second = true;
     const auto& img_frame = cc->Inputs().Index(0).Get<ImageFrame>();
-    auto image_rgb = formats::MatView(&img_frame);
-    cv::Mat image;
-    cvtColor(image_rgb, image, COLOR_RGB2GRAY);
+    auto image = formats::MatView(&img_frame);
+    if(image.channels() > 1){
+        cvtColor(image, image, COLOR_RGB2GRAY);
+        // is_second = false;
+    }
 
     int size;
     float scaley, scalex, ang, cx, cy;
@@ -65,32 +91,18 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
     cv::Mat interpolated = mediapipe::formats::MatView(output_img.get());
 
     bool b_store_pos = cc->Outputs().HasTag(kOutputPosTag);
-    auto pos_mat = b_store_pos?absl::make_unique<cv::Mat>(CV_32FC1, size, size):nullptr;
 
-	double ratioy = (scaley/((size-1)/2.0)), ratiox = (scalex/((size-1)/2.0));
-	for(int i=0; i < size; i++)
-		for(int j=0; j < size; j++) {
-			double xt = ratiox*(j-(size-1)/2.0), yt = ratioy*(i-(size-1)/2.0);
-			double x = xt*cos(ang)-yt*sin(ang)+cx, y = xt*sin(ang)+yt*cos(ang)+cy;
-			int u = x, v = y;
-			double ul = x-u, vl = y-v;
-			int u1 = u+1, v1 = v+1;
-			u = max(0, min(image.cols-1, u));
-			u1 = max(0, min(image.cols-1, u1));
-			v = max(0, min(image.rows-1, v));
-			v1 = max(0, min(image.rows-1, v1));
-            if(b_store_pos) pos_mat->at<float>(i,j)=v*1000.f+u;
+    auto pos_mat = absl::make_unique<cv::Mat>();
+    if(b_store_pos)*pos_mat = cv::Mat::zeros(cv::Size(size, size), CV_32FC1);
 
-			double tmp = image.at<uchar>(v,u)*(1.0-ul)*(1.0-vl) + image.at<uchar>(v,u1)*ul*(1.0-vl) + image.at<uchar>(v1,u)*(1.0-ul)*vl + image.at<uchar>(v1,u1)*ul*vl;
-			interpolated.at<uchar>(i,j) = max(0.0,min(255.0,tmp));	
-		}
-
-    // id++;
-    // cv::imwrite( "debug_out/test_" + std::to_string(id) +".png" , interpolated);
-    // cv::imwrite( "debug_out/crop_" + std::to_string(id) +".png" , image);
+    normalizeImage(image, interpolated, *pos_mat, size, scaley, scaley, ang, cx, cy, b_store_pos);
+    // if(is_second){
+    //     cv::imwrite( "debug_out/crop" + std::to_string(id) +".png" , interpolated);
+    //     id++;
+    // }
    
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
-    if(b_store_pos) cc->Outputs().Index(0).Add(pos_mat.release(), cc->InputTimestamp());
+    if(b_store_pos) cc->Outputs().Tag(kOutputPosTag).Add(pos_mat.release(), cc->InputTimestamp());
 
     if(cc->Outputs().HasTag(kEarObserversTag)){
         auto output_observer = absl::make_unique<std::vector<float>>();
@@ -99,14 +111,13 @@ REGISTER_CALCULATOR(EarNormalizeCalculator);
         output_observer->emplace_back(scaley);output_observer->emplace_back(scalex);
         output_observer->emplace_back(ang);output_observer->emplace_back(cx);output_observer->emplace_back(cy);
         
-        std::cout<<"before: ";    
-        for(int i=0;i<6;i++)std::cout<<output_observer->at(i)<<" ";
-        std::cout<<std::endl;
+        // std::cout<<"before: ";    
+        // for(int i=0;i<6;i++)std::cout<<output_observer->at(i)<<" ";
+        // std::cout<<std::endl;
         
         cc->Outputs().Tag(kEarObserversTag).Add(output_observer.release(), cc->InputTimestamp());
 
     }
-
     return ::mediapipe::OkStatus();
 }
 

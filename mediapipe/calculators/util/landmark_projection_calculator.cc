@@ -144,7 +144,7 @@ class LandmarkProjectionCalculator : public CalculatorBase {
         new_landmark->set_visibility(landmark.visibility());
       }
       // if(id%5==0) std::cout<<"width: "<< max_x - min_x<<" height: "<<max_y-min_y<<std::endl;
-      id++;
+      // id++;
 
       cc->Outputs().Get(output_id).AddPacket(
           MakePacket<NormalizedLandmarkList>(output_landmarks)

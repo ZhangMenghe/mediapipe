@@ -17,6 +17,7 @@ using namespace cv;
 namespace {
     constexpr char kEarNormRectTag[] = "NORM_RECT";
     constexpr char kFlagTag[] = "FLAG";
+    constexpr char kOutputImgSize[] = "IMG_SIZE";
 }  
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
 class FineCropEarCpuCalculator : public CalculatorBase {
@@ -47,7 +48,8 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
 
     if (cc->Outputs().HasTag(kFlagTag))
       cc->Outputs().Tag(kFlagTag).Set<bool>();
-
+    if (cc->Outputs().HasTag(kOutputImgSize)) 
+        cc->Outputs().Tag(kOutputImgSize).Set<cv::Size>();
     return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status FineCropEarCpuCalculator::Open(CalculatorContext* cc){
@@ -127,6 +129,11 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     frame.copyTo(output_mat);
 
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
+   
+
+    auto output_size = absl::make_unique<cv::Size>();
+    output_size->width = frame.cols; output_size->height=frame.rows;
+    cc->Outputs().Tag(kOutputImgSize).Add(output_size.release(), cc->InputTimestamp());
 
     return ::mediapipe::OkStatus();
 }

@@ -430,10 +430,10 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     // }
     // prenderer->Draw(pdata_, data_num, GL_POINTS);
     // // int num_ears = std::min(2, ear_rects.size());
-    for(int i=0;i<ear_rects.size();i++)m_quad_renderers[i]->Draw(
-        glm::vec2(ear_rects[i].width, ear_rects[i].height), 
-        glm::vec2((ear_rects[i].centerX - 0.5)*2.0f, -(0.5f-ear_rects[i].centerY)*2.0f), 
-        GL_TRIANGLES);
+    // for(int i=0;i<ear_rects.size();i++)m_quad_renderers[i]->Draw(
+    //     glm::vec2(ear_rects[i].width, ear_rects[i].height), 
+    //     glm::vec2((ear_rects[i].centerX - 0.5)*2.0f, -(0.5f-ear_rects[i].centerY)*2.0f), 
+    //     GL_TRIANGLES);
 
     int ear_landmark_num = 55;
     

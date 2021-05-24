@@ -1,0 +1,59 @@
+type: "StageTwoEarLandmarkDetectionSubgraph"
+
+input_stream: "IMAGE:normalized_cpu_left"
+input_stream: "POS_MAT:position_matrix"
+input_stream: "EAR_FLIPPED:ear_flipped"
+input_stream: "IMG_SIZE:img_size"
+
+output_stream: "NORM_LANDMARKS:landmarks_in_crop"
+
+# Converts the transformed input image on GPU into an image tensor stored as a
+# TfLiteTensor.
+node {
+  calculator: "TfLiteConverterCalculator"
+  input_stream: "IMAGE:normalized_cpu_left"
+  output_stream: "TENSORS:image_tensor"
+
+  node_options: {
+    [type.googleapis.com/mediapipe.TfLiteConverterCalculatorOptions] {
+      zero_center: false
+    }
+  }
+}
+
+# Generates a single side packet containing a TensorFlow Lite op resolver that
+# supports custom ops needed by the model used in this graph.
+node {
+  calculator: "TfLiteCustomOpResolverCalculator"
+  output_side_packet: "op_resolver"
+  node_options: {
+    [type.googleapis.com/mediapipe.TfLiteCustomOpResolverCalculatorOptions] {
+      use_gpu: false
+
+    }
+  }
+}
+# Runs a TensorFlow Lite model on GPU that takes an image tensor and outputs a
+# vector of tensors representing, for instance, detection boxes/keypoints and
+# scores.
+node {
+  calculator: "TfLiteInferenceCalculator"
+  input_stream: "TENSORS:image_tensor"
+  output_stream: "TENSORS:output_tensors"
+  input_side_packet: "CUSTOM_OP_RESOLVER:op_resolver"
+  node_options: {
+    [type.googleapis.com/mediapipe.TfLiteInferenceCalculatorOptions] {
+      model_path:"mediapipe/models/ear-landmarks_saved_model/model-stage2.tflite"
+      use_gpu: true
+    }
+  }
+}
+
+node {
+  calculator: "TfliteTensorsToBackProjectLandmarksCalculator"
+  input_stream: "TENSORS:output_tensors"
+  input_stream: "POS_MAT:position_matrix"
+  input_stream: "EAR_FLIPPED:ear_flipped"
+  input_stream: "IMG_SIZE:img_size"
+  output_stream: "NORM_LANDMARKS:landmarks_in_crop"
+}
