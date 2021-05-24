@@ -4,7 +4,7 @@ type: "earLandmarkSubgraph"
 
 input_stream: "IMAGE_GPU:input_video"
 input_stream: "NORM_RECT:ear_rect"
-output_stream: "LANDMARKS:ear_landmarks"
+output_stream: "NORM_LANDMARKS:ear_landmarks"
 output_stream: "NORM_RECT:ear_rect_fine_crop"
 output_stream: "PRESENCE:ear_presence"
 #output_stream: "PRESENCE_SCORE:ear_presence_score"

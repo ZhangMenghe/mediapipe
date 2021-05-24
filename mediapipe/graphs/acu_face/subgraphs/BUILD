@@ -50,17 +50,10 @@ mediapipe_simple_subgraph(
     graph = "stage_one_ear_landmarkd_detection.pbtxt",
     register_as = "StageOneEarLandmarkDetectionSubgraph",
     deps = [
-        "//mediapipe/calculators/image:image_cropping_calculator",
-        "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/tflite:tflite_converter_calculator",
         "//mediapipe/calculators/tflite:tflite_custom_op_resolver_calculator",
         "//mediapipe/calculators/tflite:tflite_inference_calculator",
-        "//mediapipe/calculators/tflite:tflite_tensors_to_landmarks_calculator",
-        "//mediapipe/calculators/util:landmark_projection_calculator",
-        "//mediapipe/graphs/acu_face/calculators:ear_landmarks_to_rects_calculator",
-        "//mediapipe/calculators/util:rect_transformation_calculator",
-        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
-        "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
+        # "//mediapipe/calculators/tflite:tflite_tensors_to_landmarks_calculator",
         "//mediapipe/graphs/acu_face/calculators:tflite_tensors_to_adjust_ear_observer",
     ],
 )
