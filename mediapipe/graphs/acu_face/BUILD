@@ -59,6 +59,7 @@ cc_library(
         "//mediapipe/graphs/acu_face/subgraphs:hair_segmentation_gpu",
         "//mediapipe/graphs/acu_face/calculators:ear_rects_from_face_landmarks_calculator",
         "//mediapipe/graphs/acu_face/subgraphs:multi_ear_landmarks_gpu",
+        "//mediapipe/graphs/acu_face/subgraphs:make_sure_ear_left",
     ],
 )
 
