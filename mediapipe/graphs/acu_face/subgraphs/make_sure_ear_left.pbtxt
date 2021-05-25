@@ -66,7 +66,7 @@ node {
   input_side_packet: "CUSTOM_OP_RESOLVER:op_resolver"
   node_options: {
     [type.googleapis.com/mediapipe.TfLiteInferenceCalculatorOptions] {
-      model_path:"mediapipe/models/ear-landmarks_saved_model/model-side.tflite"
+      model_path:"mediapipe/models/ear-model-side.tflite"
       use_gpu: true
       # use_gpu: false
     }
