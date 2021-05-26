@@ -68,7 +68,8 @@ float acuGenerator::calculate_from_string(std::string s) {
 }
 bool acuGenerator::getXY(std::string content, float&r1, float&r2, int& pid){
     int tid = pid;
-    while(content[tid++]!='(');
+    int sz = content.size();
+    while(tid<sz && content[tid++]!='(');
     // std::cout<<"func name :"<<tid<<"-"<<pid<<" "<<content.substr(pid, tid-pid-1)<<std::endl;
     auto func_name = content.substr(pid, tid-pid-1);
     auto it = std::find(unit_functions.begin(), unit_functions.end(), func_name);
@@ -435,21 +436,21 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     //     glm::vec2((ear_rects[i].centerX - 0.5)*2.0f, -(0.5f-ear_rects[i].centerY)*2.0f), 
     //     GL_TRIANGLES);
 
-    int ear_landmark_num = 55;
+    // int ear_landmark_num = 55;
     
-    if(right_ear_data == nullptr)right_ear_data = new float [3 * ear_landmark_num];
-    for(int i=0;i<ear_landmark_num;i++){
-        right_ear_data[3*i] = ear_points[3*i];
-        right_ear_data[3*i+1] = ear_points[3*i+1];
-    }
-    right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
+    // if(right_ear_data == nullptr)right_ear_data = new float [3 * ear_landmark_num];
+    // for(int i=0;i<ear_landmark_num;i++){
+    //     right_ear_data[3*i] = ear_points[3*i];
+    //     right_ear_data[3*i+1] = ear_points[3*i+1];
+    // }
+    // right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
 
-  /*
-    #ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
-    #else
-        std::cout<<"time "<<duration.count()<<std::endl;
-    #endif
+  
+    // #ifdef __ANDROID__
+    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    // #else
+    //     std::cout<<"time "<<duration.count()<<std::endl;
+    // #endif
 
 
   
@@ -509,7 +510,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
         moffset+=meridian_num_map[tc];
         line_renderers[tc]->Draw(pdata_+roffset, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
     }
-    */
+    
 
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */

@@ -45,7 +45,7 @@ node: {
   input_side_packet: "NUM_FACES:num_faces"
   output_stream: "LANDMARKS:multi_face_landmarks"
   output_stream: "ROIS_FROM_LANDMARKS:face_rects_from_landmarks"
-  output_stream: "ROIS_FROM_DETECTIONS:face_rects_from_detections"
+  # output_stream: "ROIS_FROM_DETECTIONS:face_rects_from_detections"
 }
 
 # Transforms the input image on GPU to a 512x512 image. To scale the image, by
@@ -184,28 +184,28 @@ node: {
 #   }
 # }
 
-node {
-  calculator: "EarRectsFromFaceLandmarksCalculator"
-  input_stream: "IMAGE_GPU:throttled_input_video"
-  input_stream: "VECTOR:multi_face_landmarks"
-  input_stream: "NORM_RECTS:face_rects_from_landmarks"
-  output_stream: "NORM_RECTS_EAR:ear_rects_from_face"
-}
-node {
-  calculator: "MultiEarLandmarksSubgraph"
-  input_stream: "IMAGE:throttled_input_video"
-  input_stream: "NORM_RECTS:ear_rects_from_face"
-  output_stream: "LANDMARKS:multi_ear_landmarks"
-  output_stream: "NORM_RECTS:multi_ear_rects_from_landmarks"
-}
+# node {
+#   calculator: "EarRectsFromFaceLandmarksCalculator"
+#   input_stream: "IMAGE_GPU:throttled_input_video"
+#   input_stream: "VECTOR:multi_face_landmarks"
+#   input_stream: "NORM_RECTS:face_rects_from_landmarks"
+#   output_stream: "NORM_RECTS_EAR:ear_rects_from_face"
+# }
+# node {
+#   calculator: "MultiEarLandmarksSubgraph"
+#   input_stream: "IMAGE:throttled_input_video"
+#   input_stream: "NORM_RECTS:ear_rects_from_face"
+#   output_stream: "LANDMARKS:multi_ear_landmarks"
+#   output_stream: "NORM_RECTS:multi_ear_rects_from_landmarks"
+# }
 node {
   calculator: "FaceMergeCalculator"
   input_stream: "IMAGE_GPU:throttled_input_video"
   input_stream: "MASK:hair_mask_cpu"
   input_stream: "VECTOR:multi_face_landmarks"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
-  input_stream: "VECTOR_EAR:multi_ear_landmarks"
-  input_stream: "NORM_RECTS_EAR:multi_ear_rects_from_landmarks"
+  # input_stream: "VECTOR_EAR:multi_ear_landmarks"
+  # input_stream: "NORM_RECTS_EAR:multi_ear_rects_from_landmarks"
   output_stream: "IMAGE_GPU:output_video"
 
   options {
