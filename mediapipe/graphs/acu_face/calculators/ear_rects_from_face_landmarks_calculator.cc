@@ -21,6 +21,8 @@ namespace {
     constexpr char kInputLandMarksVectorTag[] = "VECTOR";
     constexpr char kNormRectsTag[] = "NORM_RECTS";
     constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
+    const static int RIGHT_EAR_RECT = 0, LEFT_EAR_RECT=1;
+
     const static int refLeftEarIdxs[4] = {
         356,454,323,361
     };
@@ -94,6 +96,7 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
         norm_rects->at(i).set_height(height);
         norm_rects->at(i).set_x_center(rx - width * 0.5f);//center is 0.5
         norm_rects->at(i).set_y_center((lb.y()+lt.y()) * 0.5f);//h_mid);//
+        norm_rects->at(i).set_rect_id(RIGHT_EAR_RECT);
         // std::cout<<"rect: "<<norm_rects->at(i).x_center()<<" "<<norm_rects->at(i).y_center()<<std::endl;
 
 	}else{

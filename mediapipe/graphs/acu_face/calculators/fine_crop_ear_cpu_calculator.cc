@@ -18,6 +18,9 @@ namespace {
     constexpr char kEarNormRectTag[] = "NORM_RECT";
     constexpr char kFlagTag[] = "FLAG";
     constexpr char kOutputImgSize[] = "IMG_SIZE";
+    constexpr char kEarFlipTag[] = "EAR_FLIPPED";
+
+    const static int RIGHT_EAR_RECT = 0, LEFT_EAR_RECT=1;
 }  
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
 class FineCropEarCpuCalculator : public CalculatorBase {
@@ -50,6 +53,8 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
       cc->Outputs().Tag(kFlagTag).Set<bool>();
     if (cc->Outputs().HasTag(kOutputImgSize)) 
         cc->Outputs().Tag(kOutputImgSize).Set<cv::Size>();
+    if (cc->Outputs().HasTag(kEarFlipTag))
+        cc->Outputs().Tag(kEarFlipTag).Set<bool>();
     return ::mediapipe::OkStatus();
 }
 ::mediapipe::Status FineCropEarCpuCalculator::Open(CalculatorContext* cc){
@@ -67,6 +72,9 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
 
     auto& input_rect = cc->Inputs().Tag(kEarNormRectTag).Get<NormalizedRect>();
     auto output_rect = absl::make_unique<NormalizedRect>(input_rect);
+
+    if (cc->Outputs().HasTag(kEarFlipTag))
+      cc->Outputs().Tag(kEarFlipTag).Add(new bool(input_rect.rect_id() == LEFT_EAR_RECT), cc->InputTimestamp());
 
     if(input_rect.width() == 0 || input_rect.height() == 0){
           cc->Outputs().Tag(kFlagTag).Add(new bool(false), cc->InputTimestamp());
