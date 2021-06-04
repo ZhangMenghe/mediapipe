@@ -96,10 +96,10 @@ void EarNormalizeCalculator::normalizeImage(Mat image, Mat &output, Mat& pos_mat
     if(b_store_pos)*pos_mat = cv::Mat::zeros(cv::Size(size, size), CV_32FC1);
 
     normalizeImage(image, interpolated, *pos_mat, size, scaley, scaley, ang, cx, cy, b_store_pos);
-    if(!is_second){
-        cv::imwrite( "debug_out/crop" + std::to_string(id) +".png" , interpolated);
-        id++;
-    }
+    // if(!is_second){
+    //     cv::imwrite( "debug_out/crop" + std::to_string(id) +".png" , interpolated);
+    //     id++;
+    // }
    
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
     if(b_store_pos) cc->Outputs().Tag(kOutputPosTag).Add(pos_mat.release(), cc->InputTimestamp());
