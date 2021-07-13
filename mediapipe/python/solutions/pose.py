@@ -1,4 +1,4 @@
-# Copyright 2020 The MediaPipe Authors.
+# Copyright 2020-2021 The MediaPipe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ from typing import NamedTuple
 import numpy as np
 
 from mediapipe.calculators.core import constant_side_packet_calculator_pb2
+# The following imports are needed because python pb2 silently discards
+# unknown protobuf fields.
 # pylint: disable=unused-import
 from mediapipe.calculators.core import gate_calculator_pb2
 from mediapipe.calculators.core import split_vector_calculator_pb2
@@ -37,12 +39,15 @@ from mediapipe.calculators.util import non_max_suppression_calculator_pb2
 from mediapipe.calculators.util import rect_transformation_calculator_pb2
 from mediapipe.calculators.util import thresholding_calculator_pb2
 from mediapipe.calculators.util import visibility_smoothing_calculator_pb2
+from mediapipe.framework.tool import switch_container_pb2
 # pylint: enable=unused-import
+
 from mediapipe.python.solution_base import SolutionBase
+from mediapipe.python.solutions import download_utils
 
 
 class PoseLandmark(enum.IntEnum):
-  """The 25 (upper-body) pose landmarks."""
+  """The 33 pose landmarks."""
   NOSE = 0
   LEFT_EYE_INNER = 1
   LEFT_EYE = 2
@@ -78,7 +83,7 @@ class PoseLandmark(enum.IntEnum):
   RIGHT_FOOT_INDEX = 32
 
 BINARYPB_FILE_PATH = 'mediapipe/modules/pose_landmark/pose_landmark_cpu.binarypb'
-UPPER_BODY_POSE_CONNECTIONS = frozenset([
+POSE_CONNECTIONS = frozenset([
     (PoseLandmark.NOSE, PoseLandmark.RIGHT_EYE_INNER),
     (PoseLandmark.RIGHT_EYE_INNER, PoseLandmark.RIGHT_EYE),
     (PoseLandmark.RIGHT_EYE, PoseLandmark.RIGHT_EYE_OUTER),
@@ -104,21 +109,28 @@ UPPER_BODY_POSE_CONNECTIONS = frozenset([
     (PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP),
     (PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP),
     (PoseLandmark.RIGHT_HIP, PoseLandmark.LEFT_HIP),
+    (PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE),
+    (PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE),
+    (PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE),
+    (PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
+    (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_HEEL),
+    (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_HEEL),
+    (PoseLandmark.RIGHT_HEEL, PoseLandmark.RIGHT_FOOT_INDEX),
+    (PoseLandmark.LEFT_HEEL, PoseLandmark.LEFT_FOOT_INDEX),
+    (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_FOOT_INDEX),
+    (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_FOOT_INDEX),
 ])
-POSE_CONNECTIONS = frozenset.union(
-    UPPER_BODY_POSE_CONNECTIONS,
-    frozenset([
-        (PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE),
-        (PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE),
-        (PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE),
-        (PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
-        (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_HEEL),
-        (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_HEEL),
-        (PoseLandmark.RIGHT_HEEL, PoseLandmark.RIGHT_FOOT_INDEX),
-        (PoseLandmark.LEFT_HEEL, PoseLandmark.LEFT_FOOT_INDEX),
-        (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_FOOT_INDEX),
-        (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_FOOT_INDEX),
-    ]))
+
+
+def _download_oss_pose_landmark_model(model_complexity):
+  """Downloads the pose landmark lite/heavy model from the MediaPipe Github repo if it doesn't exist in the package."""
+
+  if model_complexity == 0:
+    download_utils.download_oss_model(
+        'mediapipe/modules/pose_landmark/pose_landmark_lite.tflite')
+  elif model_complexity == 2:
+    download_utils.download_oss_model(
+        'mediapipe/modules/pose_landmark/pose_landmark_heavy.tflite')
 
 
 class Pose(SolutionBase):
@@ -133,7 +145,7 @@ class Pose(SolutionBase):
 
   def __init__(self,
                static_image_mode=False,
-               upper_body_only=False,
+               model_complexity=1,
                smooth_landmarks=True,
                min_detection_confidence=0.5,
                min_tracking_confidence=0.5):
@@ -143,9 +155,8 @@ class Pose(SolutionBase):
       static_image_mode: Whether to treat the input images as a batch of static
         and possibly unrelated images, or a video stream. See details in
         https://solutions.mediapipe.dev/pose#static_image_mode.
-      upper_body_only: Whether to track the full set of 33 pose landmarks or
-        only the 25 upper-body pose landmarks. See details in
-        https://solutions.mediapipe.dev/pose#upper_body_only.
+      model_complexity: Complexity of the pose landmark model: 0, 1 or 2. See
+        details in https://solutions.mediapipe.dev/pose#model_complexity.
       smooth_landmarks: Whether to filter landmarks across different input
         images to reduce jitter. See details in
         https://solutions.mediapipe.dev/pose#smooth_landmarks.
@@ -156,10 +167,11 @@ class Pose(SolutionBase):
         pose landmarks to be considered tracked successfully. See details in
         https://solutions.mediapipe.dev/pose#min_tracking_confidence.
     """
+    _download_oss_pose_landmark_model(model_complexity)
     super().__init__(
         binary_graph_path=BINARYPB_FILE_PATH,
         side_inputs={
-            'upper_body_only': upper_body_only,
+            'model_complexity': model_complexity,
             'smooth_landmarks': smooth_landmarks and not static_image_mode,
         },
         calculator_params={
@@ -173,7 +185,7 @@ class Pose(SolutionBase):
             'poselandmarkcpu__poselandmarkbyroicpu__ThresholdingCalculator.threshold':
                 min_tracking_confidence,
         },
-        outputs=['pose_landmarks'])
+        outputs=['pose_landmarks', 'pose_world_landmarks'])
 
   def process(self, image: np.ndarray) -> NamedTuple:
     """Processes an RGB image and returns the pose landmarks on the most prominent person detected.
@@ -186,12 +198,19 @@ class Pose(SolutionBase):
       ValueError: If the input image is not three channel RGB.
 
     Returns:
-      A NamedTuple object with a "pose_landmarks" field that contains the pose
-      landmarks on the most prominent person detected.
+      A NamedTuple that has two fields describing the landmarks on the most
+      prominate person detected:
+        1) "pose_landmarks" field that contains the pose landmarks.
+        2) "pose_world_landmarks" field that contains the pose landmarks in
+        real-world 3D coordinates that are in meters with the origin at the
+        center between hips.
     """
 
     results = super().process(input_data={'image': image})
     if results.pose_landmarks:
       for landmark in results.pose_landmarks.landmark:
+        landmark.ClearField('presence')
+    if results.pose_world_landmarks:
+      for landmark in results.pose_world_landmarks.landmark:
         landmark.ClearField('presence')
     return results

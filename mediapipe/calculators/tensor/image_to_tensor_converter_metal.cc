@@ -399,8 +399,7 @@ absl::StatusOr<std::unique_ptr<ImageToTensorConverter>> CreateMetalConverter(
   auto result = absl::make_unique<MetalProcessor>();
   MP_RETURN_IF_ERROR(result->Init(cc, border_mode));
 
-  // Simply "return std::move(result)" failed to build on macOS with bazel.
-  return std::unique_ptr<ImageToTensorConverter>(std::move(result));
+  return result;
 }
 
 }  // namespace mediapipe

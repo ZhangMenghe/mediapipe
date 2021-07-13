@@ -176,6 +176,7 @@ cc_library(
     deps = [
         ":resource_util_custom",
         "@com_google_absl//absl/container:flat_hash_map",
+        "//mediapipe/framework/deps:file_path",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:singleton",
         "//mediapipe/framework/port:status",
@@ -184,7 +185,6 @@ cc_library(
         "@com_google_absl//absl/strings",
     ] + select({
         "//conditions:default": [
-            "//mediapipe/framework/deps:file_path",
             "@com_google_absl//absl/flags:flag",
         ],
         "//mediapipe:android": [
@@ -193,10 +193,28 @@ cc_library(
         ],
         "//mediapipe:ios": [],
         "//mediapipe:macos": [
-            "//mediapipe/framework/deps:file_path",
             "@com_google_absl//absl/flags:flag",
         ],
     }),
+)
+
+cc_library(
+    name = "resource_cache",
+    hdrs = ["resource_cache.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework/port:logging",
+        "@com_google_absl//absl/functional:function_ref",
+    ],
+)
+
+cc_test(
+    name = "resource_cache_test",
+    srcs = ["resource_cache_test.cc"],
+    deps = [
+        ":resource_cache",
+        "//mediapipe/framework/port:gtest_main",
+    ],
 )
 
 cc_library(
@@ -274,5 +292,31 @@ cc_test(
         "//mediapipe/framework/formats:time_series_header_cc_proto",
         "//mediapipe/framework/port:gtest_main",
         "@eigen_archive//:eigen3",
+    ],
+)
+
+cc_library(
+    name = "packet_test_util",
+    testonly = 1,
+    hdrs = ["packet_test_util.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:demangle",
+        "//mediapipe/framework:packet",
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/port:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "packet_test_util_test",
+    size = "small",
+    srcs = ["packet_test_util_test.cc"],
+    deps = [
+        ":packet_test_util",
+        "//mediapipe/framework:packet",
+        "//mediapipe/framework:port",
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/port:gtest_main",
     ],
 )

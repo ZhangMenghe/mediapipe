@@ -18,7 +18,6 @@
 
 #include "mediapipe/calculators/tensor/image_to_tensor_calculator.pb.h"
 #include "mediapipe/calculators/tensor/image_to_tensor_converter.h"
-#include "mediapipe/calculators/tensor/image_to_tensor_converter_opencv.h"
 #include "mediapipe/calculators/tensor/image_to_tensor_utils.h"
 #include "mediapipe/framework/api2/node.h"
 #include "mediapipe/framework/calculator_framework.h"
@@ -31,6 +30,11 @@
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/framework/port/statusor.h"
+#include "mediapipe/gpu/gpu_origin.pb.h"
+
+#if !MEDIAPIPE_DISABLE_OPENCV
+#include "mediapipe/calculators/tensor/image_to_tensor_converter_opencv.h"
+#endif
 
 #if !MEDIAPIPE_DISABLE_GPU
 #include "mediapipe/gpu/gpu_buffer.h"
@@ -236,7 +240,7 @@ class ImageToTensorCalculator : public Node {
   }
 
  private:
-  bool DoesInputStartAtBottom() {
+  bool DoesGpuInputStartAtBottom() {
     return options_.gpu_origin() != mediapipe::GpuOrigin_Mode_TOP_LEFT;
   }
 
@@ -290,18 +294,23 @@ class ImageToTensorCalculator : public Node {
 #elif MEDIAPIPE_OPENGL_ES_VERSION >= MEDIAPIPE_OPENGL_ES_31
         ASSIGN_OR_RETURN(gpu_converter_,
                          CreateImageToGlBufferTensorConverter(
-                             cc, DoesInputStartAtBottom(), GetBorderMode()));
+                             cc, DoesGpuInputStartAtBottom(), GetBorderMode()));
 #else
         ASSIGN_OR_RETURN(gpu_converter_,
                          CreateImageToGlTextureTensorConverter(
-                             cc, DoesInputStartAtBottom(), GetBorderMode()));
+                             cc, DoesGpuInputStartAtBottom(), GetBorderMode()));
 #endif  // MEDIAPIPE_METAL_ENABLED
 #endif  // !MEDIAPIPE_DISABLE_GPU
       }
     } else {
       if (!cpu_converter_) {
+#if !MEDIAPIPE_DISABLE_OPENCV
         ASSIGN_OR_RETURN(cpu_converter_,
                          CreateOpenCvConverter(cc, GetBorderMode()));
+#else
+        LOG(FATAL) << "Cannot create image to tensor opencv converter since "
+                      "MEDIAPIPE_DISABLE_OPENCV is defined.";
+#endif  // !MEDIAPIPE_DISABLE_OPENCV
       }
     }
     return absl::OkStatus();

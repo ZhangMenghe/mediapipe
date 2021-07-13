@@ -269,8 +269,8 @@ absl::Status InferenceCalculatorGlImpl::InitTFLiteGPURunner(
       break;
     }
   }
-  MP_RETURN_IF_ERROR(
-      tflite_gpu_runner_->InitializeWithModel(model, op_resolver));
+  MP_RETURN_IF_ERROR(tflite_gpu_runner_->InitializeWithModel(
+      model, op_resolver, /*allow_quant_ops=*/true));
 
   // Create and bind OpenGL buffers for outputs.
   // The buffers are created once and their ids are passed to calculator outputs
@@ -317,7 +317,8 @@ absl::Status InferenceCalculatorGlImpl::LoadModel(CalculatorContext* cc) {
 absl::Status InferenceCalculatorGlImpl::LoadDelegate(CalculatorContext* cc) {
   // Configure and create the delegate.
   TfLiteGpuDelegateOptions options = TfLiteGpuDelegateOptionsDefault();
-  options.compile_options.precision_loss_allowed = 1;
+  options.compile_options.precision_loss_allowed =
+      allow_precision_loss_ ? 1 : 0;
   options.compile_options.preferred_gl_object_type =
       TFLITE_GL_OBJECT_TYPE_FASTEST;
   options.compile_options.dynamic_batch_enabled = 0;

@@ -14,6 +14,7 @@
 
 #include "mediapipe/python/pybind/packet_getter.h"
 
+#include "mediapipe/framework/formats/image.h"
 #include "mediapipe/framework/formats/matrix.h"
 #include "mediapipe/framework/packet.h"
 #include "mediapipe/framework/port/integral_types.h"
@@ -322,6 +323,24 @@ void PublicPacketGetters(pybind11::module* m) {
 )doc",
       py::return_value_policy::reference_internal);
 
+  m->def("get_image", &GetContent<Image>,
+         R"doc(Get the content of a MediaPipe Image Packet as an Image object.
+
+  Args:
+    packet: A MediaPipe Image Packet.
+
+  Returns:
+    A MediaPipe Image object.
+
+  Raises:
+    ValueError: If the Packet doesn't contain Image.
+
+  Examples:
+    packet = packet_creator.create_image(frame)
+    data = packet_getter.get_image(packet)
+)doc",
+         py::return_value_policy::reference_internal);
+
   m->def(
       "get_matrix",
       [](const Packet& packet) {
@@ -378,7 +397,7 @@ void InternalPacketGetters(pybind11::module* m) {
       "_get_serialized_proto",
       [](const Packet& packet) {
         // By default, py::bytes is an extra copy of the original std::string
-        // object: https://github.com/pybind/pybind11/issues/1236 Howeover, when
+        // object: https://github.com/pybind/pybind11/issues/1236 However, when
         // Pybind11 performs the C++ to Python transition, it only increases the
         // py::bytes object's ref count. See the implmentation at line 1583 in
         // "pybind11/cast.h".

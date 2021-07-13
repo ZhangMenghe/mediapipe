@@ -135,12 +135,11 @@ another detection until it loses track, on reducing computation and latency. If
 set to `true`, person detection runs every input image, ideal for processing a
 batch of static, possibly unrelated, images. Default to `false`.
 
-#### upper_body_only
+#### model_complexity
 
-If set to `true`, the solution outputs only the 25 upper-body pose landmarks
-(535 in total) instead of the full set of 33 pose landmarks (543 in total). Note
-that upper-body-only prediction may be more accurate for use cases where the
-lower-body parts are mostly out of view. Default to `false`.
+Complexity of the pose landmark model: `0`, `1` or `2`. Landmark accuracy as
+well as inference latency generally go up with the model complexity. Default to
+`1`.
 
 #### smooth_landmarks
 
@@ -177,6 +176,16 @@ A list of pose landmarks. Each landmark consists of the following:
 *   `visibility`: A value in `[0.0, 1.0]` indicating the likelihood of the
     landmark being visible (present and not occluded) in the image.
 
+#### pose_world_landmarks
+
+Another list of pose landmarks in world coordinates. Each landmark consists of
+the following:
+
+*   `x`, `y` and `z`: Real-world 3D coordinates in meters with the origin at the
+    center between hips.
+*   `visibility`: Identical to that defined in the corresponding
+    [pose_landmarks](#pose_landmarks).
+
 #### face_landmarks
 
 A list of 468 face landmarks. Each landmark consists of `x`, `y` and `z`. `x`
@@ -202,12 +211,12 @@ A list of 21 hand landmarks on the right hand, in the same representation as
 
 Please first follow general [instructions](../getting_started/python.md) to
 install MediaPipe Python package, then learn more in the companion
-[Python Colab](#resources) and the following usage example.
+[Python Colab](#resources) and the usage example below.
 
 Supported configuration options:
 
 *   [static_image_mode](#static_image_mode)
-*   [upper_body_only](#upper_body_only)
+*   [model_complexity](#model_complexity)
 *   [smooth_landmarks](#smooth_landmarks)
 *   [min_detection_confidence](#min_detection_confidence)
 *   [min_tracking_confidence](#min_tracking_confidence)
@@ -219,8 +228,11 @@ mp_drawing = mp.solutions.drawing_utils
 mp_holistic = mp.solutions.holistic
 
 # For static images:
-with mp_holistic.Holistic(static_image_mode=True) as holistic:
-  for idx, file in enumerate(file_list):
+IMAGE_FILES = []
+with mp_holistic.Holistic(
+    static_image_mode=True,
+    model_complexity=2) as holistic:
+  for idx, file in enumerate(IMAGE_FILES):
     image = cv2.imread(file)
     image_height, image_width, _ = image.shape
     # Convert the BGR image to RGB before processing.
@@ -240,11 +252,12 @@ with mp_holistic.Holistic(static_image_mode=True) as holistic:
         annotated_image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
     mp_drawing.draw_landmarks(
         annotated_image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
-    # Use mp_holistic.UPPER_BODY_POSE_CONNECTIONS for drawing below when
-    # upper_body_only is set to True.
     mp_drawing.draw_landmarks(
         annotated_image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
     cv2.imwrite('/tmp/annotated_image' + str(idx) + '.png', annotated_image)
+    # Plot pose world landmarks.
+    mp_drawing.plot_landmarks(
+        results.pose_world_landmarks, mp_holistic.POSE_CONNECTIONS)
 
 # For webcam input:
 cap = cv2.VideoCapture(0)
@@ -291,7 +304,7 @@ and the following usage example.
 
 Supported configuration options:
 
-*   [upperBodyOnly](#upper_body_only)
+*   [modelComplexity](#model_complexity)
 *   [smoothLandmarks](#smooth_landmarks)
 *   [minDetectionConfidence](#min_detection_confidence)
 *   [minTrackingConfidence](#min_tracking_confidence)
@@ -348,7 +361,7 @@ const holistic = new Holistic({locateFile: (file) => {
   return `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`;
 }});
 holistic.setOptions({
-  upperBodyOnly: false,
+  modelComplexity: 1,
   smoothLandmarks: true,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5

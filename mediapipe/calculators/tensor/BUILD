@@ -109,6 +109,8 @@ cc_library(
         "//mediapipe/gpu:MPPMetalUtil",
         "//mediapipe/gpu:gpu_buffer",
         "//mediapipe/objc:mediapipe_framework_ios",
+        "//mediapipe/util/tflite:config",
+        "@com_google_absl//absl/memory",
         "@org_tensorflow//tensorflow/lite/delegates/gpu:metal_delegate",
         "@org_tensorflow//tensorflow/lite/delegates/gpu:metal_delegate_internal",
         "@org_tensorflow//tensorflow/lite/delegates/gpu/common:shape",
@@ -478,7 +480,6 @@ cc_library(
     deps = [
         ":image_to_tensor_calculator_cc_proto",
         ":image_to_tensor_converter",
-        ":image_to_tensor_converter_opencv",
         ":image_to_tensor_utils",
         "//mediapipe/framework/api2:node",
         "//mediapipe/framework/formats:image",
@@ -490,9 +491,13 @@ cc_library(
         "//mediapipe/framework/port:statusor",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:port",
+        "//mediapipe/gpu:gpu_origin_cc_proto",
     ] + select({
         "//mediapipe/gpu:disable_gpu": [],
         "//conditions:default": [":image_to_tensor_calculator_gpu_deps"],
+    }) + select({
+        "//mediapipe/framework/port:disable_opencv": [],
+        "//conditions:default": [":image_to_tensor_converter_opencv"],
     }),
     alwayslink = 1,
 )
@@ -526,6 +531,7 @@ mediapipe_proto_library(
     deps = [
         "//mediapipe/framework:calculator_options_proto",
         "//mediapipe/framework:calculator_proto",
+        "//mediapipe/gpu:gpu_origin_proto",
     ],
 )
 
@@ -583,6 +589,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    visibility = ["//visibility:public"],
     deps = [
         ":image_to_tensor_utils",
         "//mediapipe/framework/formats:image",
@@ -749,4 +756,77 @@ cc_test(
         "//mediapipe/framework/formats:rect_cc_proto",
         "//mediapipe/framework/port:gtest_main",
     ],
+)
+
+# Copied from /mediapipe/calculators/tflite/BUILD
+selects.config_setting_group(
+    name = "gpu_inference_disabled",
+    match_any = [
+        "//mediapipe/gpu:disable_gpu",
+    ],
+)
+
+mediapipe_proto_library(
+    name = "tensors_to_segmentation_calculator_proto",
+    srcs = ["tensors_to_segmentation_calculator.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_options_proto",
+        "//mediapipe/framework:calculator_proto",
+        "//mediapipe/gpu:gpu_origin_proto",
+    ],
+)
+
+cc_library(
+    name = "tensors_to_segmentation_calculator",
+    srcs = ["tensors_to_segmentation_calculator.cc"],
+    copts = select({
+        "//mediapipe:apple": [
+            "-x objective-c++",
+            "-fobjc-arc",  # enable reference-counting
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tensors_to_segmentation_calculator_cc_proto",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+        "//mediapipe/framework/formats:image",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_opencv",
+        "//mediapipe/framework/formats:tensor",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework:calculator_context",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:port",
+        "//mediapipe/util:resource_util",
+        "@org_tensorflow//tensorflow/lite:framework",
+        "//mediapipe/gpu:gpu_origin_cc_proto",
+        "//mediapipe/framework/port:statusor",
+    ] + selects.with_or({
+        "//mediapipe/gpu:disable_gpu": [],
+        "//conditions:default": [
+            "//mediapipe/gpu:gl_calculator_helper",
+            "//mediapipe/gpu:gl_simple_shaders",
+            "//mediapipe/gpu:gpu_buffer",
+            "//mediapipe/gpu:shader_util",
+        ],
+    }) + selects.with_or({
+        ":gpu_inference_disabled": [],
+        "//mediapipe:ios": [
+            "//mediapipe/gpu:MPPMetalUtil",
+            "//mediapipe/gpu:MPPMetalHelper",
+        ],
+        "//conditions:default": [
+            "@org_tensorflow//tensorflow/lite/delegates/gpu:gl_delegate",
+            "@org_tensorflow//tensorflow/lite/delegates/gpu/gl:gl_program",
+            "@org_tensorflow//tensorflow/lite/delegates/gpu/gl:gl_shader",
+            "@org_tensorflow//tensorflow/lite/delegates/gpu/gl:gl_texture",
+            "@org_tensorflow//tensorflow/lite/delegates/gpu/gl/converters:util",
+        ],
+    }),
+    alwayslink = 1,
 )

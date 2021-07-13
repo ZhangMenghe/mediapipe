@@ -26,7 +26,7 @@ You can, for instance, activate a Python virtual environment:
 $ python3 -m venv mp_env && source mp_env/bin/activate
 ```
 
-Install MediaPipe Python package and start Python intepreter:
+Install MediaPipe Python package and start Python interpreter:
 
 ```bash
 (mp_env)$ pip install mediapipe
@@ -51,6 +51,7 @@ details in each solution via the links below:
 *   [MediaPipe Holistic](../solutions/holistic#python-solution-api)
 *   [MediaPipe Objectron](../solutions/objectron#python-solution-api)
 *   [MediaPipe Pose](../solutions/pose#python-solution-api)
+*   [MediaPipe Selfie Segmentation](../solutions/selfie_segmentation#python-solution-api)
 
 ## MediaPipe on Google Colab
 
@@ -62,6 +63,7 @@ details in each solution via the links below:
 *   [MediaPipe Pose Colab](https://mediapipe.page.link/pose_py_colab)
 *   [MediaPipe Pose Classification Colab (Basic)](https://mediapipe.page.link/pose_classification_basic)
 *   [MediaPipe Pose Classification Colab (Extended)](https://mediapipe.page.link/pose_classification_extended)
+*   [MediaPipe Selfie Segmentation Colab](https://mediapipe.page.link/selfie_segmentation_py_colab)
 
 ## MediaPipe Python Framework
 

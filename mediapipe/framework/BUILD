@@ -15,6 +15,7 @@
 #
 
 load("//mediapipe/framework/port:build_config.bzl", "mediapipe_proto_library")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 licenses(["notice"])
 
@@ -27,10 +28,28 @@ package_group(
     ],
 )
 
-exports_files([
-    "transitive_protos.bzl",
-    "encode_binary_proto.bzl",
-])
+bzl_library(
+    name = "transitive_protos_bzl",
+    srcs = [
+        "transitive_protos.bzl",
+    ],
+    visibility = ["//mediapipe/framework:__subpackages__"],
+)
+
+bzl_library(
+    name = "encode_binary_proto_bzl",
+    srcs = [
+        "encode_binary_proto.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "encode_binary_proto",
+    actual = ":encode_binary_proto_bzl",
+    deprecation = "Use encode_binary_proto_bzl",
+    visibility = ["//visibility:public"],
+)
 
 mediapipe_proto_library(
     name = "calculator_proto",
@@ -206,7 +225,7 @@ cc_library(
         "//mediapipe/framework:stream_handler_cc_proto",
         "//mediapipe/framework/port:any_proto",
         "//mediapipe/framework/port:status",
-        "//mediapipe/framework/tool:options_util",
+        "//mediapipe/framework/tool:options_map",
         "//mediapipe/framework/tool:tag_map",
         "@com_google_absl//absl/memory",
     ],
@@ -454,7 +473,7 @@ cc_library(
         "//mediapipe/framework:calculator_cc_proto",
         "//mediapipe/framework/port:any_proto",
         "//mediapipe/framework/port:logging",
-        "//mediapipe/framework/tool:options_util",
+        "//mediapipe/framework/tool:options_map",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
@@ -934,6 +953,9 @@ cc_library(
     }) + select({
         "//conditions:default": [],
         "//mediapipe/gpu:disable_gpu": ["MEDIAPIPE_DISABLE_GPU=1"],
+    }) + select({
+        "//conditions:default": [],
+        "//mediapipe/framework/port:disable_opencv": ["MEDIAPIPE_DISABLE_OPENCV=1"],
     }) + select({
         "//conditions:default": [],
         "//mediapipe/framework:disable_rtti_and_exceptions": [
@@ -1619,6 +1641,8 @@ cc_test(
         ":calculator_contract_test_cc_proto",
         ":calculator_framework",
         ":graph_validation",
+        "//mediapipe/calculators/core:constant_side_packet_calculator",
+        "//mediapipe/calculators/core:default_side_packet_calculator",
         "//mediapipe/calculators/core:pass_through_calculator",
         "//mediapipe/framework:calculator_cc_proto",
         "//mediapipe/framework:packet_generator_cc_proto",

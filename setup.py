@@ -1,4 +1,4 @@
-"""Copyright 2020 The MediaPipe Authors.
+"""Copyright 2020-2021 The MediaPipe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -85,8 +85,10 @@ def _check_bazel():
     sys.exit(-1)
   try:
     bazel_version_info = subprocess.check_output(['bazel', '--version'])
-  except subprocess.CalledProcessError:
-    sys.stderr.write('fail to get bazel version by $ bazel --version.')
+  except subprocess.CalledProcessError as e:
+    sys.stderr.write('fail to get bazel version by $ bazel --version: ' +
+                     str(e.output))
+    sys.exit(-1)
   bazel_version_info = bazel_version_info.decode('UTF-8').strip()
   version = bazel_version_info.split('bazel ')[1].split('-')[0]
   version_segments = version.split('.')
@@ -220,11 +222,13 @@ class BuildBinaryGraphs(build.build):
   def run(self):
     _check_bazel()
     binary_graphs = [
-        'face_detection/face_detection_front_cpu',
+        'face_detection/face_detection_short_range_cpu',
+        'face_detection/face_detection_full_range_cpu',
         'face_landmark/face_landmark_front_cpu',
         'hand_landmark/hand_landmark_tracking_cpu',
         'holistic_landmark/holistic_landmark_cpu', 'objectron/objectron_cpu',
-        'pose_landmark/pose_landmark_cpu'
+        'pose_landmark/pose_landmark_cpu',
+        'selfie_segmentation/selfie_segmentation_cpu'
     ]
     for binary_graph in binary_graphs:
       sys.stderr.write('generating binarypb: %s\n' %
@@ -238,6 +242,7 @@ class BuildBinaryGraphs(build.build):
         'bazel',
         'build',
         '--compilation_mode=opt',
+        '--copt=-DNDEBUG',
         '--define=MEDIAPIPE_DISABLE_GPU=1',
         '--action_env=PYTHON_BIN_PATH=' + _normalize_path(sys.executable),
         os.path.join('mediapipe/modules/', graph_path),
@@ -294,6 +299,7 @@ class BuildBazelExtension(build_ext.build_ext):
         'bazel',
         'build',
         '--compilation_mode=opt',
+        '--copt=-DNDEBUG',
         '--define=MEDIAPIPE_DISABLE_GPU=1',
         '--action_env=PYTHON_BIN_PATH=' + _normalize_path(sys.executable),
         str(ext.bazel_target + '.so'),
@@ -377,12 +383,20 @@ class RemoveGenerated(clean.clean):
 
   def run(self):
     for pattern in [
-        'mediapipe/framework/**/*pb2.py', 'mediapipe/calculators/**/*pb2.py',
-        'mediapipe/gpu/**/*pb2.py', 'mediapipe/util/**/*pb2.py'
+        'mediapipe/calculators/**/*pb2.py',
+        'mediapipe/framework/**/*pb2.py',
+        'mediapipe/gpu/**/*pb2.py',
+        'mediapipe/modules/**/*pb2.py',
+        'mediapipe/util/**/*pb2.py',
     ]:
       for py_file in glob.glob(pattern, recursive=True):
         sys.stderr.write('removing generated files: %s\n' % py_file)
         os.remove(py_file)
+        init_py = os.path.join(
+            os.path.dirname(os.path.abspath(py_file)), '__init__.py')
+        if os.path.exists(init_py):
+          sys.stderr.write('removing __init__ file: %s\n' % init_py)
+          os.remove(init_py)
     for binarypb_file in glob.glob(
         'mediapipe/modules/**/*.binarypb', recursive=True):
       sys.stderr.write('removing generated binary graphs: %s\n' % binarypb_file)
@@ -405,7 +419,7 @@ setuptools.setup(
     version=__version__,
     url='https://github.com/google/mediapipe',
     description='MediaPipe is the simplest way for researchers and developers to build world-class ML solutions and applications for mobile, edge, cloud and the web.',
-    author='MediaPipe Authors',
+    author='The MediaPipe Authors',
     author_email='mediapipe@google.com',
     long_description=_get_long_description(),
     long_description_content_type='text/markdown',
@@ -434,9 +448,9 @@ setuptools.setup(
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',

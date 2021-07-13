@@ -272,6 +272,15 @@ absl::Status AnnotationOverlayCalculator::Open(CalculatorContext* cc) {
 }
 
 absl::Status AnnotationOverlayCalculator::Process(CalculatorContext* cc) {
+  if (cc->Inputs().HasTag(kGpuBufferTag) &&
+      cc->Inputs().Tag(kGpuBufferTag).IsEmpty()) {
+    return absl::OkStatus();
+  }
+  if (cc->Inputs().HasTag(kImageFrameTag) &&
+      cc->Inputs().Tag(kImageFrameTag).IsEmpty()) {
+    return absl::OkStatus();
+  }
+
   // Initialize render target, drawn with OpenCV.
   std::unique_ptr<cv::Mat> image_mat;
   ImageFormat::Format target_format;
@@ -402,7 +411,7 @@ absl::Status AnnotationOverlayCalculator::RenderToGpu(CalculatorContext* cc,
 
   // Blend overlay image in GPU shader.
   {
-    gpu_helper_.BindFramebuffer(output_texture);  // GL_TEXTURE0
+    gpu_helper_.BindFramebuffer(output_texture);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, input_texture.name());

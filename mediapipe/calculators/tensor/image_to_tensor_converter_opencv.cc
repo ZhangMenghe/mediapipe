@@ -114,10 +114,7 @@ class OpenCvProcessor : public ImageToTensorConverter {
 
 absl::StatusOr<std::unique_ptr<ImageToTensorConverter>> CreateOpenCvConverter(
     CalculatorContext* cc, BorderMode border_mode) {
-  // Simply "return absl::make_unique<OpenCvProcessor>()" failed to build on
-  // macOS with bazel.
-  return std::unique_ptr<ImageToTensorConverter>(
-      absl::make_unique<OpenCvProcessor>(border_mode));
+  return absl::make_unique<OpenCvProcessor>(border_mode);
 }
 
 }  // namespace mediapipe

@@ -128,9 +128,23 @@ struct GPUData {
 }  // namespace
 #endif  // MEDIAPIPE_TFLITE_GPU_SUPPORTED
 
+namespace {
+
+int GetXnnpackDefaultNumThreads() {
+#if defined(MEDIAPIPE_ANDROID) || defined(MEDIAPIPE_IOS) || \
+    defined(__EMSCRIPTEN_PTHREADS__)
+  constexpr int kMinNumThreadsByDefault = 1;
+  constexpr int kMaxNumThreadsByDefault = 4;
+  return std::clamp(NumCPUCores() / 2, kMinNumThreadsByDefault,
+                    kMaxNumThreadsByDefault);
+#else
+  return 1;
+#endif  // MEDIAPIPE_ANDROID || MEDIAPIPE_IOS || __EMSCRIPTEN_PTHREADS__
+}
+
 // Returns number of threads to configure XNNPACK delegate with.
-// (Equal to user provided value if specified.  Otherwise, it returns number of
-// high cores (hard-coded to 1 for Emscripten without Threads extension))
+// Returns user provided value if specified. Otherwise, tries to choose optimal
+// number of threads depending on the device.
 int GetXnnpackNumThreads(
     const mediapipe::TfLiteInferenceCalculatorOptions& opts) {
   static constexpr int kDefaultNumThreads = -1;
@@ -138,12 +152,10 @@ int GetXnnpackNumThreads(
       opts.delegate().xnnpack().num_threads() != kDefaultNumThreads) {
     return opts.delegate().xnnpack().num_threads();
   }
-#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
-  return InferHigherCoreIds().size();
-#else
-  return 1;
-#endif  // !__EMSCRIPTEN__ || __EMSCRIPTEN_PTHREADS__
+  return GetXnnpackDefaultNumThreads();
 }
+
+}  // namespace
 
 // Calculator Header Section
 
@@ -737,8 +749,8 @@ absl::Status TfLiteInferenceCalculator::InitTFLiteGPURunner(
       break;
     }
   }
-  MP_RETURN_IF_ERROR(
-      tflite_gpu_runner_->InitializeWithModel(model, *op_resolver_ptr));
+  MP_RETURN_IF_ERROR(tflite_gpu_runner_->InitializeWithModel(
+      model, *op_resolver_ptr, /*allow_quant_ops=*/true));
 
   // Allocate interpreter memory for cpu output.
   if (!gpu_output_) {
@@ -904,7 +916,8 @@ absl::Status TfLiteInferenceCalculator::LoadDelegate(CalculatorContext* cc) {
 #if MEDIAPIPE_TFLITE_GL_INFERENCE
   // Configure and create the delegate.
   TfLiteGpuDelegateOptions options = TfLiteGpuDelegateOptionsDefault();
-  options.compile_options.precision_loss_allowed = 1;
+  options.compile_options.precision_loss_allowed =
+      allow_precision_loss_ ? 1 : 0;
   options.compile_options.preferred_gl_object_type =
       TFLITE_GL_OBJECT_TYPE_FASTEST;
   options.compile_options.dynamic_batch_enabled = 0;
@@ -968,7 +981,11 @@ absl::Status TfLiteInferenceCalculator::LoadDelegate(CalculatorContext* cc) {
   const int kHalfSize = 2;  // sizeof(half)
   // Configure and create the delegate.
   TFLGpuDelegateOptions options;
-  options.allow_precision_loss = true;
+  // `enable_quantization` enables the run of sparse models i.e. the models with
+  // DENSIFY op preceding DEQUINTIZE op. Both ops get removed from the execution
+  // graph after the tensor of the weights is read.
+  options.enable_quantization = true;
+  options.allow_precision_loss = allow_precision_loss_;
   options.wait_type = TFLGpuDelegateWaitType::TFLGpuDelegateWaitTypeActive;
   if (!delegate_)
     delegate_ = TfLiteDelegatePtr(TFLGpuDelegateCreate(&options),
@@ -1080,9 +1097,10 @@ absl::Status TfLiteInferenceCalculator::LoadDelegate(CalculatorContext* cc) {
     }
 
     // Create converter for GPU output.
-    converter_from_BPHWC4_ = [[TFLBufferConvert alloc] initWithDevice:device
-                                                            isFloat16:true
-                                                      convertToPBHWC4:false];
+    converter_from_BPHWC4_ =
+        [[TFLBufferConvert alloc] initWithDevice:device
+                                       isFloat16:allow_precision_loss_
+                                 convertToPBHWC4:false];
     if (converter_from_BPHWC4_ == nil) {
       return absl::InternalError(
           "Error initializating output buffer converter");
