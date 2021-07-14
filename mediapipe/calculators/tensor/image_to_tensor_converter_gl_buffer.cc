@@ -312,7 +312,7 @@ class GlProcessor : public ImageToTensorConverter {
       return absl::OkStatus();
     }));
 
-    return tensor;
+    return absl::StatusOr<mediapipe::Tensor> ( mediapipe::Tensor(std::move(tensor)) );
   }
 
   ~GlProcessor() override {
@@ -338,7 +338,8 @@ CreateImageToGlBufferTensorConverter(CalculatorContext* cc,
   auto result = absl::make_unique<GlProcessor>();
   MP_RETURN_IF_ERROR(result->Init(cc, input_starts_at_bottom, border_mode));
 
-  return result;
+  // return result;
+  return absl::StatusOr<std::unique_ptr<ImageToTensorConverter>> ( std::unique_ptr<ImageToTensorConverter>(std::move(result)) );
 }
 
 }  // namespace mediapipe
