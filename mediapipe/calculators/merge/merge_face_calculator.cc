@@ -119,7 +119,6 @@ class FaceMergeCalculator : public CalculatorBase {
 
   bool on_process_rects(CalculatorContext* cc, faceRect& fr);
   Status on_process_landmarks(CalculatorContext* cc);
-  void GlRender();
 
   bool initialized_ = false;
   std::vector<float> color_;
@@ -465,57 +464,6 @@ Status FaceMergeCalculator::on_process_landmarks(CalculatorContext* cc){
     std::cout<<"size: "<<nlandmarks_vec.size()<<" "<<landmarks.landmark_size()<<std::endl;
 
   return ::mediapipe::OkStatus();        
-}
-void FaceMergeCalculator::GlRender() {
-#if !defined(MEDIAPIPE_DISABLE_GPU)
-  static const GLfloat square_vertices[] = {
-      -1.0f, -1.0f,  // bottom left
-      1.0f,  -1.0f,  // bottom right
-      -1.0f, 1.0f,   // top left
-      1.0f,  1.0f,   // top right
-  };
-  static const GLfloat texture_vertices[] = {
-      0.0f, 0.0f,  // bottom left
-      1.0f, 0.0f,  // bottom right
-      0.0f, 1.0f,  // top left
-      1.0f, 1.0f,  // top right
-  };
-
-  // program
-  glUseProgram(program_);
-
-  // vertex storage
-  GLuint vbo[2];
-  glGenBuffers(2, vbo);
-  GLuint vao;
-  glGenVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-
-  // vbo 0
-  glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-  glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), square_vertices,
-               GL_STATIC_DRAW);
-  glEnableVertexAttribArray(ATTRIB_VERTEX);
-  glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, nullptr);
-
-  // vbo 1
-  glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-  glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), texture_vertices,
-               GL_STATIC_DRAW);
-  glEnableVertexAttribArray(ATTRIB_TEXTURE_POSITION);
-  glVertexAttribPointer(ATTRIB_TEXTURE_POSITION, 2, GL_FLOAT, 0, 0, nullptr);
-
-  // draw
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-  // cleanup
-  glDisableVertexAttribArray(ATTRIB_VERTEX);
-  glDisableVertexAttribArray(ATTRIB_TEXTURE_POSITION);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  glDeleteVertexArrays(1, &vao);
-  glDeleteBuffers(2, vbo);
-#endif  //  !MEDIAPIPE_DISABLE_GPU
 }
 
 ::mediapipe::Status FaceMergeCalculator::LoadOptions(CalculatorContext* cc) {

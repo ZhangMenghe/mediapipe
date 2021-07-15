@@ -19,12 +19,35 @@ cc_library(
         "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
-            "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/gpu:gl_calculator_helper",
 
     ],
     alwayslink = 1,
 )
+cc_library(
+    name = "ear_regions_marker_calculator",
+    srcs = ["ear_regions_marker_calculator.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/gpu:gl_simple_shaders",
+        "//mediapipe/gpu:gl_quad_renderer",
+        "//mediapipe/gpu:shader_util",
+        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
+        "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
 
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+        "//mediapipe/framework/formats:rect_cc_proto",
+    ],
+    alwayslink = 1,
+)
 cc_library(
     name = "ear_landmarks_to_rects_calculator",
     srcs = ["ear_landmarks_to_rects_calculator.cc"],

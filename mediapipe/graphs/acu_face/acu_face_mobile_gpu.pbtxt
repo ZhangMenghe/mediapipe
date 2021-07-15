@@ -199,8 +199,15 @@ node {
   output_stream: "NORM_RECTS:multi_ear_rects_from_landmarks"
 }
 node {
-  calculator: "FaceMergeCalculator"
+  calculator: "EarRegionsMarkerCalculator"
   input_stream: "IMAGE_GPU:throttled_input_video"
+  input_stream: "VECTOR_EAR:multi_ear_landmarks"
+  input_stream: "NORM_RECTS_EAR:multi_ear_rects_from_landmarks"
+  output_stream: "IMAGE_GPU:marked_ear_video_gpu"
+}
+node {
+  calculator: "FaceMergeCalculator"
+  input_stream: "IMAGE_GPU:marked_ear_video_gpu"
   input_stream: "MASK:hair_mask_cpu"
   input_stream: "VECTOR:multi_face_landmarks"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
