@@ -21,6 +21,8 @@ namespace {
     constexpr char kEarFlipTag[] = "EAR_FLIPPED";
 
     const static int RIGHT_EAR_RECT = 0, LEFT_EAR_RECT=1;
+    // todo!!!!
+    const bool USE_FINE_CROP = false;
 }  
 // Convert an input image (GpuBuffer or ImageFrame) to ImageFrame.
 class FineCropEarCpuCalculator : public CalculatorBase {
@@ -76,9 +78,10 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     if (cc->Outputs().HasTag(kEarFlipTag))
       cc->Outputs().Tag(kEarFlipTag).Add(new bool(input_rect.rect_id() == LEFT_EAR_RECT), cc->InputTimestamp());
 
-    if(input_rect.width() == 0 || input_rect.height() == 0){
-          cc->Outputs().Tag(kFlagTag).Add(new bool(false), cc->InputTimestamp());
-    }else{
+    bool ear_exist = true;//input_rect.width() != 0 && input_rect.height() != 0;
+    cc->Outputs().Tag(kFlagTag).Add(new bool(ear_exist), cc->InputTimestamp());
+    
+    if(ear_exist && USE_FINE_CROP){
       Mat frame_HSV, hsv_mask;
       // Convert from BGR to HSV colorspace
       cvtColor(frame, frame_HSV, COLOR_RGB2HSV);
@@ -125,20 +128,17 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
         output_rect->set_y_center(c2y_abs / img_height);
 
         frame = frame(br);
-        // if(id %5 ==0) cv::imwrite( "debug_out/crop_" + std::to_string(id/5) +".png" , frame);
       }
-      cc->Outputs().Tag(kFlagTag).Add(new bool(true), cc->InputTimestamp());
-    
     }
     cc->Outputs().Tag(kEarNormRectTag).Add(output_rect.release(), cc->InputTimestamp());
 
+    // cv::imwrite( "debug_out/crop_" + std::to_string(id++) +".png" , frame);
     auto output_img = absl::make_unique<ImageFrame>(img.Format(), frame.cols, frame.rows);
     cv::Mat output_mat = mediapipe::formats::MatView(output_img.get());
     frame.copyTo(output_mat);
 
     cc->Outputs().Index(0).Add(output_img.release(), cc->InputTimestamp());
    
-
     auto output_size = absl::make_unique<cv::Size>();
     output_size->width = frame.cols; output_size->height=frame.rows;
     cc->Outputs().Tag(kOutputImgSize).Add(output_size.release(), cc->InputTimestamp());
