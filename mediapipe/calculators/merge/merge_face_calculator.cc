@@ -385,9 +385,7 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     for(int i=0; i<landmarks.landmark_size();i++){
         const NormalizedLandmark& landmark = landmarks.landmark(i);
         right_ear_points[3*i] = landmark.x();right_ear_points[3*i+1] = landmark.y();right_ear_points[3*i+2] = .0f;
-        // std::cout<<right_ear_points[3*i]<<" "<<right_ear_points[3*i+1]<<std::endl;
      }
-    //  std::cout<<"======="<<std::endl;
     ear_landmark_valid = true; 
   }
 

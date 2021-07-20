@@ -7,8 +7,6 @@ input_stream: "NORM_RECT:ear_rect"
 output_stream: "NORM_LANDMARKS:ear_landmarks"
 output_stream: "NORM_RECT:ear_rect_fine_crop"
 output_stream: "PRESENCE:ear_presence"
-#output_stream: "PRESENCE_SCORE:ear_presence_score"
-#output_stream: "earEDNESS:earedness"
 
 # Crops the rectangle that contains a ear from the input image.
 node: {
@@ -71,81 +69,5 @@ node:{
   input_stream: "POS_MAT:position_matrix"
   input_stream: "EAR_FLIPPED:ear_flipped"
   input_stream: "IMG_SIZE:img_size"
-  output_stream: "NORM_LANDMARKS:landmarks_in_crop"
-}
-
-# Projects the landmarks from the cropped ear image to the corresponding
-# locations on the full image before cropping (input to the graph).
-node {
-  calculator: "LandmarkProjectionCalculator"
-  input_stream: "NORM_LANDMARKS:landmarks_in_crop"
-  input_stream: "NORM_RECT:ear_rect_fine_crop"
   output_stream: "NORM_LANDMARKS:ear_landmarks"
-  node_options: {
-    [type.googleapis.com/mediapipe.LandmarkProjectionCalculatorOptions]{
-      ignore_rotation: true
-    }
-  }
 }
-
-# Extracts image size from the input images.
-# node {
-#  calculator: "ImagePropertiesCalculator"
-#  input_stream: "IMAGE_GPU:input_video"
-#  output_stream: "SIZE:image_size"
-# }
-
-# Extracts a subset of the ear landmarks that are relatively more stable across
-# frames (e.g. comparing to finger tips) for computing the bounding box. The box
-# will later be expanded to contain the entire ear. In this approach, it is
-# more robust to drastically changing ear size.
-# The landmarks extracted are: wrist, MCP/PIP of five fingers.
-# node {
-#   calculator: "SplitNormalizedLandmarkListCalculator"
-#   input_stream: "ear_landmarks"
-#   output_stream: "partial_landmarks"
-#   node_options: {
-#     [type.googleapis.com/mediapipe.SplitVectorCalculatorOptions] {
-#       ranges: { begin: 0 end: 4 }
-#       ranges: { begin: 5 end: 7 }
-#       ranges: { begin: 9 end: 11 }
-#       ranges: { begin: 13 end: 15 }
-#       ranges: { begin: 17 end: 19 }
-#       combine_outputs: true
-#     }
-#   }
-# }
-
-# Converts ear landmarks to a detection that tightly encloses all landmarks.
-# node {
-#   calculator: "LandmarksToDetectionCalculator"
-#   input_stream: "NORM_LANDMARKS:partial_landmarks"
-#   output_stream: "DETECTION:ear_detection"
-# }
-
-# # Converts the ear detection into a rectangle (normalized by image size)
-# # that encloses the ear.
-# node {
-#   calculator: "EarLandmarksToRectsCalculator"
-#   input_stream: "LANDMARKS:ear_landmarks"
-#   output_stream: "NORM_RECT_EAR:ear_rect_from_landmarks"
-#   output_stream: "FLAG:ear_presence"
-# }
-
-# # Expands the ear rectangle so that the box contains the entire ear and it's
-# # big enough so that it's likely to still contain the ear even with some motion
-# # in the next video frame .
-# node {
-#   calculator: "RectTransformationCalculator"
-#   input_stream: "NORM_RECT:ear_rect_from_landmarks"
-#   input_stream: "IMAGE_SIZE:image_size"
-#   output_stream: "ear_rect_for_next_frame"
-#   node_options: {
-#     [type.googleapis.com/mediapipe.RectTransformationCalculatorOptions] {
-#       scale_x: 2.1
-#       scale_y: 2.1
-#       shift_y: -0.1
-#       square_long: true
-#     }
-#   }
-# }

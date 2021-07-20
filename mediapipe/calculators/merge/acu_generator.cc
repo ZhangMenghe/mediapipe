@@ -441,6 +441,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     for(int i=0;i<ear_landmark_num;i++){
         right_ear_data[3*i] = ear_points[3*i];
         right_ear_data[3*i+1] = ear_points[3*i+1];
+        // std::cout<<right_ear_data[3*i]<<","<<right_ear_data[3*i+1]<<std::endl;  
     }
     right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
 

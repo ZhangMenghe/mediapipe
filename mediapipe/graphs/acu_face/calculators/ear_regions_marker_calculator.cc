@@ -35,7 +35,7 @@ namespace {
 
 	constexpr char kGpuBufferTag[] = "IMAGE_GPU";
 	constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
-	constexpr char kInputEarLandMarksVectorTag[] = "VECTOR_EAR";
+	constexpr char kEarLandMarksVectorTag[] = "VECTOR_EAR";
 }  // namespace
 
 namespace mediapipe {
@@ -58,6 +58,8 @@ private:
 
 	void GlRender();
 
+	void project_landmarks(NormalizedRect& input_rect, NormalizedLandmarkList& input_landmarks, NormalizedLandmarkList& output_landmarks);
+
 	bool initialized_;
 	mediapipe::GlCalculatorHelper gpu_helper_;
 	GLuint program_ = 0;
@@ -72,12 +74,15 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
         cc->Inputs().Tag(kGpuBufferTag).Set<mediapipe::GpuBuffer>();
     if(cc->Inputs().HasTag(kEarNormRectsTag)) 
         cc->Inputs().Tag(kEarNormRectsTag).Set<std::vector<NormalizedRect>>();
-    if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag))
-        cc->Inputs().Tag(kInputEarLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
+    if(cc->Inputs().HasTag(kEarLandMarksVectorTag))
+        cc->Inputs().Tag(kEarLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
 
 	if (cc->Outputs().HasTag(kGpuBufferTag))
 		cc->Outputs().Tag(kGpuBufferTag).Set<mediapipe::GpuBuffer>();
- 	MP_RETURN_IF_ERROR(mediapipe::GlCalculatorHelper::UpdateContract(cc));
+	if(cc->Outputs().HasTag(kEarLandMarksVectorTag))
+		cc->Outputs().Tag(kEarLandMarksVectorTag).Set<std::vector<::mediapipe::NormalizedLandmarkList>>();
+    
+ 	  MP_RETURN_IF_ERROR(mediapipe::GlCalculatorHelper::UpdateContract(cc));
 
     return ::mediapipe::OkStatus();
 }
@@ -127,8 +132,22 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 //   }
 //   bool ear_landmark_valid = false;
 //   //prepare ear landmarks
-// 	if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag) && !cc->Inputs().Tag(kInputEarLandMarksVectorTag).IsEmpty()){
-// 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+    auto output_landmark_vec = absl::make_unique<std::vector<NormalizedLandmarkList>>();
+
+	if(!cc->Inputs().Tag(kEarLandMarksVectorTag).IsEmpty()
+    && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()){
+		auto& landmarks_vec = cc->Inputs().Tag(kEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+    	auto& rect_vec = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+    	int num = landmarks_vec.size();
+		for(int i=0; i<num; i++){
+			NormalizedLandmarkList output_landmarks;
+			auto srect = rect_vec[i];
+			auto slandmarks = landmarks_vec[i];
+			project_landmarks(srect, slandmarks, output_landmarks);
+			// std::cout<<output_landmarks.landmark_size()<<std::endl;
+			output_landmark_vec->emplace_back(output_landmarks);
+		}
+
 // 		auto landmarks = nlandmarks_vec[0];
 
 //     if(right_ear_points == nullptr) right_ear_points = new float[3 * landmarks.landmark_size()];
@@ -139,7 +158,7 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 //      }
 //     //  std::cout<<"======="<<std::endl;
 //     ear_landmark_valid = true; 
-//   }   
+  }   
 //    acuGenerator::instance()->onDraw(fr, mask_full, ear_rects, land_mark_valid?lmpoints:nullptr, ear_landmark_valid?right_ear_points:nullptr);
 
 
@@ -160,7 +179,8 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 	// Send result image in GPU packet.
 	auto output = dst_tex.GetFrame<mediapipe::GpuBuffer>();
 	cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
-
+	
+	cc->Outputs().Tag(kEarLandMarksVectorTag).Add(output_landmark_vec.release(), cc->InputTimestamp());
 	// Cleanup
 	img_tex.Release();
 	dst_tex.Release();
@@ -257,8 +277,9 @@ void EarRegionsMarkerCalculator::GlRender() {
     
 	vec4 fore_value = texture2D(frame, sample_coordinate);
 
-    vec4 recolor_value = vec4(1.0, 1.0, .0, 1.0);
-	fragColor = mix(fore_value, recolor_value, 0.5);
+    // vec4 recolor_value = vec4(1.0, 1.0, .0, 1.0);
+	// fragColor = mix(fore_value, recolor_value, 0.5);
+	fragColor = fore_value;
     }
   )";
 
@@ -279,6 +300,40 @@ void EarRegionsMarkerCalculator::GlRender() {
 		program_ = 0;
 	});
 	return ::mediapipe::OkStatus();
+}
+void EarRegionsMarkerCalculator::project_landmarks(NormalizedRect& input_rect, NormalizedLandmarkList& input_landmarks, NormalizedLandmarkList& output_landmarks){
+    float max_x = -10000, min_x = 10000;
+    float max_y = -10000, min_y = 10000;
+
+    for (int i = 0; i < input_landmarks.landmark_size(); ++i) {
+      const NormalizedLandmark& landmark = input_landmarks.landmark(i);
+      NormalizedLandmark* new_landmark = output_landmarks.add_landmark();
+
+      const float x = landmark.x() - 0.5f;
+      const float y = landmark.y() - 0.5f;
+      const float angle = .0f;
+          // options.ignore_rotation() ? 0 : input_rect.rotation();
+      float new_x = std::cos(angle) * x - std::sin(angle) * y;
+      float new_y = std::sin(angle) * x + std::cos(angle) * y;
+
+      new_x = new_x * input_rect.width() + input_rect.x_center();
+      new_y = new_y * input_rect.height() + input_rect.y_center();
+      const float new_z =
+          landmark.z() * input_rect.width();  // Scale Z coordinate as X.
+
+      new_landmark->set_x(new_x);
+      new_landmark->set_y(new_y);
+      new_landmark->set_z(new_z);
+      
+      if(x < min_x) min_x = x;
+      else if(x>max_x) max_x = x;
+
+      if(y < min_y) min_y = y;
+      else if(y > max_y) max_y = y;
+
+      // Keep visibility as is.
+      new_landmark->set_visibility(landmark.visibility());
+    }
 }
 
 }  // namespace mediapipe
