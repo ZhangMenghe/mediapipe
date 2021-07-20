@@ -13,12 +13,15 @@
 // limitations under the License.
 
 #include <vector>
+#include <unordered_map>
 
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/image_frame_opencv.h"
 #include "mediapipe/framework/port/opencv_core_inc.h"
+#include "mediapipe/framework/port/opencv_imgcodecs_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
+
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 
@@ -28,7 +31,11 @@
 #include "mediapipe/gpu/gl_calculator_helper.h"
 #include "mediapipe/gpu/gl_simple_shaders.h"
 #include "mediapipe/gpu/shader_util.h"
+#include "mediapipe/gpu/gl_shader_helper.pb.h"
 
+#include "GLPipeline/Texture.h"
+
+using namespace cv;
 
 namespace {
 	enum { ATTRIB_VERTEX, ATTRIB_TEXTURE_POSITION, NUM_ATTRIBUTES };
@@ -36,6 +43,110 @@ namespace {
 	constexpr char kGpuBufferTag[] = "IMAGE_GPU";
 	constexpr char kEarNormRectsTag[] = "NORM_RECTS_EAR";
 	constexpr char kEarLandMarksVectorTag[] = "VECTOR_EAR";
+
+	const float kTemplateLandmarks[110]={
+		205.0f, 100.0f, 175.0f, 61.0f, 140.0f, 28.0f, 97.0f, 17.0f, 57.0f, 37.0f, 34.0f, 71.0f, 23.0f, 109.0f, 17.0f, 151.0f, 16.0f, 193.0f, 15.0f, 235.0f, 14.0f, 272.0f, 23.0f, 312.0f, 37.0f, 342.0f, 51.0f, 378.0f, 76.0f, 412.0f, 99.0f, 435.0f, 128.0f, 458.0f, 160.0f, 465.0f, 191.0f, 462.0f, 210.0f, 444.0f, 174.0f, 208.0f, 176.0f, 171.0f, 171.0f, 129.0f, 152.0f, 95.0f, 129.0f, 71.0f, 96.0f, 59.0f, 66.0f, 73.0f, 49.0f, 106.0f, 42.0f, 143.0f, 41.0f, 180.0f, 39.0f, 217.0f, 37.0f, 248.0f, 41.0f, 284.0f, 55.0f, 314.0f, 74.0f, 344.0f, 188.0f, 238.0f, 175.0f, 265.0f, 173.0f, 297.0f, 186.0f, 321.0f, 189.0f, 347.0f, 157.0f, 340.0f, 138.0f, 306.0f, 105.0f, 299.0f, 77.0f, 281.0f, 64.0f, 251.0f, 71.0f, 219.0f, 89.0f, 190.0f, 114.0f, 183.0f, 139.0f, 175.0f, 165.0f, 172.0f, 48.0f, 200.0f, 60.0f, 162.0f, 72.0f, 135.0f, 80.0f, 103.0f, 98.0f, 80.0f
+	};
+	constexpr char kRecolorFileName[] = "crop_ear_recolor.jpg";
+	const int kTemplateWidth = 226;
+	const int kTemplateHeight = 475;
+	const int kLandmarkNum = 55;
+	const float kBlendAlpha = 0.7f;
+
+	//
+	void make_delaunay(int width, int height, const float* landmarks, std::vector<std::vector<int>>& trianlge_lst){
+		cv::Rect rect(0, 0, width, height);
+		cv::Subdiv2D subdiv(rect);
+		std::vector<cv::Point2i> points(kLandmarkNum);
+		for(int i=0; i<kLandmarkNum; i++){
+			points[i] = cv::Point2i(landmarks[2*i], landmarks[2*i+1]);
+		}
+		
+		//create a map
+		std::unordered_map<std::string, int> points_dict;
+		auto encode_str = [](cv::Point2i p){
+			return std::to_string(p.x) + "#" + std::to_string(p.y);
+		};
+
+		int id = 0;
+		for(auto it = points.begin(); it!=points.end(); it++){
+			subdiv.insert(*it);
+			points_dict[encode_str(*it)]=id++;
+		}
+
+		//draw_delaunay
+		std::vector<cv::Vec6f> triangleList;
+		subdiv.getTriangleList(triangleList);
+		std::vector<cv::Point2i> pt(3);
+
+		for(auto i=0; i<triangleList.size();i++){
+			auto t = triangleList[i];
+			pt[0] = cv::Point2i(cvRound(t[0]), cvRound(t[1]));
+			pt[1] = cv::Point2i(cvRound(t[2]), cvRound(t[3]));
+			pt[2] = cv::Point2i(cvRound(t[4]), cvRound(t[5]));
+
+			if(rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])){
+				trianlge_lst.push_back(
+					std::vector<int>{points_dict[encode_str(pt[0])], points_dict[encode_str(pt[1])], points_dict[encode_str(pt[2])]}
+				);
+			}
+		}
+	}
+	// Apply affine transform calculated using srcTri and dstTri to src
+void applyAffineTransform(Mat &warpImage, Mat &src, std::vector<Point2f> &srcTri, std::vector<Point2f> &dstTri){
+    
+    // Given a pair of triangles, find the affine transform.
+    Mat warpMat = getAffineTransform( srcTri, dstTri );
+    
+    // Apply the Affine Transform just found to the src image
+    warpAffine( src, warpImage, warpMat, warpImage.size(), INTER_LINEAR, BORDER_REFLECT_101);
+}
+
+// Warps and alpha blends triangular regions from img1 and img2 to img
+void morphTriangle(Mat &img1, Mat &img2, Mat &img, std::vector<Point2f> &t1, std::vector<Point2f> &t2, std::vector<Point2f> &t, double alpha){
+    
+    // Find bounding rectangle for each triangle
+    Rect r = boundingRect(t);
+    Rect r1 = boundingRect(t1);
+    Rect r2 = boundingRect(t2);
+    
+    // Offset points by left top corner of the respective rectangles
+    std::vector<Point2f> t1Rect, t2Rect, tRect;
+    std::vector<Point> tRectInt;
+    for(int i = 0; i < 3; i++)
+    {
+        tRect.push_back( Point2f( t[i].x - r.x, t[i].y -  r.y) );
+        tRectInt.push_back( Point(t[i].x - r.x, t[i].y - r.y) ); // for fillConvexPoly
+        
+        t1Rect.push_back( Point2f( t1[i].x - r1.x, t1[i].y -  r1.y) );
+        t2Rect.push_back( Point2f( t2[i].x - r2.x, t2[i].y - r2.y) );
+    }
+    
+    // Get mask by filling triangle
+    Mat mask = Mat::zeros(r.height, r.width, CV_32FC3);
+    fillConvexPoly(mask, tRectInt, Scalar(1.0, 1.0, 1.0), 16, 0);
+    
+    // Apply warpImage to small rectangular patches
+    Mat img1Rect, img2Rect;
+    img1(r1).copyTo(img1Rect);
+    img2(r2).copyTo(img2Rect);
+    
+    Mat warpImage1 = Mat::zeros(r.height, r.width, img1Rect.type());
+    Mat warpImage2 = Mat::zeros(r.height, r.width, img2Rect.type());
+    
+    applyAffineTransform(warpImage1, img1Rect, t1Rect, tRect);
+    applyAffineTransform(warpImage2, img2Rect, t2Rect, tRect);
+    
+    // Alpha blend rectangular patches
+    Mat imgRect = (1.0 - alpha) * warpImage1 + alpha * warpImage2;
+    
+    // Copy triangular region of the rectangular patch to the output image
+    multiply(imgRect,mask, imgRect);
+    multiply(img(r), Scalar(1.0,1.0,1.0) - mask, img(r));
+    img(r) = img(r) + imgRect;
+}
+
+
 }  // namespace
 
 namespace mediapipe {
@@ -58,13 +169,21 @@ private:
 
 	void GlRender();
 
+	void prepare_dest_image_landmarks(int width, int height, NormalizedLandmarkList& input_landmarks, float* & output_landmarks);
+	void morph_recolor_image(cv::Mat& dest_img, const float* dest_landmarks);
 	void project_landmarks(NormalizedRect& input_rect, NormalizedLandmarkList& input_landmarks, NormalizedLandmarkList& output_landmarks);
 
 	bool initialized_;
 	mediapipe::GlCalculatorHelper gpu_helper_;
 	GLuint program_ = 0;
-	float *lmpoints = nullptr, *right_ear_points = nullptr;
+	std::string m_asset_path;
+	cv::Mat m_img_recolor;
 
+	std::vector<cv::Mat> m_morph_imgs, m_mask_imgs;
+	//normalized coord of the left bottom corner + width and height
+	float m_dest_rects[2][4];
+	Texture *morph_left, *morph_right, *mask_left, *mask_right;
+	int gid = 0;
 };
 REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 
@@ -88,11 +207,13 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 }
 
 ::mediapipe::Status EarRegionsMarkerCalculator::Open(CalculatorContext* cc) {
-  cc->SetOffset(TimestampDiff(0));
-  if (cc->Inputs().HasTag(kGpuBufferTag))
-	MP_RETURN_IF_ERROR(gpu_helper_.Open(cc));
-  initialized_ = false;
-  return ::mediapipe::OkStatus();
+	cc->SetOffset(TimestampDiff(0));
+	if (cc->Inputs().HasTag(kGpuBufferTag))MP_RETURN_IF_ERROR(gpu_helper_.Open(cc));
+	initialized_ = false;
+
+	MP_RETURN_IF_ERROR(LoadOptions(cc));
+
+	return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status EarRegionsMarkerCalculator::Process(CalculatorContext* cc) {
@@ -113,26 +234,43 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
 	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
-
-
-  //prepare ear info
   
-//   std::vector<faceRect> ear_rects;
-//   if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
-// 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
-//     for(auto rect:rects){
-// 		  ear_rects.push_back(faceRect(
-//         rect.x_center(), 
-//         rect.y_center(), 
-//         rect.width(),
-//         rect.height(), 
-//         rect.rotation(), true));
-//         // std::cout<<"=====rect: "<<rect.x_center()<<" "<<rect.y_center()<<std::endl;
-//     }
-//   }
-//   bool ear_landmark_valid = false;
-//   //prepare ear landmarks
+	std::vector<cv::Mat> dest_imgs;
+	if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
+		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+		int id = 0;
+		for(auto rect:rects){
+			float xoff = rect.x_center() - 0.5f*rect.width();
+			float yoff = rect.y_center() - 0.5f*rect.height();
+			m_dest_rects[id][0]=xoff; m_dest_rects[id][1]=yoff; m_dest_rects[id][2]=rect.width();m_dest_rects[id][3]=rect.height();
+			id++;
+			auto frame_width = rect.width()* img_tex.width();
+			auto frame_height = rect.height()* img_tex.height();
+
+			std::unique_ptr<ImageFrame> frame = absl::make_unique<ImageFrame>(
+				ImageFormatForGpuBufferFormat(input_buffer.format()), 
+				frame_width, frame_height, ImageFrame::kGlDefaultAlignmentBoundary);
+
+			gpu_helper_.BindFramebuffer(img_tex);
+			const auto info = GlTextureInfoForGpuBufferFormat(input_buffer.format(), 0);
+			glReadPixels(xoff * img_tex.width(), 
+						yoff * img_tex.height(),
+						frame_width, 
+						frame_height, 
+						info.gl_format,
+						info.gl_type, frame->MutablePixelData());
+			glFlush();
+			dest_imgs.push_back( mediapipe::formats::MatView(frame.release()));
+			// cv::imwrite( "debug_out/crop_" + std::to_string(gid++) +".png" , dest_imgs.back());
+		}
+	}
+
+	//prepare ear landmarks
+	std::vector<float*> dest_points;
     auto output_landmark_vec = absl::make_unique<std::vector<NormalizedLandmarkList>>();
+
+	m_morph_imgs.clear();
+	m_mask_imgs.clear();
 
 	if(!cc->Inputs().Tag(kEarLandMarksVectorTag).IsEmpty()
     && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()){
@@ -143,35 +281,33 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 			NormalizedLandmarkList output_landmarks;
 			auto srect = rect_vec[i];
 			auto slandmarks = landmarks_vec[i];
+			
+			if(dest_imgs[i].cols > 0 && dest_imgs[i].rows>0){
+				dest_points.push_back(new float[2*kLandmarkNum]);
+				prepare_dest_image_landmarks(dest_imgs[i].cols, dest_imgs[i].rows, slandmarks, dest_points.back());
+				morph_recolor_image(dest_imgs[i], dest_points[i]);
+			}
+
 			project_landmarks(srect, slandmarks, output_landmarks);
-			// std::cout<<output_landmarks.landmark_size()<<std::endl;
 			output_landmark_vec->emplace_back(output_landmarks);
 		}
 
-// 		auto landmarks = nlandmarks_vec[0];
-
-//     if(right_ear_points == nullptr) right_ear_points = new float[3 * landmarks.landmark_size()];
-//     for(int i=0; i<landmarks.landmark_size();i++){
-//         const NormalizedLandmark& landmark = landmarks.landmark(i);
-//         right_ear_points[3*i] = landmark.x();right_ear_points[3*i+1] = landmark.y();right_ear_points[3*i+2] = .0f;
-//         // std::cout<<right_ear_points[3*i]<<" "<<right_ear_points[3*i+1]<<std::endl;
-//      }
-//     //  std::cout<<"======="<<std::endl;
-//     ear_landmark_valid = true; 
   }   
-//    acuGenerator::instance()->onDraw(fr, mask_full, ear_rects, land_mark_valid?lmpoints:nullptr, ear_landmark_valid?right_ear_points:nullptr);
-
-
 	  // Run recolor shader on GPU.
   {
     gpu_helper_.BindFramebuffer(dst_tex);  // GL_TEXTURE0
 
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(img_tex.target(), img_tex.name());
+
+//   glUniform1i(glGetUniformLocation(program_, "morph_left"), 2);
+//   glUniform1i(glGetUniformLocation(program_, "morph_right"), 3);
+//   glUniform1i(glGetUniformLocation(program_, "mask_left"), 4);
+//   glUniform1i(glGetUniformLocation(program_, "mask_right"), 5);
 
     GlRender();
 
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();
   }
@@ -238,10 +374,14 @@ void EarRegionsMarkerCalculator::GlRender() {
 }
 
 ::mediapipe::Status EarRegionsMarkerCalculator::LoadOptions(CalculatorContext* cc) {
-  return ::mediapipe::OkStatus();
+	const auto& options = cc->Options<::mediapipe::glShaderHelperOptions>();
+	m_asset_path = options.shader_res_path();
+	m_img_recolor = cv::imread(m_asset_path+std::string(kRecolorFileName), -1);
+  	return ::mediapipe::OkStatus();
 }
 
 ::mediapipe::Status EarRegionsMarkerCalculator::InitGpu(CalculatorContext* cc) {
+
   const GLint attr_location[NUM_ATTRIBUTES] = {
       ATTRIB_VERTEX,
       ATTRIB_TEXTURE_POSITION,
@@ -271,15 +411,34 @@ void EarRegionsMarkerCalculator::GlRender() {
 
     in vec2 sample_coordinate;
     uniform sampler2D frame;
+    // uniform sampler2D morph_left, morph_right;
+    // uniform sampler2D mask_left, mask_right;
 
+	uniform vec4 u_rect_right;
+	uniform vec4 u_rect_left;
+
+	bool inRect(vec2 lt, vec2 sz, vec2 pos){
+		if(sz.x < .0 || sz.y < .0) return false;
+		return !(pos.x < lt.x || pos.x > lt.x+sz.x || pos.y > lt.y || pos.y < lt.y-sz.y);
+	}
     void main() {
-    //   vec4 weight = texture2D(mask, sample_coordinate);
-    
-	vec4 fore_value = texture2D(frame, sample_coordinate);
+		vec4 fore_value = texture2D(frame, sample_coordinate);
 
-    // vec4 recolor_value = vec4(1.0, 1.0, .0, 1.0);
-	// fragColor = mix(fore_value, recolor_value, 0.5);
-	fragColor = fore_value;
+		// if(inRect(u_rect_left.xy, u_rect_left.zw, sample_coordinate)){
+		// 	vec2 sp = sample_coordinate - u_rect_left.xy;
+		// 	float maskv = texture2D(mask_left, sp).r;
+
+		// 	fragColor = texture2D(morph_left, sample_coordinate) * maskv + fore_value * (1.0-maskv);
+		// 	return;
+		// }
+		// if(inRect(u_rect_right.xy, u_rect_right.zw, sample_coordinate)){
+		// 	vec2 sp = sample_coordinate - u_rect_right.xy;
+		// 	float maskv = texture2D(mask_right, sp).r;
+		// 	fragColor = texture2D(morph_right, sample_coordinate) * maskv + fore_value * (1.0-maskv);
+		// 	return;
+		// }
+
+		fragColor = fore_value;
     }
   )";
 
@@ -289,7 +448,15 @@ void EarRegionsMarkerCalculator::GlRender() {
                               &program_);
   RET_CHECK(program_) << "Problem initializing the program.";
   glUseProgram(program_);
-  glUniform1i(glGetUniformLocation(program_, "frame"), 1);
+  glUniform1i(glGetUniformLocation(program_, "frame"), 0);
+//   glUniform1i(glGetUniformLocation(program_, "morph_left"), 2);
+//   glUniform1i(glGetUniformLocation(program_, "morph_right"), 3);
+//   glUniform1i(glGetUniformLocation(program_, "mask_left"), 4);
+//   glUniform1i(glGetUniformLocation(program_, "mask_right"), 5);
+
+  glUniform4f(glGetUniformLocation(program_, "u_rect_right"), m_dest_rects[0][0], m_dest_rects[0][1], m_dest_rects[0][2], m_dest_rects[0][3]);
+  glUniform4f(glGetUniformLocation(program_, "u_rect_left"), m_dest_rects[1][0], m_dest_rects[1][1], m_dest_rects[1][2], m_dest_rects[1][3]);
+
   return ::mediapipe::OkStatus();
 }
 
@@ -300,6 +467,68 @@ void EarRegionsMarkerCalculator::GlRender() {
 		program_ = 0;
 	});
 	return ::mediapipe::OkStatus();
+}
+void EarRegionsMarkerCalculator::prepare_dest_image_landmarks(int width, int height, 
+																NormalizedLandmarkList& input_landmarks, 
+																float* & points){
+	for(int i=0; i<input_landmarks.landmark_size();i++){
+		const NormalizedLandmark& landmark = input_landmarks.landmark(i);				
+		points[2*i] = landmark.x() * width;
+		points[2*i+1] = landmark.y() * height;
+
+		if(points[2*i] >= width) points[2*i]-=1.f;
+		points[2*i] = fmax(.0f, points[2*i]);
+		if(points[2*i+1] >= height) points[2*i+1]-=1.f;
+		points[2*i+1] = fmax(.0f, points[2*i+1]);
+	}
+}
+void EarRegionsMarkerCalculator::morph_recolor_image(cv::Mat& dest_img, const float* dest_landmarks){
+	cv::Mat img_recolor_resized;
+	cv::resize(m_img_recolor, img_recolor_resized, dest_img.size());
+
+	img_recolor_resized.convertTo(img_recolor_resized, CV_32F);
+    dest_img.convertTo(dest_img, CV_32F);
+
+	cv::Mat imgMorph = Mat::zeros(dest_img.size(), CV_32FC3);
+
+	//resize template landmarks based on dest shape
+	float Rx = (float)dest_img.cols/kTemplateWidth, Ry = (float)dest_img.rows / kTemplateHeight;
+
+	std::vector<cv::Point2f> points1(kLandmarkNum), points2(kLandmarkNum), points(kLandmarkNum);
+
+	for(int n=0; n<kLandmarkNum; n++){
+		points1[n] = cv::Point2f(Rx * kTemplateLandmarks[2*n], Ry * kTemplateLandmarks[2*n+1]);
+		points2[n] = cv::Point2f(dest_landmarks[2*n], dest_landmarks[2*n+1]);
+		
+		float mx = (1.0f - kBlendAlpha) * points1[n].x + kBlendAlpha * points2[n].x;
+		float my =  (1.0f - kBlendAlpha) * points1[n].y + kBlendAlpha * points2[n].y;
+		points[n] = cv::Point2f(mx, my);
+	}
+
+	std::vector<std::vector<int>> trianlge_lst;
+	make_delaunay(dest_img.cols, dest_img.rows, dest_landmarks, trianlge_lst);
+
+	for(std::vector<int>&tlst : trianlge_lst){
+		int x = tlst[0], y=tlst[1], z=tlst[2];
+		std::vector<cv::Point2f> t1, t2, t;
+		t1.push_back( points1[x] ); t1.push_back( points1[y] ); t1.push_back( points1[z] );
+		t2.push_back( points2[x] ); t2.push_back( points2[y] ); t2.push_back( points2[z] );
+		t.push_back( points[x] ); t.push_back( points[y] ); t.push_back( points[z] );
+		
+		morphTriangle(img_recolor_resized, dest_img, imgMorph, t1, t2, t, kBlendAlpha);
+	}
+	m_morph_imgs.push_back(imgMorph);
+
+	cv::Mat morph_gray, thresh;
+	cv::cvtColor(imgMorph, morph_gray, cv::COLOR_BGR2GRAY);
+	cv::threshold(morph_gray, thresh, 50, 255, cv::THRESH_BINARY);
+
+	m_mask_imgs.push_back(thresh);
+
+	// cv::imwrite( "debug_out/morph_" + std::to_string(gid) +".png" , imgMorph);
+	// cv::imwrite( "debug_out/mask_" + std::to_string(gid) +".png" , m_mask_imgs.back());
+	// gid++;
+
 }
 void EarRegionsMarkerCalculator::project_landmarks(NormalizedRect& input_rect, NormalizedLandmarkList& input_landmarks, NormalizedLandmarkList& output_landmarks){
     float max_x = -10000, min_x = 10000;

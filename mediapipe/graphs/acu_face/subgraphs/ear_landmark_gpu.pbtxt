@@ -58,7 +58,7 @@ node:{
 }
 node: {
   calculator: "EarNormalizeCalculator"
-  input_stream: "normalized_cpu_left"
+  input_stream: "fine_cropped_cpu"
   input_stream: "EAR_OBSERVER:modified_ear_observer"
   output_stream: "normalized_cpu_left_stagetwo"
   output_stream: "POS_MAT:position_matrix"

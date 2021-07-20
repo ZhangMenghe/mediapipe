@@ -35,6 +35,7 @@ cc_library(
         "//mediapipe/gpu:shader_util",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
+        "//mediapipe/gpu:gl_shader_helper_cc_proto",
 
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
@@ -43,8 +44,11 @@ cc_library(
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:opencv_core",
         "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_imgcodecs",
         "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/formats:rect_cc_proto",
+        
+        "@acu_face_render//:acuRenderer",
     ],
     alwayslink = 1,
 )

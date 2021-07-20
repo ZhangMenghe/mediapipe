@@ -205,6 +205,11 @@ node {
   input_stream: "NORM_RECTS_EAR:multi_ear_rects_from_landmarks"
   output_stream: "IMAGE_GPU:marked_ear_video_gpu"
   output_stream: "VECTOR_EAR:multi_ear_landmarks_projected"
+  options {
+    [mediapipe.glShaderHelperOptions.ext] {
+      shader_res_path : "/home/eevee/Github/acu-face-render/assets/"
+    }
+  }
 }
 node {
   calculator: "FaceMergeCalculator"
