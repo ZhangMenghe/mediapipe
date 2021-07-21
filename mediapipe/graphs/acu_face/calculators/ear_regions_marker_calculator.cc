@@ -182,7 +182,7 @@ private:
 	std::vector<cv::Mat> m_morph_imgs, m_mask_imgs;
 	//normalized coord of the left bottom corner + width and height
 	float m_dest_rects[2][4];
-	Texture *morph_left, *morph_right, *mask_left, *mask_right;
+	// Texture *morph_left, *morph_right, *mask_left, *mask_right;
 	int gid = 0;
 };
 REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
@@ -292,26 +292,53 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 			output_landmark_vec->emplace_back(output_landmarks);
 		}
 
-  }   
+  }
+  		int width = m_morph_imgs[0].size().width;
+		int height = m_morph_imgs[0].size().height;
+
+		std::unique_ptr<ImageFrame> morph_frame = absl::make_unique<ImageFrame>(
+			ImageFormat::SRGB, width, height,
+			ImageFrame::kGlDefaultAlignmentBoundary);
+		m_morph_imgs[0].copyTo(formats::MatView(morph_frame.get()));
+		auto morph_tex_right = gpu_helper_.CreateSourceTexture(*morph_frame.release());
+
+		std::unique_ptr<ImageFrame> mask_frame = absl::make_unique<ImageFrame>(
+			ImageFormat::GRAY8, width, height,
+			ImageFrame::kGlDefaultAlignmentBoundary);
+		m_mask_imgs[0].copyTo(formats::MatView(mask_frame.get()));
+		auto mask_tex_right = gpu_helper_.CreateSourceTexture(*mask_frame.release());
+
 	  // Run recolor shader on GPU.
   {
     gpu_helper_.BindFramebuffer(dst_tex);  // GL_TEXTURE0
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(img_tex.target(), img_tex.name());
+	
+	if(!m_morph_imgs.empty()){
 
-//   glUniform1i(glGetUniformLocation(program_, "morph_left"), 2);
-//   glUniform1i(glGetUniformLocation(program_, "morph_right"), 3);
-//   glUniform1i(glGetUniformLocation(program_, "mask_left"), 4);
-//   glUniform1i(glGetUniformLocation(program_, "mask_right"), 5);
+		glActiveTexture(GL_TEXTURE1);
+    	glBindTexture(morph_tex_right.target(), morph_tex_right.name());
+
+		glActiveTexture(GL_TEXTURE2);
+    	glBindTexture(mask_tex_right.target(), mask_tex_right.name());
+	}
 
     GlRender();
+	glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+	glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glFlush();
-  }
 
+  	glUniform4f(glGetUniformLocation(program_, "u_rect_right"), m_dest_rects[0][0], m_dest_rects[0][1], m_dest_rects[0][2], m_dest_rects[0][3]);
+  	glUniform4f(glGetUniformLocation(program_, "u_rect_left"), m_dest_rects[1][0], m_dest_rects[1][1], m_dest_rects[1][2], m_dest_rects[1][3]);
+	glFlush();
+  }
+	
 	// Send result image in GPU packet.
 	auto output = dst_tex.GetFrame<mediapipe::GpuBuffer>();
 	cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
@@ -320,6 +347,7 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 	// Cleanup
 	img_tex.Release();
 	dst_tex.Release();
+	
 
 	return ::mediapipe::OkStatus();
 }
@@ -411,15 +439,15 @@ void EarRegionsMarkerCalculator::GlRender() {
 
     in vec2 sample_coordinate;
     uniform sampler2D frame;
-    // uniform sampler2D morph_left, morph_right;
-    // uniform sampler2D mask_left, mask_right;
+    uniform sampler2D morph_right;//morph_left
+    uniform sampler2D mask_right;//mask_left
 
 	uniform vec4 u_rect_right;
 	uniform vec4 u_rect_left;
 
-	bool inRect(vec2 lt, vec2 sz, vec2 pos){
+	bool inRect(vec2 lb, vec2 sz, vec2 pos){
 		if(sz.x < .0 || sz.y < .0) return false;
-		return !(pos.x < lt.x || pos.x > lt.x+sz.x || pos.y > lt.y || pos.y < lt.y-sz.y);
+		return (pos.x > lb.x && pos.x < lb.x+sz.x && pos.y > lb.y && pos.y < lb.y+sz.y);
 	}
     void main() {
 		vec4 fore_value = texture2D(frame, sample_coordinate);
@@ -431,12 +459,16 @@ void EarRegionsMarkerCalculator::GlRender() {
 		// 	fragColor = texture2D(morph_left, sample_coordinate) * maskv + fore_value * (1.0-maskv);
 		// 	return;
 		// }
-		// if(inRect(u_rect_right.xy, u_rect_right.zw, sample_coordinate)){
-		// 	vec2 sp = sample_coordinate - u_rect_right.xy;
-		// 	float maskv = texture2D(mask_right, sp).r;
-		// 	fragColor = texture2D(morph_right, sample_coordinate) * maskv + fore_value * (1.0-maskv);
-		// 	return;
-		// }
+		if(inRect(u_rect_right.xy, u_rect_right.zw, sample_coordinate)){
+			vec2 sp = (sample_coordinate - u_rect_right.xy) / u_rect_right.zw;
+
+			float maskv = texture2D(mask_right, sp);
+			// fragColor = vec4(maskv, .0,.0,1.0);
+			
+			fragColor = vec4(texture2D(morph_right, sp).rgb, 1.0) * maskv + fore_value * (1.0-maskv);
+			// fragColor = vec4(1.0,1.0,.0,1.0);
+			return;
+		}
 
 		fragColor = fore_value;
     }
@@ -450,12 +482,9 @@ void EarRegionsMarkerCalculator::GlRender() {
   glUseProgram(program_);
   glUniform1i(glGetUniformLocation(program_, "frame"), 0);
 //   glUniform1i(glGetUniformLocation(program_, "morph_left"), 2);
-//   glUniform1i(glGetUniformLocation(program_, "morph_right"), 3);
+  glUniform1i(glGetUniformLocation(program_, "morph_right"), 1);
 //   glUniform1i(glGetUniformLocation(program_, "mask_left"), 4);
-//   glUniform1i(glGetUniformLocation(program_, "mask_right"), 5);
-
-  glUniform4f(glGetUniformLocation(program_, "u_rect_right"), m_dest_rects[0][0], m_dest_rects[0][1], m_dest_rects[0][2], m_dest_rects[0][3]);
-  glUniform4f(glGetUniformLocation(program_, "u_rect_left"), m_dest_rects[1][0], m_dest_rects[1][1], m_dest_rects[1][2], m_dest_rects[1][3]);
+  glUniform1i(glGetUniformLocation(program_, "mask_right"), 2);
 
   return ::mediapipe::OkStatus();
 }
@@ -517,17 +546,25 @@ void EarRegionsMarkerCalculator::morph_recolor_image(cv::Mat& dest_img, const fl
 		
 		morphTriangle(img_recolor_resized, dest_img, imgMorph, t1, t2, t, kBlendAlpha);
 	}
+
+	imgMorph.convertTo(imgMorph, CV_8UC3);
+
 	m_morph_imgs.push_back(imgMorph);
+	
 
 	cv::Mat morph_gray, thresh;
 	cv::cvtColor(imgMorph, morph_gray, cv::COLOR_BGR2GRAY);
 	cv::threshold(morph_gray, thresh, 50, 255, cv::THRESH_BINARY);
 
+	thresh.convertTo(thresh, CV_8U);
 	m_mask_imgs.push_back(thresh);
 
 	// cv::imwrite( "debug_out/morph_" + std::to_string(gid) +".png" , imgMorph);
-	// cv::imwrite( "debug_out/mask_" + std::to_string(gid) +".png" , m_mask_imgs.back());
+	// cv::imwrite( "debug_out/mask_" + std::to_string(gid) +".png" , thresh);
 	// gid++;
+	  //create morph and mask texture
+
+	
 
 }
 void EarRegionsMarkerCalculator::project_landmarks(NormalizedRect& input_rect, NormalizedLandmarkList& input_landmarks, NormalizedLandmarkList& output_landmarks){

@@ -435,15 +435,15 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     //     glm::vec2((ear_rects[i].centerX - 0.5)*2.0f, -(0.5f-ear_rects[i].centerY)*2.0f), 
     //     GL_TRIANGLES);
 
-    int ear_landmark_num = 55;
+    // int ear_landmark_num = 55;
     
-    if(right_ear_data == nullptr)right_ear_data = new float [3 * ear_landmark_num];
-    for(int i=0;i<ear_landmark_num;i++){
-        right_ear_data[3*i] = ear_points[3*i];
-        right_ear_data[3*i+1] = ear_points[3*i+1];
-        // std::cout<<right_ear_data[3*i]<<","<<right_ear_data[3*i+1]<<std::endl;  
-    }
-    right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
+    // if(right_ear_data == nullptr)right_ear_data = new float [3 * ear_landmark_num];
+    // for(int i=0;i<ear_landmark_num;i++){
+    //     right_ear_data[3*i] = ear_points[3*i];
+    //     right_ear_data[3*i+1] = ear_points[3*i+1];
+    //     // std::cout<<right_ear_data[3*i]<<","<<right_ear_data[3*i+1]<<std::endl;  
+    // }
+    // right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
 
   /*
     #ifdef __ANDROID__
