@@ -32,6 +32,14 @@ namespace {
     const static int refNoseUpDownIdxs[6] = {
         6,197,195,5,4,1
     };
+    const static int refPoseEstimation[6] = {
+        1,//Nose tip
+        175,//Chin (199,152)
+        263,//left eye left
+        33,//right eye right
+        291,//left mouth corner
+        61//right mouth corner
+    };
 }  // namespace
 
 class EarRectsFromFaceLandmarksCalculator : public CalculatorBase {
@@ -41,6 +49,7 @@ class EarRectsFromFaceLandmarksCalculator : public CalculatorBase {
 //   ::mediapipe::Status Open(CalculatorContext* cc) override;
   ::mediapipe::Status Process(CalculatorContext* cc) override;
 //   ::mediapipe::Status Close(CalculatorContext* cc) override;
+int gid = 0;
 };
 REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 
@@ -98,6 +107,16 @@ std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, flo
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
 
+        // std::string str = "";
+        // for(int i=0; i<6;i++){
+        //     auto lm = landmarks.landmark(refPoseEstimation[i]);
+        //     str += std::to_string(lm.x()) +", " +std::to_string(lm.y()) + ", ";
+        // }
+        // std::cout<<gid++<<": "<<str<<std::endl;
+
+
+
+
         auto nt = landmarks.landmark(refNoseUpDownIdxs[0]);
         auto nb = landmarks.landmark(refNoseUpDownIdxs[5]);
 
@@ -115,7 +134,14 @@ std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, flo
         if(head_up){
             res[0]*=1.2f; res[3]+=0.05f;
         }
+
         int i=0;
+        // norm_rects->at(i).set_height(1.0);
+        // norm_rects->at(i).set_width(1.0);
+        // norm_rects->at(i).set_x_center(0.5);//center is 0.5
+        // norm_rects->at(i).set_y_center(0.5);//h_mid);//
+
+        
         norm_rects->at(i).set_height(res[0]);
         norm_rects->at(i).set_width(res[1]);
         norm_rects->at(i).set_x_center(res[2]);//center is 0.5

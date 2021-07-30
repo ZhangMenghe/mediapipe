@@ -47,7 +47,7 @@ namespace {
 	const float kTemplateLandmarks[110]={
 		205.0f, 100.0f, 175.0f, 61.0f, 140.0f, 28.0f, 97.0f, 17.0f, 57.0f, 37.0f, 34.0f, 71.0f, 23.0f, 109.0f, 17.0f, 151.0f, 16.0f, 193.0f, 15.0f, 235.0f, 14.0f, 272.0f, 23.0f, 312.0f, 37.0f, 342.0f, 51.0f, 378.0f, 76.0f, 412.0f, 99.0f, 435.0f, 128.0f, 458.0f, 160.0f, 465.0f, 191.0f, 462.0f, 210.0f, 444.0f, 174.0f, 208.0f, 176.0f, 171.0f, 171.0f, 129.0f, 152.0f, 95.0f, 129.0f, 71.0f, 96.0f, 59.0f, 66.0f, 73.0f, 49.0f, 106.0f, 42.0f, 143.0f, 41.0f, 180.0f, 39.0f, 217.0f, 37.0f, 248.0f, 41.0f, 284.0f, 55.0f, 314.0f, 74.0f, 344.0f, 188.0f, 238.0f, 175.0f, 265.0f, 173.0f, 297.0f, 186.0f, 321.0f, 189.0f, 347.0f, 157.0f, 340.0f, 138.0f, 306.0f, 105.0f, 299.0f, 77.0f, 281.0f, 64.0f, 251.0f, 71.0f, 219.0f, 89.0f, 190.0f, 114.0f, 183.0f, 139.0f, 175.0f, 165.0f, 172.0f, 48.0f, 200.0f, 60.0f, 162.0f, 72.0f, 135.0f, 80.0f, 103.0f, 98.0f, 80.0f
 	};
-	constexpr char kRecolorFileName[] = "crop_ear_recolor.jpg";
+	constexpr char kRecolorFileName[] = "crop_ear_recolor_ato.jpg";
 	const int kTemplateWidth = 226;
 	const int kTemplateHeight = 475;
 	const int kLandmarkNum = 55;
