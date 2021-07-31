@@ -9,18 +9,22 @@ cc_library(
     srcs = ["ear_rects_from_face_landmarks_calculator.cc"],
     visibility = ["//visibility:public"],
     deps = [
-        # "//mediapipe/calculators/util:detections_to_rects_calculator",
-        # "//mediapipe/calculators/util:detections_to_rects_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_options_cc_proto",
-        "//mediapipe/framework/formats:detection_cc_proto",
+        # "//mediapipe/framework/formats:detection_cc_proto",
         "//mediapipe/framework/formats:location_data_cc_proto",
         "//mediapipe/framework/formats:rect_cc_proto",
         "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
+
         "//mediapipe/gpu:gl_calculator_helper",
 
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_imgcodecs",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
     ],
     alwayslink = 1,
 )

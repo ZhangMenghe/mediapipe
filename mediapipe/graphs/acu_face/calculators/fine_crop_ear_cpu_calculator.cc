@@ -132,7 +132,7 @@ REGISTER_CALCULATOR(FineCropEarCpuCalculator);
     }
     cc->Outputs().Tag(kEarNormRectTag).Add(output_rect.release(), cc->InputTimestamp());
 
-    // cv::imwrite( "debug_out/crop_" + std::to_string(id++) +".png" , frame);
+    cv::imwrite( "debug_out/crop_" + std::to_string(id++) +".png" , frame);
     auto output_img = absl::make_unique<ImageFrame>(img.Format(), frame.cols, frame.rows);
     cv::Mat output_mat = mediapipe::formats::MatView(output_img.get());
     frame.copyTo(output_mat);

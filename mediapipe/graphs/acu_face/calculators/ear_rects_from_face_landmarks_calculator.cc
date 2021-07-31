@@ -2,6 +2,12 @@
 #include <cmath>
 
 #include "mediapipe/framework/calculator_framework.h"
+#include "mediapipe/framework/formats/image_frame.h"
+#include "mediapipe/framework/formats/image_frame_opencv.h"
+#include "mediapipe/framework/port/opencv_core_inc.h"
+#include "mediapipe/framework/port/opencv_imgcodecs_inc.h"
+#include "mediapipe/framework/port/opencv_imgproc_inc.h"
+
 #include "mediapipe/framework/calculator_options.pb.h"
 #include "mediapipe/framework/formats/location_data.pb.h"
 #include "mediapipe/framework/formats/rect.pb.h"
@@ -44,15 +50,31 @@ namespace {
 
 class EarRectsFromFaceLandmarksCalculator : public CalculatorBase {
  public:
-  static ::mediapipe::Status GetContract(CalculatorContract* cc);
+    EarRectsFromFaceLandmarksCalculator() = default;
+    ~EarRectsFromFaceLandmarksCalculator() override = default;
+    static ::mediapipe::Status GetContract(CalculatorContract* cc);
 
-//   ::mediapipe::Status Open(CalculatorContext* cc) override;
+  ::mediapipe::Status Open(CalculatorContext* cc) override;
   ::mediapipe::Status Process(CalculatorContext* cc) override;
+  
 //   ::mediapipe::Status Close(CalculatorContext* cc) override;
-int gid = 0;
+private:
+	mediapipe::GlCalculatorHelper gpu_helper_;
+    int gid = 0;
+    cv::Mat m_frame;
+	::mediapipe::Status ProcessGpu(CalculatorContext* cc);
+	::mediapipe::Status ProcessFrame(CalculatorContext* cc);
+
 };
 REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
 
+::mediapipe::Status EarRectsFromFaceLandmarksCalculator::Open(CalculatorContext* cc){
+	cc->SetOffset(TimestampDiff(0));
+	// if (cc->Inputs().HasTag(kGpuBufferTag))
+        MP_RETURN_IF_ERROR(gpu_helper_.Open(cc));
+
+	return ::mediapipe::OkStatus();
+}
 
 // static
 ::mediapipe::Status EarRectsFromFaceLandmarksCalculator::GetContract(CalculatorContract* cc) {
@@ -70,12 +92,43 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
     if (cc->Inputs().HasTag(kNormRectsTag))
 	    cc->Inputs().Tag(kNormRectsTag).Set<std::vector<NormalizedRect>>();
 
+    //Output img
+    cc->Outputs().Tag("IMAGE").Set<ImageFrame>();
+
     //Output rects
     if(cc->Outputs().HasTag(kEarNormRectsTag))
         cc->Outputs().Tag(kEarNormRectsTag).Set<std::vector<NormalizedRect>>();
+ 	  MP_RETURN_IF_ERROR(mediapipe::GlCalculatorHelper::UpdateContract(cc));
     
     return ::mediapipe::OkStatus();
 }
+
+
+::mediapipe::Status EarRectsFromFaceLandmarksCalculator::ProcessFrame(CalculatorContext* cc) {
+	const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
+	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
+	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
+    
+    auto frame_width = img_tex.width();
+    auto frame_height = img_tex.height();
+
+    std::unique_ptr<ImageFrame> frame = absl::make_unique<ImageFrame>(
+        ImageFormatForGpuBufferFormat(input_buffer.format()), 
+        frame_width, frame_height, ImageFrame::kGlDefaultAlignmentBoundary);
+
+    gpu_helper_.BindFramebuffer(img_tex);
+    const auto info = GlTextureInfoForGpuBufferFormat(input_buffer.format(), 0);
+    glReadPixels(0, 
+                0,
+                frame_width, 
+                frame_height, 
+                info.gl_format,
+                info.gl_type, frame->MutablePixelData());
+    glFlush();
+    m_frame = mediapipe::formats::MatView(frame.release());
+    return ::mediapipe::OkStatus();
+}
+
 std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy){
     // float a1 = ay - cy, a2 = by-dy;
     // float b1 = ax - cx, b2 = bx - dx;
@@ -99,10 +152,20 @@ std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, flo
     return std::vector<float>{height, width ,centerX, centerY};
 }
 ::mediapipe::Status EarRectsFromFaceLandmarksCalculator::Process(CalculatorContext* cc) {
+    MP_RETURN_IF_ERROR(
+    gpu_helper_.RunInGlContext([this, &cc]() -> ::mediapipe::Status {
+        MP_RETURN_IF_ERROR(ProcessGpu(cc));
+        return ::mediapipe::OkStatus();
+    }));
+    return ::mediapipe::OkStatus();
+}
+::mediapipe::Status EarRectsFromFaceLandmarksCalculator::ProcessGpu(CalculatorContext* cc){
     int ear_num = (cc->Inputs().HasTag(kInputLandMarksVectorTag) && !cc->Inputs().Tag(kInputLandMarksVectorTag).IsEmpty())?1:0;
     auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(ear_num);
 
     if(ear_num > 0){
+        ProcessFrame(cc);
+
         //norm landmark, width/height .0 ~ 1.0,
 		auto& nlandmarks_vec = cc->Inputs().Tag(kInputLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
 		auto landmarks = nlandmarks_vec[0];
@@ -113,9 +176,6 @@ std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, flo
         //     str += std::to_string(lm.x()) +", " +std::to_string(lm.y()) + ", ";
         // }
         // std::cout<<gid++<<": "<<str<<std::endl;
-
-
-
 
         auto nt = landmarks.landmark(refNoseUpDownIdxs[0]);
         auto nb = landmarks.landmark(refNoseUpDownIdxs[5]);
@@ -176,7 +236,14 @@ std::vector<float> getEarBoundingBox(float ax, float ay, float bx, float by, flo
     cc->Outputs()
         .Tag(kEarNormRectsTag)
         .Add(norm_rects.release(), cc->InputTimestamp());
-              
+
+    // cv::Mat frame = cv::imread("/home/eevee/Github/acu-face-render/assets/tmp.png", 1);
+    auto output_img = absl::make_unique<ImageFrame>(ImageFormat::SRGB, m_frame.cols, m_frame.rows);
+    cv::Mat output_mat = mediapipe::formats::MatView(output_img.get());
+    m_frame.copyTo(output_mat);
+
+    cc->Outputs().Tag("IMAGE").Add(output_img.release(), cc->InputTimestamp());
+
     return ::mediapipe::OkStatus();
 }
 

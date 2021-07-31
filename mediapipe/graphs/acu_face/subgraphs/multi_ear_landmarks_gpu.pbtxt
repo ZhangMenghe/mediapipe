@@ -26,7 +26,7 @@ node {
 
 node {
   calculator: "EarLandmarkSubgraph"
-  input_stream: "IMAGE_GPU:input_video_cloned"
+  input_stream: "IMAGE:input_video_cloned"
   input_stream: "NORM_RECT:single_ear_rect"
   output_stream: "NORM_LANDMARKS:single_ear_landmarks"
   output_stream: "NORM_RECT:single_ear_rect_from_landmarks"

@@ -2,33 +2,33 @@
 
 type: "earLandmarkSubgraph"
 
-input_stream: "IMAGE_GPU:input_video"
+input_stream: "IMAGE:input_video"
 input_stream: "NORM_RECT:ear_rect"
 output_stream: "NORM_LANDMARKS:ear_landmarks"
 output_stream: "NORM_RECT:ear_rect_fine_crop"
 output_stream: "PRESENCE:ear_presence"
 
 # Crops the rectangle that contains a ear from the input image.
-node: {
-  calculator: "ImageCroppingCalculator"
-  input_stream: "IMAGE_GPU:input_video"
-  input_stream: "NORM_RECT:ear_rect"
-  output_stream: "IMAGE_GPU:ear_image"
-  node_options: {
-    [type.googleapis.com/mediapipe.ImageCroppingCalculatorOptions] {
-      border_mode: BORDER_REPLICATE
-    }
-  }
-}
+#node: {
+#  calculator: "ImageCroppingCalculator"
+#  input_stream: "IMAGE_GPU:input_video"
+#  input_stream: "NORM_RECT:ear_rect"
+ # output_stream: "IMAGE_GPU:ear_image"
+ # node_options: {
+ #   [type.googleapis.com/mediapipe.ImageCroppingCalculatorOptions] {
+#      border_mode: BORDER_REPLICATE
+ #   }
+ # }
+#}
 ## For debug only: output cropped rect of rough ear
-node: {
-  calculator: "GpuBufferToImageFrameCalculator"
-  input_stream: "ear_image"
-  output_stream: "ear_image_cpu"
-}
+#node: {
+#  calculator: "GpuBufferToImageFrameCalculator"
+#  input_stream: "ear_image"
+#  output_stream: "ear_image_cpu"
+#}
 node: {
   calculator: "FineCropEarCpuCalculator"
-  input_stream: "ear_image_cpu"
+  input_stream: "input_video"
   input_stream: "NORM_RECT:ear_rect"
   output_stream: "fine_cropped_cpu"
   output_stream: "NORM_RECT:ear_rect_fine_crop"

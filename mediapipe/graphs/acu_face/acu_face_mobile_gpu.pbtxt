@@ -190,10 +190,11 @@ node {
   input_stream: "VECTOR:multi_face_landmarks"
   input_stream: "NORM_RECTS:face_rects_from_landmarks"
   output_stream: "NORM_RECTS_EAR:ear_rects_from_face"
+  output_stream: "IMAGE:cropped_ear_image"
 }
 node {
   calculator: "MultiEarLandmarksSubgraph"
-  input_stream: "IMAGE:throttled_input_video"
+  input_stream: "IMAGE:cropped_ear_image"
   input_stream: "NORM_RECTS:ear_rects_from_face"
   output_stream: "LANDMARKS:multi_ear_landmarks"
   output_stream: "NORM_RECTS:multi_ear_rects_from_landmarks"
