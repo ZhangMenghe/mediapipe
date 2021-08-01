@@ -23,6 +23,7 @@ cc_library(
         "//mediapipe/framework/port:opencv_core",
         "//mediapipe/framework/port:opencv_imgproc",
         "//mediapipe/framework/port:opencv_imgcodecs",
+        "//mediapipe/framework/port:opencv_calib3d",
         "//mediapipe/framework/formats:image_frame",
         "//mediapipe/framework/formats:image_frame_opencv",
     ],
