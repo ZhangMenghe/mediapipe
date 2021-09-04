@@ -240,13 +240,15 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
 		int id = 0;
 		for(auto rect:rects){
+			if(rect.width() == 0)continue;
+
 			float xoff = rect.x_center() - 0.5f*rect.width();
 			float yoff = rect.y_center() - 0.5f*rect.height();
 			m_dest_rects[id][0]=xoff; m_dest_rects[id][1]=yoff; m_dest_rects[id][2]=rect.width();m_dest_rects[id][3]=rect.height();
 			id++;
 			auto frame_width = rect.width()* img_tex.width();
 			auto frame_height = rect.height()* img_tex.height();
-
+			
 			std::unique_ptr<ImageFrame> frame = absl::make_unique<ImageFrame>(
 				ImageFormatForGpuBufferFormat(input_buffer.format()), 
 				frame_width, frame_height, ImageFrame::kGlDefaultAlignmentBoundary);
@@ -262,6 +264,12 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 			glFlush();
 			dest_imgs.push_back( mediapipe::formats::MatView(frame.release()));
 			// cv::imwrite( "debug_out/crop_" + std::to_string(gid++) +".png" , dest_imgs.back());
+		}
+		if(dest_imgs.empty()){
+			cc->Outputs().Tag(kGpuBufferTag).AddPacket(input_packet);
+			img_tex.Release();
+			dst_tex.Release();
+			return ::mediapipe::OkStatus();
 		}
 	}
 
