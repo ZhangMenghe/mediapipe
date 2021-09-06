@@ -197,7 +197,8 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
     bool right_valid = rotation_vector.at<double>(0,1)<0.1;
     bool left_valid = rotation_vector.at<double>(0,1)>-0.1;
 
-    auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(right_valid&&left_valid?2:1);
+    // auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(right_valid&&left_valid?2:1);
+    auto norm_rects = absl::make_unique<std::vector<NormalizedRect>>(2);
     
     auto nt = landmarks.landmark(refNoseUpDownIdxs[0]);
     auto nb = landmarks.landmark(refNoseUpDownIdxs[5]);
@@ -232,11 +233,11 @@ REGISTER_CALCULATOR(EarRectsFromFaceLandmarksCalculator);
         ));
     }
     if(left_valid){
-        norm_rects->at(1).set_height(1.0);
-        norm_rects->at(1).set_width(1.0);
+        norm_rects->at(1).set_height(.0);
+        norm_rects->at(1).set_width(.0);
         norm_rects->at(1).set_x_center(0.5);//center is 0.5
         norm_rects->at(1).set_y_center(0.5);//h_mid);//
-        norm_rects->at(0).set_rect_id(LEFT_EAR_RECT);
+        norm_rects->at(1).set_rect_id(LEFT_EAR_RECT);
     }
 
     cc->Outputs()
