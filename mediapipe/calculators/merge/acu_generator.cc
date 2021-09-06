@@ -68,7 +68,7 @@ float acuGenerator::calculate_from_string(std::string s) {
 }
 bool acuGenerator::getXY(std::string content, float&r1, float&r2, int& pid){
     int tid = pid;
-    while(content[tid++]!='(');
+    while(tid<content.size() && content[tid++]!='(');
     // std::cout<<"func name :"<<tid<<"-"<<pid<<" "<<content.substr(pid, tid-pid-1)<<std::endl;
     auto func_name = content.substr(pid, tid-pid-1);
     auto it = std::find(unit_functions.begin(), unit_functions.end(), func_name);
@@ -282,12 +282,13 @@ void acuGenerator::onSetup(std::string shader_path){
     auto stop = high_resolution_clock::now(); 
     auto duration = duration_cast<microseconds>(stop - start); 
 
-    #ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===setup %d", duration.count());
-    #else
-        std::cout<<"setup "<<duration.count()<<std::endl;
-    #endif
-    prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
+    // #ifdef __ANDROID__
+    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===setup %d", duration.count());
+    // #else
+    //     std::cout<<"setup "<<duration.count()<<std::endl;
+    // #endif
+    prenderer = new PointRenderer(glm::vec4(1.0,.5,.0,1.0));
+    all_prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
     right_ear_renderer = new PointRenderer(glm::vec4(1.0,0.2,.0,1.0));
 
     for(auto &m: meridian_map)
@@ -411,7 +412,13 @@ bool acuGenerator::cal_unit_size(cv::Mat hair_mask, const float* points){
     R_prime = glm::inverse(R);
     return true;
 }
-
+void acuGenerator::draw_markers(const float* points){
+    for(int i=0;i<468;i++){
+        all_data[3*i] = points[3*i];//*2.0-1.0;
+        all_data[3*i+1] = points[3*i+1];//*2.0-1.0;
+    }
+    all_prenderer->Draw(all_data, 468, GL_POINTS);
+}
 /*points contains 468 vertices each with x,y,z ranging[0,1], x increase to right, y increase to bottom*/
 // void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
 void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points, const float* ear_points){
@@ -420,6 +427,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     auto duration = duration_cast<microseconds>(stop - last_time); 
     last_time = stop;
 
+    draw_markers(points);
 
     // draw all 468 points
     // data_num = 468;
@@ -429,7 +437,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     //     pdata_[3*i+1] = points[3*i+1];//*2.0-1.0;
     // }
     // prenderer->Draw(pdata_, data_num, GL_POINTS);
-    // // int num_ears = std::min(2, ear_rects.size());
+    // int num_ears = std::min(2, ear_rects.size());
     // for(int i=0;i<ear_rects.size();i++)m_quad_renderers[i]->Draw(
     //     glm::vec2(ear_rects[i].width, ear_rects[i].height), 
     //     glm::vec2((ear_rects[i].centerX - 0.5)*2.0f, -(0.5f-ear_rects[i].centerY)*2.0f), 
@@ -445,12 +453,11 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     // }
     // right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
 
-  /*
-    #ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
-    #else
-        std::cout<<"time "<<duration.count()<<std::endl;
-    #endif
+    // #ifdef __ANDROID__
+    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    // #else
+    //     std::cout<<"time "<<duration.count()<<std::endl;
+    // #endif
 
 
   
@@ -510,7 +517,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
         moffset+=meridian_num_map[tc];
         line_renderers[tc]->Draw(pdata_+roffset, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
     }
-    */
+    
 
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */

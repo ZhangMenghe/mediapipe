@@ -78,13 +78,15 @@ private:
 	std::unordered_map<std::string, int> meridian_num_map;
 
 	float* pdata_ = nullptr, *right_ear_data = nullptr;
+	float all_data[468*3];
+
 	unsigned short* pind = nullptr;
 	int data_num = 0;
 	float cos_theta, sin_theta;
 	glm::mat2 R, R_prime;
 	glm::vec2 mps[468];
 
-	PointRenderer* prenderer, *right_ear_renderer;
+	PointRenderer *prenderer, *all_prenderer, *right_ear_renderer;
 	std::vector<QuadRenderer*> m_quad_renderers;
 	std::unordered_map<std::string, PointRenderer*> line_renderers;
 
@@ -100,6 +102,7 @@ private:
 	void gen_mapped_points(std::map<std::string,acuPoint> mp, int& num);
 	void gen_all_points(const float* points,int& data_num);
 	bool cal_unit_size(cv::Mat hair_mask, const float* points);
+	void draw_markers(const float* points);
 public:
     static acuGenerator* instance();
 	void clearTarget(){target_channels.clear();}
