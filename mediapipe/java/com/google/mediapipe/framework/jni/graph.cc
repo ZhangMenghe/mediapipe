@@ -29,7 +29,6 @@
 #include "mediapipe/framework/port/threadpool.h"
 #include "mediapipe/framework/tool/executor_util.h"
 #include "mediapipe/framework/tool/name_util.h"
-#include "mediapipe/gpu/gpu_shared_data_internal.h"
 #include "mediapipe/gpu/graph_support.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/class_registry.h"
 #include "mediapipe/java/com/google/mediapipe/framework/jni/jni_util.h"
@@ -41,6 +40,7 @@
 #endif  // __ANDROID__
 #if !MEDIAPIPE_DISABLE_GPU
 #include "mediapipe/gpu/egl_surface_holder.h"
+#include "mediapipe/gpu/gpu_shared_data_internal.h"
 #endif  // !MEDIAPIPE_DISABLE_GPU
 
 namespace mediapipe {
@@ -370,6 +370,7 @@ void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
   jmethodID processMethod = env->GetMethodID(
       callback_cls, process_method_name.c_str(), "(Ljava/util/List;)V");
 
+  // TODO: move to register natives.
   jclass list_cls = env->FindClass("java/util/ArrayList");
   jobject java_list =
       env->NewObject(list_cls, env->GetMethodID(list_cls, "<init>", "()V"));
@@ -392,6 +393,7 @@ void Graph::CallbackToJava(JNIEnv* env, jobject java_callback_obj,
     RemovePacket(packet_handle);
   }
   env->DeleteLocalRef(callback_cls);
+  env->DeleteLocalRef(list_cls);
   env->DeleteLocalRef(java_list);
   VLOG(2) << "Returned from java callback.";
 }
@@ -447,11 +449,13 @@ absl::Status Graph::StartRunningGraph(JNIEnv* env) {
   }
   absl::Status status;
 #if !MEDIAPIPE_DISABLE_GPU
-  status = running_graph_->SetGpuResources(gpu_resources_);
-  if (!status.ok()) {
-    LOG(ERROR) << status.message();
-    running_graph_.reset(nullptr);
-    return status;
+  if (gpu_resources_) {
+    status = running_graph_->SetGpuResources(gpu_resources_);
+    if (!status.ok()) {
+      LOG(ERROR) << status.message();
+      running_graph_.reset(nullptr);
+      return status;
+    }
   }
 #endif  // !MEDIAPIPE_DISABLE_GPU
 
@@ -570,19 +574,21 @@ void Graph::SetGraphInputStreamAddMode(
   graph_input_stream_add_mode_ = mode;
 }
 
+#if !MEDIAPIPE_DISABLE_GPU
 mediapipe::GpuResources* Graph::GetGpuResources() const {
   return gpu_resources_.get();
 }
+#endif  // !MEDIAPIPE_DISABLE_GPU
 
 absl::Status Graph::SetParentGlContext(int64 java_gl_context) {
+#if MEDIAPIPE_DISABLE_GPU
+  LOG(FATAL) << "GPU support has been disabled in this build!";
+#else
   if (gpu_resources_) {
     return absl::AlreadyExistsError(
         "trying to set the parent GL context, but the gpu shared "
         "data has already been set up.");
   }
-#if MEDIAPIPE_DISABLE_GPU
-  LOG(FATAL) << "GPU support has been disabled in this build!";
-#else
   ASSIGN_OR_RETURN(gpu_resources_,
                    mediapipe::GpuResources::Create(
                        reinterpret_cast<EGLContext>(java_gl_context)));

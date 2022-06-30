@@ -37,7 +37,6 @@
 #include "mediapipe/framework/tool/proto_util_lite.h"
 
 using mediapipe::proto_ns::Descriptor;
-using mediapipe::proto_ns::DescriptorPool;
 using mediapipe::proto_ns::DynamicMessageFactory;
 using mediapipe::proto_ns::EnumDescriptor;
 using mediapipe::proto_ns::EnumValueDescriptor;
@@ -261,7 +260,7 @@ class TemplateParser::Parser::ParserImpl {
   typedef proto_ns::TextFormat::ParseLocation ParseLocation;
 
   // Determines if repeated values for non-repeated fields and
-  // oneofs are permitted, e.g., the std::string "foo: 1 foo: 2" for a
+  // oneofs are permitted, e.g., the string "foo: 1 foo: 2" for a
   // required/optional field named "foo", or "baz: 1 qux: 2"
   // where "baz" and "qux" are members of the same oneof.
   enum SingularOverwritePolicy {
@@ -402,7 +401,7 @@ class TemplateParser::Parser::ParserImpl {
   }
 
 #ifndef PROTO2_OPENSOURCE
-  // Consumes a std::string value and parses it as a packed repeated field into
+  // Consumes a string value and parses it as a packed repeated field into
   // the given field of the given message.
   bool ConsumePackedFieldAsString(const std::string& field_name,
                                   const FieldDescriptor* field,
@@ -410,7 +409,7 @@ class TemplateParser::Parser::ParserImpl {
     std::string packed;
     DO(ConsumeString(&packed));
 
-    // Prepend field tag and varint-encoded std::string length to turn into
+    // Prepend field tag and varint-encoded string length to turn into
     // encoded message.
     std::string tagged;
     {
@@ -429,7 +428,7 @@ class TemplateParser::Parser::ParserImpl {
     io::CodedInputStream coded_input(&array_input);
     if (!message->MergePartialFromCodedStream(&coded_input)) {
       ReportError("Could not parse packed field \"" + field_name +
-                  "\" as wire-encoded std::string.");
+                  "\" as wire-encoded string.");
       return false;
     }
 
@@ -608,7 +607,7 @@ class TemplateParser::Parser::ParserImpl {
       bool consumed_semicolon = TryConsume(":");
       if (consumed_semicolon && field->options().weak() &&
           LookingAtType(io::Tokenizer::TYPE_STRING)) {
-        // we are getting a bytes std::string for a weak field.
+        // we are getting a bytes string for a weak field.
         std::string tmp;
         DO(ConsumeString(&tmp));
         reflection->MutableMessage(message, field)->ParseFromString(tmp);
@@ -641,8 +640,8 @@ class TemplateParser::Parser::ParserImpl {
 #ifndef PROTO2_OPENSOURCE
     } else if (field->is_packable() &&
                LookingAtType(io::Tokenizer::TYPE_STRING)) {
-      // Packable field printed as wire-formatted std::string: "foo: "abc\123"".
-      // Fields of type std::string cannot be packed themselves, so this is
+      // Packable field printed as wire-formatted string: "foo: "abc\123"".
+      // Fields of type string cannot be packed themselves, so this is
       // unambiguous.
       DO(ConsumePackedFieldAsString(field_name, field, message));
 #endif  // !PROTO2_OPENSOURCE
@@ -909,7 +908,7 @@ class TemplateParser::Parser::ParserImpl {
       }
       return true;
     }
-    // Possible field values other than std::string:
+    // Possible field values other than string:
     //   12345        => TYPE_INTEGER
     //   -12345       => TYPE_SYMBOL + TYPE_INTEGER
     //   1.2345       => TYPE_FLOAT
@@ -993,7 +992,7 @@ class TemplateParser::Parser::ParserImpl {
     return false;
   }
 
-  // Consume a std::string of form "<id1>.<id2>....<idN>".
+  // Consume a string of form "<id1>.<id2>....<idN>".
   bool ConsumeFullTypeName(std::string* name) {
     DO(ConsumeIdentifier(name));
     while (TryConsume(".")) {
@@ -1014,11 +1013,11 @@ class TemplateParser::Parser::ParserImpl {
     return true;
   }
 
-  // Consumes a std::string and saves its value in the text parameter.
+  // Consumes a string and saves its value in the text parameter.
   // Returns false if the token is not of type STRING.
   bool ConsumeString(std::string* text) {
     if (!LookingAtType(io::Tokenizer::TYPE_STRING)) {
-      ReportError("Expected std::string, got: " + tokenizer_.current().text);
+      ReportError("Expected string, got: " + tokenizer_.current().text);
       return false;
     }
 
@@ -1392,7 +1391,7 @@ void StowFieldValue(Message* message, TemplateExpression* expression) {
   }
 }
 
-// Strips first and last quotes from a std::string.
+// Strips first and last quotes from a string.
 static void StripQuotes(std::string* str) {
   // Strip off the leading and trailing quotation marks from the value, if
   // there are any.
@@ -1586,7 +1585,7 @@ class TemplateParser::Parser::MediaPipeParserImpl
     return true;
   }
 
-  // Parses a numeric or a std::string literal.
+  // Parses a numeric or a string literal.
   bool ConsumeLiteral(TemplateExpression* result) {
     std::string token = tokenizer_.current().text;
     StripQuotes(&token);
@@ -1683,8 +1682,8 @@ bool TemplateParser::Parser::Parse(io::ZeroCopyInputStream* input,
       allow_singular_overwrites_ ? ParserImpl::ALLOW_SINGULAR_OVERWRITES
                                  : ParserImpl::FORBID_SINGULAR_OVERWRITES;
 
-  bool allow_unknown_extension = true;
   int recursion_limit = std::numeric_limits<int>::max();
+  bool allow_unknown_extension = false;
   MediaPipeParserImpl parser(
       output->GetDescriptor(), input, error_collector_, finder_,
       parse_info_tree_, overwrites_policy, allow_case_insensitive_field_,
@@ -1702,8 +1701,8 @@ bool TemplateParser::Parser::ParseFromString(const std::string& input,
 
 bool TemplateParser::Parser::Merge(io::ZeroCopyInputStream* input,
                                    Message* output) {
-  bool allow_unknown_extension = true;
   int recursion_limit = std::numeric_limits<int>::max();
+  bool allow_unknown_extension = false;
   MediaPipeParserImpl parser(
       output->GetDescriptor(), input, error_collector_, finder_,
       parse_info_tree_, ParserImpl::ALLOW_SINGULAR_OVERWRITES,
@@ -1737,8 +1736,8 @@ bool TemplateParser::Parser::MergeUsingImpl(
 bool TemplateParser::Parser::ParseFieldValueFromString(
     const std::string& input, const FieldDescriptor* field, Message* output) {
   io::ArrayInputStream input_stream(input.data(), input.size());
-  bool allow_unknown_extension = true;
   int recursion_limit = std::numeric_limits<int>::max();
+  bool allow_unknown_extension = false;
   ParserImpl parser(
       output->GetDescriptor(), &input_stream, error_collector_, finder_,
       parse_info_tree_, ParserImpl::ALLOW_SINGULAR_OVERWRITES,

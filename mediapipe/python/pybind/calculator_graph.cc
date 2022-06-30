@@ -165,8 +165,10 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
                            " can't be the timestamp of a Packet in a stream.")
                   .c_str());
         }
+        py::gil_scoped_release gil_release;
         RaisePyErrorIfNotOk(
-            self->AddPacketToInputStream(stream, packet.At(packet_timestamp)));
+            self->AddPacketToInputStream(stream, packet.At(packet_timestamp)),
+            /**acquire_gil=*/true);
       },
       R"doc(Add a packet to a graph input stream.
 
@@ -288,7 +290,10 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
 
   calculator_graph.def(
       "wait_until_done",
-      [](CalculatorGraph* self) { RaisePyErrorIfNotOk(self->WaitUntilDone()); },
+      [](CalculatorGraph* self) {
+        py::gil_scoped_release gil_release;
+        RaisePyErrorIfNotOk(self->WaitUntilDone(), /**acquire_gil=*/true);
+      },
       R"doc(Wait for the current run to finish.
 
   A blocking call to wait for the current run to finish (block the current
@@ -313,7 +318,10 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
 
   calculator_graph.def(
       "wait_until_idle",
-      [](CalculatorGraph* self) { RaisePyErrorIfNotOk(self->WaitUntilIdle()); },
+      [](CalculatorGraph* self) {
+        py::gil_scoped_release gil_release;
+        RaisePyErrorIfNotOk(self->WaitUntilIdle(), /**acquire_gil=*/true);
+      },
       R"doc(Wait until the running graph is in the idle mode.
 
   Wait until the running graph is in the idle mode, which is when nothing can
@@ -341,7 +349,9 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
   calculator_graph.def(
       "wait_for_observed_output",
       [](CalculatorGraph* self) {
-        RaisePyErrorIfNotOk(self->WaitForObservedOutput());
+        py::gil_scoped_release gil_release;
+        RaisePyErrorIfNotOk(self->WaitForObservedOutput(),
+                            /**acquire_gil=*/true);
       },
       R"doc(Wait until a packet is emitted on one of the observed output streams.
 
@@ -382,7 +392,7 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
         }
         return std::string();
       },
-      R"doc(Combines error messages as a single std::string.
+      R"doc(Combines error messages as a single string.
 
   Examples:
     if graph.has_error():
@@ -399,12 +409,9 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
             stream_name,
             [callback_fn, stream_name](const Packet& packet) {
               absl::MutexLock lock(&callback_mutex);
-              py::gil_scoped_release gil_release;
-              {
-                // Acquires GIL before calling Python callback.
-                py::gil_scoped_acquire gil_acquire;
-                callback_fn(stream_name, packet);
-              }
+              // Acquires GIL before calling Python callback.
+              py::gil_scoped_acquire gil_acquire;
+              callback_fn(stream_name, packet);
               return absl::OkStatus();
             },
             observe_timestamp_bounds));
@@ -439,7 +446,8 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
       "close",
       [](CalculatorGraph* self) {
         RaisePyErrorIfNotOk(self->CloseAllPacketSources());
-        RaisePyErrorIfNotOk(self->WaitUntilDone());
+        py::gil_scoped_release gil_release;
+        RaisePyErrorIfNotOk(self->WaitUntilDone(), /**acquire_gil=*/true);
       },
       R"doc(Close all the input sources and shutdown the graph.)doc");
 

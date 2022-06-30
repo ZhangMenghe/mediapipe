@@ -22,8 +22,6 @@
 #include "mediapipe/framework/port/canonical_errors.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
-#include "mediapipe/framework/stream_handler.pb.h"
-#include "mediapipe/framework/stream_handler/sync_set_input_stream_handler.pb.h"
 #include "mediapipe/framework/tool/container_util.h"
 #include "mediapipe/framework/tool/name_util.h"
 #include "mediapipe/framework/tool/subgraph_expansion.h"
@@ -59,6 +57,11 @@ using mediapipe::SwitchContainerOptions;
 // or contained_node 1, given "ENABLE:false" or "ENABLE:true" respectively.
 // Input-side-packet "ENABLE" and input-stream "SELECT" can also be used
 // similarly to specify the active channel.
+//
+// Note that this container defaults to use ImmediateInputStreamHandler,
+// which can be used to accept infrequent "enable" packets asynchronously.
+// However, it can be overridden to work with DefaultInputStreamHandler,
+// which can be used to accept frequent "enable" packets synchronously.
 class SwitchContainer : public Subgraph {
  public:
   SwitchContainer() = default;
@@ -79,11 +82,10 @@ std::string ChannelName(const std::string& name, int channel) {
 // Returns a SwitchDemuxCalculator node.
 CalculatorGraphConfig::Node* BuildDemuxNode(
     const std::map<TagIndex, std::string>& input_tags,
+    const CalculatorGraphConfig::Node& container_node,
     CalculatorGraphConfig* config) {
   CalculatorGraphConfig::Node* result = config->add_node();
   *result->mutable_calculator() = "SwitchDemuxCalculator";
-  *result->mutable_input_stream_handler()->mutable_input_stream_handler() =
-      "ImmediateInputStreamHandler";
   return result;
 }
 
@@ -93,8 +95,6 @@ CalculatorGraphConfig::Node* BuildMuxNode(
     CalculatorGraphConfig* config) {
   CalculatorGraphConfig::Node* result = config->add_node();
   *result->mutable_calculator() = "SwitchMuxCalculator";
-  *result->mutable_input_stream_handler()->mutable_input_stream_handler() =
-      "ImmediateInputStreamHandler";
   return result;
 }
 
@@ -233,7 +233,7 @@ absl::StatusOr<CalculatorGraphConfig> SwitchContainer::GetConfig(
   ParseTags(container_streams.output_side_packet(), &side_output_tags);
 
   // Add a graph node for the demux, mux.
-  auto demux = BuildDemuxNode(input_tags, &config);
+  auto demux = BuildDemuxNode(input_tags, container_node, &config);
   CopyOptions(container_node, demux);
   ClearContainerOptions(demux);
   demux->add_input_stream("SELECT:gate_select");

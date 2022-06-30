@@ -20,7 +20,6 @@
 #include <functional>
 
 #include "mediapipe/framework/calculator_framework.h"
-#include "mediapipe/framework/deps/message_matchers.h"
 #include "mediapipe/framework/port/gmock.h"
 #include "mediapipe/framework/port/gtest.h"
 #include "mediapipe/framework/port/parse_text_proto.h"
@@ -30,6 +29,11 @@
 namespace mediapipe {
 
 namespace {
+
+constexpr char kOutputTag[] = "OUTPUT";
+constexpr char kEnableTag[] = "ENABLE";
+constexpr char kSelectTag[] = "SELECT";
+constexpr char kSideinputTag[] = "SIDEINPUT";
 
 // Shows validation success for a graph and a subgraph.
 TEST(GraphValidationTest, InitializeGraphFromProtos) {
@@ -323,20 +327,21 @@ TEST(GraphValidationTest, OptionalSubgraphStreamsMismatched) {
 class OptionalSideInputTestCalculator : public CalculatorBase {
  public:
   static absl::Status GetContract(CalculatorContract* cc) {
-    cc->InputSidePackets().Tag("SIDEINPUT").Set<std::string>().Optional();
-    cc->Inputs().Tag("SELECT").Set<int>().Optional();
-    cc->Inputs().Tag("ENABLE").Set<bool>().Optional();
-    cc->Outputs().Tag("OUTPUT").Set<std::string>();
+    cc->InputSidePackets().Tag(kSideinputTag).Set<std::string>().Optional();
+    cc->Inputs().Tag(kSelectTag).Set<int>().Optional();
+    cc->Inputs().Tag(kEnableTag).Set<bool>().Optional();
+    cc->Outputs().Tag(kOutputTag).Set<std::string>();
     return absl::OkStatus();
   }
 
   absl::Status Process(CalculatorContext* cc) final {
     std::string value("default");
-    if (cc->InputSidePackets().HasTag("SIDEINPUT")) {
-      value = cc->InputSidePackets().Tag("SIDEINPUT").Get<std::string>();
+    if (cc->InputSidePackets().HasTag(kSideinputTag)) {
+      value = cc->InputSidePackets().Tag(kSideinputTag).Get<std::string>();
     }
-    cc->Outputs().Tag("OUTPUT").Add(new std::string(value),
-                                    cc->InputTimestamp());
+    cc->Outputs()
+        .Tag(kOutputTag)
+        .Add(new std::string(value), cc->InputTimestamp());
     return absl::OkStatus();
   }
 };
@@ -350,8 +355,8 @@ TEST(GraphValidationTest, OptionalInputNotProvidedForSubgraphCalculator) {
     output_stream: "OUTPUT:output_0"
     node {
       calculator: "OptionalSideInputTestCalculator"
-      input_side_packet: "SIDEINPUT:input_0"  # std::string
-      output_stream: "OUTPUT:output_0"        # std::string
+      input_side_packet: "SIDEINPUT:input_0"  # string
+      output_stream: "OUTPUT:output_0"        # string
     }
   )pb");
 
@@ -361,7 +366,7 @@ TEST(GraphValidationTest, OptionalInputNotProvidedForSubgraphCalculator) {
     output_stream: "OUTPUT:foo_out"
     node {
       calculator: "PassThroughGraph"
-      output_stream: "OUTPUT:foo_out"  # std::string
+      output_stream: "OUTPUT:foo_out"  # string
     }
   )pb");
 
@@ -401,10 +406,10 @@ TEST(GraphValidationTest, MultipleOptionalInputsForSubgraph) {
     output_stream: "OUTPUT:output_0"
     node {
       calculator: "OptionalSideInputTestCalculator"
-      input_side_packet: "SIDEINPUT:input_0"  # std::string
+      input_side_packet: "SIDEINPUT:input_0"  # string
       input_stream: "SELECT:select"
       input_stream: "ENABLE:enable"
-      output_stream: "OUTPUT:output_0"  # std::string
+      output_stream: "OUTPUT:output_0"  # string
     }
   )pb");
 
@@ -416,7 +421,7 @@ TEST(GraphValidationTest, MultipleOptionalInputsForSubgraph) {
     node {
       calculator: "PassThroughGraph"
       input_stream: "SELECT:foo_select"
-      output_stream: "OUTPUT:foo_out"  # std::string
+      output_stream: "OUTPUT:foo_out"  # string
     }
   )pb");
 

@@ -204,6 +204,8 @@ absl::Status InputStreamManager::SetNextTimestampBound(const Timestamp bound,
     // untimed scheduling policies.
     if (bound > next_timestamp_bound_) {
       next_timestamp_bound_ = bound;
+      VLOG(3) << "Next timestamp bound for input " << name_ << " is "
+              << next_timestamp_bound_;
       if (queue_.empty()) {
         // If the queue was not empty then a change to the next_timestamp_bound_
         // is not detectable by the consumer.
@@ -327,6 +329,11 @@ Packet InputStreamManager::PopQueueHead(bool* stream_is_done) {
     becomes_not_full_callback_(this, &last_reported_stream_full_);
   }
   return packet;
+}
+
+int InputStreamManager::NumPacketsAdded() const {
+  absl::MutexLock lock(&stream_mutex_);
+  return num_packets_added_;
 }
 
 int InputStreamManager::QueueSize() const {

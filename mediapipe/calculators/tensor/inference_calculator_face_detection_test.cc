@@ -75,9 +75,10 @@ const std::vector<Param>& GetParams() {
 class InferenceCalculatorTest : public testing::TestWithParam<Param> {
  protected:
   void SetDelegateForParam(mediapipe::CalculatorGraphConfig_Node* node) {
-    *node->mutable_options()
-         ->MutableExtension(mediapipe::InferenceCalculatorOptions::ext)
-         ->mutable_delegate() = GetParam().delegate;
+    auto options_map = tool::MutableOptionsMap().Initialize(*node);
+    auto options = options_map.Get<mediapipe::InferenceCalculatorOptions>();
+    *options.mutable_delegate() = GetParam().delegate;
+    options_map.Set(options);
   }
 };
 
@@ -154,8 +155,9 @@ TEST_P(InferenceCalculatorTest, TestFaceDetection) {
       detection_packets[0].Get<std::vector<Detection>>();
 #if !defined(MEDIAPIPE_PROTO_LITE)
   // Approximately is not available with lite protos (b/178137094).
-  EXPECT_THAT(dets,
-              ElementsAre(Approximately(EqualsProto(expected_detection))));
+  constexpr float kEpison = 0.001;
+  EXPECT_THAT(dets, ElementsAre(Approximately(EqualsProto(expected_detection),
+                                              kEpison)));
 #endif
 }
 

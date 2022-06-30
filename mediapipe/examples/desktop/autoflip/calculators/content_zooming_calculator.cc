@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "absl/status/status.h"
 #include "mediapipe/examples/desktop/autoflip/autoflip_messages.pb.h"
 #include "mediapipe/examples/desktop/autoflip/calculators/content_zooming_calculator.pb.h"
 #include "mediapipe/examples/desktop/autoflip/calculators/content_zooming_calculator_state.h"
@@ -22,6 +23,7 @@
 #include "mediapipe/framework/formats/detection.pb.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/location_data.pb.h"
+#include "mediapipe/framework/packet.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/framework/port/status_builder.h"
@@ -31,11 +33,16 @@ constexpr char kVideoSize[] = "VIDEO_SIZE";
 constexpr char kSalientRegions[] = "SALIENT_REGIONS";
 constexpr char kDetections[] = "DETECTIONS";
 constexpr char kDetectedBorders[] = "BORDERS";
+// Crop location as abs rect discretized.
 constexpr char kCropRect[] = "CROP_RECT";
+// Crop location as normalized rect.
+constexpr char kNormalizedCropRect[] = "NORMALIZED_CROP_RECT";
+// Crop location without position smoothing.
 constexpr char kFirstCropRect[] = "FIRST_CROP_RECT";
 // Can be used to control whether an animated zoom should actually performed
 // (configured through option us_to_first_rect). If provided, a non-zero integer
 // will allow the animated zoom to be used when the first detections arrive.
+// Applies to first detection only.
 constexpr char kAnimateZoom[] = "ANIMATE_ZOOM";
 // Can be used to control the maximum zoom; note that it is re-evaluated only
 // upon change of input resolution. A value of 100 disables zooming and is the
@@ -51,6 +58,10 @@ constexpr float kFieldOfView = 60;
 // Used to save state on Close and load state on Open in a new graph.
 // Can be used to preserve state between graphs.
 constexpr char kStateCache[] = "STATE_CACHE";
+// Tolerance for zooming out recentering.
+constexpr float kPixelTolerance = 3;
+// Returns 'true' when camera is moving (pan/tilt/zoom) & 'false' for no motion.
+constexpr char kCameraActive[] = "CAMERA_ACTIVE";
 
 namespace mediapipe {
 namespace autoflip {
@@ -103,6 +114,16 @@ class ContentZoomingCalculator : public CalculatorBase {
                                     int* pan_offset, int* height);
   // Sets max_frame_value_ and target_aspect_
   absl::Status UpdateAspectAndMax();
+  // Smooth camera path
+  absl::Status SmoothAndClampPath(int target_width, int target_height,
+                                  float path_width, float path_height,
+                                  float* path_offset_x, float* path_offset_y);
+  // Compute box containing all detections.
+  absl::Status GetDetectionsBox(mediapipe::CalculatorContext* cc, float* xmin,
+                                float* xmax, float* ymin, float* ymax,
+                                bool* only_required_found,
+                                bool* has_detections);
+
   ContentZoomingCalculatorOptions options_;
   // Detection frame width/height.
   int frame_height_;
@@ -166,11 +187,17 @@ absl::Status ContentZoomingCalculator::GetContract(
   if (cc->Outputs().HasTag(kCropRect)) {
     cc->Outputs().Tag(kCropRect).Set<mediapipe::Rect>();
   }
+  if (cc->Outputs().HasTag(kNormalizedCropRect)) {
+    cc->Outputs().Tag(kNormalizedCropRect).Set<mediapipe::NormalizedRect>();
+  }
   if (cc->Outputs().HasTag(kFirstCropRect)) {
     cc->Outputs().Tag(kFirstCropRect).Set<mediapipe::NormalizedRect>();
   }
   if (cc->InputSidePackets().HasTag(kStateCache)) {
     cc->InputSidePackets().Tag(kStateCache).Set<StateCacheType*>();
+  }
+  if (cc->Outputs().HasTag(kCameraActive)) {
+    cc->Outputs().Tag(kCameraActive).Set<bool>();
   }
   return absl::OkStatus();
 }
@@ -252,35 +279,45 @@ mediapipe::autoflip::RectF ShiftDetection(
 }
 absl::Status UpdateRanges(const SalientRegion& region,
                           const float shift_vertical,
-                          const float shift_horizontal, float* xmin,
-                          float* xmax, float* ymin, float* ymax) {
+                          const float shift_horizontal,
+                          const float pad_vertical, const float pad_horizontal,
+                          float* xmin, float* xmax, float* ymin, float* ymax) {
   if (!region.has_location_normalized()) {
     return mediapipe::UnknownErrorBuilder(MEDIAPIPE_LOC)
            << "SalientRegion did not have location normalized set.";
   }
   auto location = ShiftDetection(region.location_normalized(), shift_vertical,
                                  shift_horizontal);
-  *xmin = fmin(*xmin, location.x());
-  *xmax = fmax(*xmax, location.x() + location.width());
-  *ymin = fmin(*ymin, location.y());
-  *ymax = fmax(*ymax, location.y() + location.height());
+
+  const float x_padding = pad_horizontal * location.width();
+  const float y_padding = pad_vertical * location.height();
+
+  *xmin = fmin(*xmin, location.x() - x_padding);
+  *xmax = fmax(*xmax, location.x() + location.width() + x_padding);
+  *ymin = fmin(*ymin, location.y() - y_padding);
+  *ymax = fmax(*ymax, location.y() + location.height() + y_padding);
 
   return absl::OkStatus();
 }
 absl::Status UpdateRanges(const mediapipe::Detection& detection,
                           const float shift_vertical,
-                          const float shift_horizontal, float* xmin,
-                          float* xmax, float* ymin, float* ymax) {
+                          const float shift_horizontal,
+                          const float pad_vertical, const float pad_horizontal,
+                          float* xmin, float* xmax, float* ymin, float* ymax) {
   RET_CHECK(detection.location_data().format() ==
             mediapipe::LocationData::RELATIVE_BOUNDING_BOX)
       << "Face detection input is lacking required relative_bounding_box()";
   const auto& location =
       ShiftDetection(detection.location_data().relative_bounding_box(),
                      shift_vertical, shift_horizontal);
-  *xmin = fmin(*xmin, location.xmin());
-  *xmax = fmax(*xmax, location.xmin() + location.width());
-  *ymin = fmin(*ymin, location.ymin());
-  *ymax = fmax(*ymax, location.ymin() + location.height());
+
+  const float x_padding = pad_horizontal * location.width();
+  const float y_padding = pad_vertical * location.height();
+
+  *xmin = fmin(*xmin, location.xmin() - x_padding);
+  *xmax = fmax(*xmax, location.xmin() + location.width() + x_padding);
+  *ymin = fmin(*ymin, location.ymin() - y_padding);
+  *ymax = fmax(*ymax, location.ymin() + location.height() + y_padding);
 
   return absl::OkStatus();
 }
@@ -522,58 +559,13 @@ absl::Status ContentZoomingCalculator::Process(
         UpdateForResolutionChange(cc, frame_width, frame_height));
   }
 
-  bool only_required_found = false;
-
   // Compute the box that contains all "is_required" detections.
   float xmin = 1, ymin = 1, xmax = 0, ymax = 0;
-  if (cc->Inputs().HasTag(kSalientRegions)) {
-    auto detection_set = cc->Inputs().Tag(kSalientRegions).Get<DetectionSet>();
-    for (const auto& region : detection_set.detections()) {
-      if (!region.only_required()) {
-        continue;
-      }
-      only_required_found = true;
-      MP_RETURN_IF_ERROR(UpdateRanges(
-          region, options_.detection_shift_vertical(),
-          options_.detection_shift_horizontal(), &xmin, &xmax, &ymin, &ymax));
-    }
-  }
-
-  if (cc->Inputs().HasTag(kDetections)) {
-    if (cc->Inputs().Tag(kDetections).IsEmpty()) {
-      if (last_only_required_detection_ == 0) {
-        // If no detections are available and we never had any,
-        // simply return the full-image rectangle as crop-rect.
-        if (cc->Outputs().HasTag(kCropRect)) {
-          auto default_rect = absl::make_unique<mediapipe::Rect>();
-          default_rect->set_x_center(frame_width_ / 2);
-          default_rect->set_y_center(frame_height_ / 2);
-          default_rect->set_width(frame_width_);
-          default_rect->set_height(frame_height_);
-          cc->Outputs().Tag(kCropRect).Add(default_rect.release(),
-                                           Timestamp(cc->InputTimestamp()));
-        }
-        // Also provide a first crop rect: in this case a zero-sized one.
-        if (cc->Outputs().HasTag(kFirstCropRect)) {
-          cc->Outputs()
-              .Tag(kFirstCropRect)
-              .Add(new mediapipe::NormalizedRect(),
-                   Timestamp(cc->InputTimestamp()));
-        }
-        return absl::OkStatus();
-      }
-    } else {
-      auto raw_detections = cc->Inputs()
-                                .Tag(kDetections)
-                                .Get<std::vector<mediapipe::Detection>>();
-      for (const auto& detection : raw_detections) {
-        only_required_found = true;
-        MP_RETURN_IF_ERROR(UpdateRanges(
-            detection, options_.detection_shift_vertical(),
-            options_.detection_shift_horizontal(), &xmin, &xmax, &ymin, &ymax));
-      }
-    }
-  }
+  bool only_required_found = false;
+  bool has_detections = true;
+  MP_RETURN_IF_ERROR(GetDetectionsBox(cc, &xmin, &xmax, &ymin, &ymax,
+                                      &only_required_found, &has_detections));
+  if (!has_detections) return absl::OkStatus();
 
   const bool may_start_animation = (options_.us_to_first_rect() != 0) &&
                                    (!cc->Inputs().HasTag(kAnimateZoom) ||
@@ -630,18 +622,38 @@ absl::Status ContentZoomingCalculator::Process(
     path_solver_tilt_->ClearHistory();
     path_solver_zoom_->ClearHistory();
   }
+  const bool camera_active =
+      is_animating || ((pan_state || tilt_state || zoom_state) &&
+                       !options_.disable_animations());
+  // Waiting for first rect before setting any value of the camera active flag
+  // so we avoid setting it to false during initialization.
+  if (cc->Outputs().HasTag(kCameraActive) &&
+      first_rect_timestamp_ != Timestamp::Unset()) {
+    cc->Outputs()
+        .Tag(kCameraActive)
+        .AddPacket(MakePacket<bool>(camera_active).At(cc->InputTimestamp()));
+  }
+
+  // Skip the path solvers to the final destination if not animating.
+  const bool disable_animations =
+      options_.disable_animations() && path_solver_zoom_->IsInitialized();
+  if (disable_animations) {
+    MP_RETURN_IF_ERROR(path_solver_zoom_->SetState(height));
+    MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(offset_y));
+    MP_RETURN_IF_ERROR(path_solver_pan_->SetState(offset_x));
+  }
 
   // Compute smoothed zoom camera path.
   MP_RETURN_IF_ERROR(path_solver_zoom_->AddObservation(
       height, cc->InputTimestamp().Microseconds()));
-  int path_height;
+  float path_height;
   MP_RETURN_IF_ERROR(path_solver_zoom_->GetState(&path_height));
-  int path_width = path_height * target_aspect_;
+  const float path_width = path_height * target_aspect_;
 
   // Update pixel-per-degree value for pan/tilt.
   int target_height;
   MP_RETURN_IF_ERROR(path_solver_zoom_->GetTargetPosition(&target_height));
-  int target_width = target_height * target_aspect_;
+  const int target_width = target_height * target_aspect_;
   MP_RETURN_IF_ERROR(path_solver_pan_->UpdatePixelsPerDegree(
       static_cast<float>(target_width) / kFieldOfView));
   MP_RETURN_IF_ERROR(path_solver_tilt_->UpdatePixelsPerDegree(
@@ -652,34 +664,21 @@ absl::Status ContentZoomingCalculator::Process(
       offset_x, cc->InputTimestamp().Microseconds()));
   MP_RETURN_IF_ERROR(path_solver_tilt_->AddObservation(
       offset_y, cc->InputTimestamp().Microseconds()));
-  int path_offset_x;
+  float path_offset_x;
   MP_RETURN_IF_ERROR(path_solver_pan_->GetState(&path_offset_x));
-  int path_offset_y;
+  float path_offset_y;
   MP_RETURN_IF_ERROR(path_solver_tilt_->GetState(&path_offset_y));
 
-  // Prevent box from extending beyond the image after camera smoothing.
-  if (path_offset_y - ceil(path_height / 2.0) < 0) {
-    path_offset_y = ceil(path_height / 2.0);
-    MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(path_offset_y));
-  } else if (path_offset_y + ceil(path_height / 2.0) > frame_height_) {
-    path_offset_y = frame_height_ - ceil(path_height / 2.0);
-    MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(path_offset_y));
-  }
-
-  if (path_offset_x - ceil(path_width / 2.0) < 0) {
-    path_offset_x = ceil(path_width / 2.0);
-    MP_RETURN_IF_ERROR(path_solver_pan_->SetState(path_offset_x));
-  } else if (path_offset_x + ceil(path_width / 2.0) > frame_width_) {
-    path_offset_x = frame_width_ - ceil(path_width / 2.0);
-    MP_RETURN_IF_ERROR(path_solver_pan_->SetState(path_offset_x));
-  }
-
-  // Convert to top/bottom borders to remove.
-  int path_top = path_offset_y - path_height / 2;
-  int path_bottom = frame_height_ - (path_offset_y + path_height / 2);
+  // Update path.
+  MP_RETURN_IF_ERROR(SmoothAndClampPath(target_width, target_height, path_width,
+                                        path_height, &path_offset_x,
+                                        &path_offset_y));
 
   // Transmit result downstream to scenecroppingcalculator.
   if (cc->Outputs().HasTag(kDetectedBorders)) {
+    // Convert to top/bottom borders to remove.
+    const int path_top = path_offset_y - path_height / 2;
+    const int path_bottom = frame_height_ - (path_offset_y + path_height / 2);
     std::unique_ptr<StaticFeatures> features =
         absl::make_unique<StaticFeatures>();
     MakeStaticFeatures(path_top, path_bottom, frame_width_, frame_height_,
@@ -705,7 +704,7 @@ absl::Status ContentZoomingCalculator::Process(
     is_animating = IsAnimatingToFirstRect(cc->InputTimestamp());
   }
 
-  // Transmit downstream to glcroppingcalculator.
+  // Transmit downstream to glcroppingcalculator in discrete int values.
   if (cc->Outputs().HasTag(kCropRect)) {
     std::unique_ptr<mediapipe::Rect> gpu_rect;
     if (is_animating) {
@@ -716,12 +715,35 @@ absl::Status ContentZoomingCalculator::Process(
     } else {
       gpu_rect = absl::make_unique<mediapipe::Rect>();
       gpu_rect->set_x_center(path_offset_x);
-      gpu_rect->set_width(path_height * target_aspect_);
+      gpu_rect->set_width(path_width);
       gpu_rect->set_y_center(path_offset_y);
       gpu_rect->set_height(path_height);
     }
     cc->Outputs().Tag(kCropRect).Add(gpu_rect.release(),
                                      Timestamp(cc->InputTimestamp()));
+  }
+  if (cc->Outputs().HasTag(kNormalizedCropRect)) {
+    std::unique_ptr<mediapipe::NormalizedRect> gpu_rect =
+        absl::make_unique<mediapipe::NormalizedRect>();
+    const float float_frame_width = static_cast<float>(frame_width_);
+    const float float_frame_height = static_cast<float>(frame_height_);
+    if (is_animating) {
+      auto rect =
+          GetAnimationRect(frame_width, frame_height, cc->InputTimestamp());
+      MP_RETURN_IF_ERROR(rect.status());
+      gpu_rect->set_x_center(rect->x_center() / float_frame_width);
+      gpu_rect->set_width(rect->width() / float_frame_width);
+      gpu_rect->set_y_center(rect->y_center() / float_frame_height);
+      gpu_rect->set_height(rect->height() / float_frame_height);
+    } else {
+      gpu_rect->set_x_center(path_offset_x / float_frame_width);
+      gpu_rect->set_width(path_width / float_frame_width);
+      gpu_rect->set_y_center(path_offset_y / float_frame_height);
+      gpu_rect->set_height(path_height / float_frame_height);
+    }
+    cc->Outputs()
+        .Tag(kNormalizedCropRect)
+        .Add(gpu_rect.release(), Timestamp(cc->InputTimestamp()));
   }
 
   if (cc->Outputs().HasTag(kFirstCropRect)) {
@@ -731,6 +753,135 @@ absl::Status ContentZoomingCalculator::Process(
              Timestamp(cc->InputTimestamp()));
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status ContentZoomingCalculator::SmoothAndClampPath(
+    int target_width, int target_height, float path_width, float path_height,
+    float* path_offset_x, float* path_offset_y) {
+  float delta_height;
+  MP_RETURN_IF_ERROR(path_solver_zoom_->GetDeltaState(&delta_height));
+  const int delta_width = delta_height * target_aspect_;
+
+  // Smooth centering when zooming out.
+  const float remaining_width = target_width - path_width;
+  const int width_space = frame_width_ - target_width;
+  if (abs(*path_offset_x - frame_width_ / 2) >
+          width_space / 2 + kPixelTolerance &&
+      remaining_width > kPixelTolerance) {
+    const float required_width =
+        abs(*path_offset_x - frame_width_ / 2) - width_space / 2;
+    if (*path_offset_x < frame_width_ / 2) {
+      *path_offset_x += delta_width * (required_width / remaining_width);
+      MP_RETURN_IF_ERROR(path_solver_pan_->SetState(*path_offset_x));
+    } else {
+      *path_offset_x -= delta_width * (required_width / remaining_width);
+      MP_RETURN_IF_ERROR(path_solver_pan_->SetState(*path_offset_x));
+    }
+  }
+
+  const float remaining_height = target_height - path_height;
+  const int height_space = frame_height_ - target_height;
+  if (abs(*path_offset_y - frame_height_ / 2) >
+          height_space / 2 + kPixelTolerance &&
+      remaining_height > kPixelTolerance) {
+    const float required_height =
+        abs(*path_offset_y - frame_height_ / 2) - height_space / 2;
+    if (*path_offset_y < frame_height_ / 2) {
+      *path_offset_y += delta_height * (required_height / remaining_height);
+      MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(*path_offset_y));
+    } else {
+      *path_offset_y -= delta_height * (required_height / remaining_height);
+      MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(*path_offset_y));
+    }
+  }
+
+  // Prevent box from extending beyond the image after camera smoothing.
+  if (*path_offset_y - ceil(path_height / 2.0) < 0) {
+    *path_offset_y = ceil(path_height / 2.0);
+    MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(*path_offset_y));
+  } else if (*path_offset_y + ceil(path_height / 2.0) > frame_height_) {
+    *path_offset_y = frame_height_ - ceil(path_height / 2.0);
+    MP_RETURN_IF_ERROR(path_solver_tilt_->SetState(*path_offset_y));
+  }
+
+  if (*path_offset_x - ceil(path_width / 2.0) < 0) {
+    *path_offset_x = ceil(path_width / 2.0);
+    MP_RETURN_IF_ERROR(path_solver_pan_->SetState(*path_offset_x));
+  } else if (*path_offset_x + ceil(path_width / 2.0) > frame_width_) {
+    *path_offset_x = frame_width_ - ceil(path_width / 2.0);
+    MP_RETURN_IF_ERROR(path_solver_pan_->SetState(*path_offset_x));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status ContentZoomingCalculator::GetDetectionsBox(
+    mediapipe::CalculatorContext* cc, float* xmin, float* xmax, float* ymin,
+    float* ymax, bool* only_required_found, bool* has_detections) {
+  if (cc->Inputs().HasTag(kSalientRegions)) {
+    auto detection_set = cc->Inputs().Tag(kSalientRegions).Get<DetectionSet>();
+    for (const auto& region : detection_set.detections()) {
+      if (!region.only_required()) {
+        continue;
+      }
+      *only_required_found = true;
+      MP_RETURN_IF_ERROR(UpdateRanges(
+          region, options_.detection_shift_vertical(),
+          options_.detection_shift_horizontal(),
+          options_.extra_vertical_padding(),
+          options_.extra_horizontal_padding(), xmin, xmax, ymin, ymax));
+    }
+  }
+
+  if (cc->Inputs().HasTag(kDetections)) {
+    if (cc->Inputs().Tag(kDetections).IsEmpty()) {
+      if (last_only_required_detection_ == 0) {
+        // If no detections are available and we never had any,
+        // simply return the full-image rectangle as crop-rect.
+        if (cc->Outputs().HasTag(kCropRect)) {
+          auto default_rect = absl::make_unique<mediapipe::Rect>();
+          default_rect->set_x_center(frame_width_ / 2);
+          default_rect->set_y_center(frame_height_ / 2);
+          default_rect->set_width(frame_width_);
+          default_rect->set_height(frame_height_);
+          cc->Outputs().Tag(kCropRect).Add(default_rect.release(),
+                                           Timestamp(cc->InputTimestamp()));
+        }
+        if (cc->Outputs().HasTag(kNormalizedCropRect)) {
+          auto default_rect = absl::make_unique<mediapipe::NormalizedRect>();
+          default_rect->set_x_center(0.5);
+          default_rect->set_y_center(0.5);
+          default_rect->set_width(1.0);
+          default_rect->set_height(1.0);
+          cc->Outputs()
+              .Tag(kNormalizedCropRect)
+              .Add(default_rect.release(), Timestamp(cc->InputTimestamp()));
+        }
+        // Also provide a first crop rect: in this case a zero-sized one.
+        if (cc->Outputs().HasTag(kFirstCropRect)) {
+          cc->Outputs()
+              .Tag(kFirstCropRect)
+              .Add(new mediapipe::NormalizedRect(),
+                   Timestamp(cc->InputTimestamp()));
+        }
+        *has_detections = false;
+        return absl::OkStatus();
+      }
+    } else {
+      auto raw_detections = cc->Inputs()
+                                .Tag(kDetections)
+                                .Get<std::vector<mediapipe::Detection>>();
+      for (const auto& detection : raw_detections) {
+        *only_required_found = true;
+        MP_RETURN_IF_ERROR(UpdateRanges(
+            detection, options_.detection_shift_vertical(),
+            options_.detection_shift_horizontal(),
+            options_.extra_vertical_padding(),
+            options_.extra_horizontal_padding(), xmin, xmax, ymin, ymax));
+      }
+    }
+  }
   return absl::OkStatus();
 }
 

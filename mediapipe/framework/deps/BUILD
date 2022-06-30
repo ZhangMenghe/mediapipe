@@ -30,6 +30,14 @@ bzl_library(
     visibility = ["//mediapipe/framework:__subpackages__"],
 )
 
+bzl_library(
+    name = "descriptor_set_bzl",
+    srcs = [
+        "descriptor_set.bzl",
+    ],
+    visibility = ["//mediapipe/framework:__subpackages__"],
+)
+
 proto_library(
     name = "proto_descriptor_proto",
     srcs = ["proto_descriptor.proto"],
@@ -79,10 +87,14 @@ cc_library(
     name = "message_matchers",
     testonly = True,
     hdrs = ["message_matchers.h"],
-    visibility = ["//visibility:public"],
+    # Use this library through "mediapipe/framework/port:gtest_main".
+    visibility = [
+        "//mediapipe/framework/port:__pkg__",
+        "//third_party/visionai/algorithms/tracking:__pkg__",
+    ],
     deps = [
         "//mediapipe/framework/port:core_proto",
-        "//mediapipe/framework/port:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -128,7 +140,6 @@ cc_library(
     hdrs = ["image_resizer.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//mediapipe/framework/port:integral_types",
         "//mediapipe/framework/port:opencv_imgproc",
     ],
 )
@@ -281,7 +292,8 @@ cc_library(
     # Use this library through "mediapipe/framework/port:gtest_main".
     visibility = ["//mediapipe/framework/port:__pkg__"],
     deps = [
-        ":status",
+        "//mediapipe/framework/port:statusor",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest",
     ],
 )

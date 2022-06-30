@@ -161,7 +161,8 @@ absl::Status ReconcileMetadataFeatureFloats(
     if (absl::StrContains(key, kFeatureFloatsKey)) {
       const auto prefix = key.substr(0, key.find(kFeatureFloatsKey) - 1);
       int number_of_elements = GetFeatureFloatsAt(prefix, *sequence, 0).size();
-      if (HasFeatureDimensions(prefix, *sequence)) {
+      if (HasFeatureDimensions(prefix, *sequence) &&
+          !GetFeatureDimensions(prefix, *sequence).empty()) {
         int64 product = 1;
         for (int64 value : GetFeatureDimensions(prefix, *sequence)) {
           product *= value;
@@ -361,17 +362,15 @@ absl::Status ReconcileMetadataBoxAnnotations(
 absl::Status ReconcileMetadataRegionAnnotations(
     tensorflow::SequenceExample* sequence) {
   // Copy keys for fixed iteration order while updating feature_lists.
-  std::vector<const std::string*> key_ptrs;
+  std::vector<std::string> keys;
   for (const auto& key_value : sequence->feature_lists().feature_list()) {
-    key_ptrs.push_back(&key_value.first);
+    keys.push_back(key_value.first);
   }
-  for (const std::string* key_ptr : key_ptrs) {
-    const std::string& key = *key_ptr;
+  for (const std::string& key : keys) {
     if (::absl::StrContains(key, kRegionTimestampKey)) {
-      std::string prefix =
-          key.substr(0, key.size() - sizeof(kRegionTimestampKey));
-      if (key == kRegionTimestampKey) {
-        prefix = "";
+      std::string prefix = "";
+      if (key != kRegionTimestampKey) {
+        prefix = key.substr(0, key.size() - sizeof(kRegionTimestampKey));
       }
       RET_CHECK_OK(ReconcileMetadataBoxAnnotations(prefix, sequence));
     }

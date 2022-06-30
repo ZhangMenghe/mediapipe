@@ -52,6 +52,25 @@ class OutputSidePacketInProcessCalculator : public CalculatorBase {
 };
 REGISTER_CALCULATOR(OutputSidePacketInProcessCalculator);
 
+// Takes an input side packet and passes it as an output side packet.
+class OutputSidePacketInOpenCalculator : public CalculatorBase {
+ public:
+  static absl::Status GetContract(CalculatorContract* cc) {
+    cc->InputSidePackets().Index(0).SetAny();
+    cc->OutputSidePackets().Index(0).SetSameAs(
+        &cc->InputSidePackets().Index(0));
+    return absl::OkStatus();
+  }
+
+  absl::Status Open(CalculatorContext* cc) final {
+    cc->OutputSidePackets().Index(0).Set(cc->InputSidePackets().Index(0));
+    return absl::OkStatus();
+  }
+
+  absl::Status Process(CalculatorContext* cc) final { return absl::OkStatus(); }
+};
+REGISTER_CALCULATOR(OutputSidePacketInOpenCalculator);
+
 // Takes an input stream packet and counts the number of the packets it
 // receives. Outputs the total number of packets as a side packet in Close.
 class CountAndOutputSummarySidePacketInCloseCalculator : public CalculatorBase {
@@ -713,11 +732,12 @@ TEST(CalculatorGraph, GetOutputSidePacket) {
     status_or_packet = graph.GetOutputSidePacket("unknown");
     EXPECT_FALSE(status_or_packet.ok());
     EXPECT_EQ(absl::StatusCode::kNotFound, status_or_packet.status().code());
-    // Should return UNAVAILABLE before graph is done for valid non-base
-    // packets.
+    // Should return the packet after the graph becomes idle.
+    MP_ASSERT_OK(graph.WaitUntilIdle());
     status_or_packet = graph.GetOutputSidePacket("num_of_packets");
-    EXPECT_FALSE(status_or_packet.ok());
-    EXPECT_EQ(absl::StatusCode::kUnavailable, status_or_packet.status().code());
+    MP_ASSERT_OK(status_or_packet);
+    EXPECT_EQ(max_count, status_or_packet.value().Get<int>());
+    EXPECT_EQ(Timestamp::Unset(), status_or_packet.value().Timestamp());
     // Should stil return a base even before graph is done.
     status_or_packet = graph.GetOutputSidePacket("output_uint64");
     MP_ASSERT_OK(status_or_packet);
@@ -800,6 +820,99 @@ TEST(CalculatorGraph, OutputSidePacketCached) {
   for (int run = 0; run < output_packets.size(); ++run) {
     EXPECT_TRUE(Equals(output_packets[0], output_packets[run]));
   }
+}
+
+TEST(CalculatorGraph, GeneratorAfterCalculatorOpen) {
+  CalculatorGraph graph;
+  CalculatorGraphConfig config =
+      mediapipe::ParseTextProtoOrDie<CalculatorGraphConfig>(R"pb(
+        input_side_packet: "offset"
+        node {
+          calculator: "OutputSidePacketInOpenCalculator"
+          input_side_packet: "offset"
+          output_side_packet: "offset1"
+        }
+        packet_generator {
+          packet_generator: 'PassThroughGenerator'
+          input_side_packet: 'offset1'
+          output_side_packet: 'offset_out'
+        }
+        node {
+          calculator: "SidePacketToStreamPacketCalculator"
+          input_side_packet: "offset_out"
+          output_stream: "output"
+        }
+      )pb");
+  MP_ASSERT_OK(graph.Initialize(config));
+  std::vector<Packet> output_packets;
+  MP_ASSERT_OK(graph.ObserveOutputStream(
+      "output", [&output_packets](const Packet& packet) {
+        output_packets.push_back(packet);
+        return absl::OkStatus();
+      }));
+  MP_ASSERT_OK(graph.StartRun({{"offset", MakePacket<TimestampDiff>(100)}}));
+  MP_ASSERT_OK(graph.WaitUntilDone());
+  ASSERT_EQ(1, output_packets.size());
+  EXPECT_EQ(100, output_packets[0].Get<TimestampDiff>().Value());
+}
+
+TEST(CalculatorGraph, GeneratorAfterCalculatorProcess) {
+  CalculatorGraph graph;
+  CalculatorGraphConfig config =
+      mediapipe::ParseTextProtoOrDie<CalculatorGraphConfig>(R"pb(
+        input_stream: "offset"
+        node {
+          calculator: "OutputSidePacketInProcessCalculator"
+          input_stream: "offset"
+          output_side_packet: "offset"
+        }
+        packet_generator {
+          packet_generator: 'PassThroughGenerator'
+          input_side_packet: 'offset'
+          output_side_packet: 'offset_out'
+        }
+        node {
+          calculator: "SidePacketToStreamPacketCalculator"
+          input_side_packet: "offset_out"
+          output_stream: "output"
+        }
+      )pb");
+  MP_ASSERT_OK(graph.Initialize(config));
+  std::vector<Packet> output_packets;
+  MP_ASSERT_OK(graph.ObserveOutputStream(
+      "output", [&output_packets](const Packet& packet) {
+        output_packets.push_back(packet);
+        return absl::OkStatus();
+      }));
+  // Run twice to verify that we don't duplicate wrapper nodes.
+  for (int run = 0; run < 2; ++run) {
+    output_packets.clear();
+    MP_ASSERT_OK(graph.StartRun({}));
+    MP_ASSERT_OK(graph.AddPacketToInputStream(
+        "offset", MakePacket<TimestampDiff>(100).At(Timestamp(0))));
+    MP_ASSERT_OK(graph.CloseInputStream("offset"));
+    MP_ASSERT_OK(graph.WaitUntilDone());
+    ASSERT_EQ(1, output_packets.size());
+    EXPECT_EQ(100, output_packets[0].Get<TimestampDiff>().Value());
+  }
+}
+
+TEST(CalculatorGraph, GetOutputSidePacketAfterCalculatorIsOpened) {
+  CalculatorGraph graph;
+  CalculatorGraphConfig config =
+      mediapipe::ParseTextProtoOrDie<CalculatorGraphConfig>(R"pb(
+        node {
+          calculator: "IntegerOutputSidePacketCalculator"
+          output_side_packet: "offset"
+        }
+      )pb");
+  MP_ASSERT_OK(graph.Initialize(config));
+  MP_ASSERT_OK(graph.StartRun({}));
+  // Must be called to ensure that the calculator is opened.
+  MP_ASSERT_OK(graph.WaitUntilIdle());
+  absl::StatusOr<Packet> status_or_packet = graph.GetOutputSidePacket("offset");
+  MP_ASSERT_OK(status_or_packet);
+  EXPECT_EQ(1, status_or_packet.value().Get<int>());
 }
 
 }  // namespace

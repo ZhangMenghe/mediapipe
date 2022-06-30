@@ -27,6 +27,12 @@
 namespace mediapipe {
 
 namespace {
+
+constexpr char kSavedAudioPathTag[] = "SAVED_AUDIO_PATH";
+constexpr char kVideoPrestreamTag[] = "VIDEO_PRESTREAM";
+constexpr char kVideoTag[] = "VIDEO";
+constexpr char kInputFilePathTag[] = "INPUT_FILE_PATH";
+
 // cv::VideoCapture set data type to unsigned char by default. Therefore, the
 // image format is only related to the number of channles the cv::Mat has.
 ImageFormat::Format GetImageFormat(int num_channels) {
@@ -73,7 +79,7 @@ ImageFormat::Format GetImageFormat(int num_channels) {
 // to be saved, specify an output side packet with tag "SAVED_AUDIO_PATH".
 // The calculator will call FFmpeg binary to save audio tracks as an aac file.
 // If the audio tracks can't be extracted by FFmpeg, the output side packet
-// will contain an empty std::string.
+// will contain an empty string.
 //
 // Example config:
 // node {
@@ -87,20 +93,20 @@ ImageFormat::Format GetImageFormat(int num_channels) {
 class OpenCvVideoDecoderCalculator : public CalculatorBase {
  public:
   static absl::Status GetContract(CalculatorContract* cc) {
-    cc->InputSidePackets().Tag("INPUT_FILE_PATH").Set<std::string>();
-    cc->Outputs().Tag("VIDEO").Set<ImageFrame>();
-    if (cc->Outputs().HasTag("VIDEO_PRESTREAM")) {
-      cc->Outputs().Tag("VIDEO_PRESTREAM").Set<VideoHeader>();
+    cc->InputSidePackets().Tag(kInputFilePathTag).Set<std::string>();
+    cc->Outputs().Tag(kVideoTag).Set<ImageFrame>();
+    if (cc->Outputs().HasTag(kVideoPrestreamTag)) {
+      cc->Outputs().Tag(kVideoPrestreamTag).Set<VideoHeader>();
     }
-    if (cc->OutputSidePackets().HasTag("SAVED_AUDIO_PATH")) {
-      cc->OutputSidePackets().Tag("SAVED_AUDIO_PATH").Set<std::string>();
+    if (cc->OutputSidePackets().HasTag(kSavedAudioPathTag)) {
+      cc->OutputSidePackets().Tag(kSavedAudioPathTag).Set<std::string>();
     }
     return absl::OkStatus();
   }
 
   absl::Status Open(CalculatorContext* cc) override {
     const std::string& input_file_path =
-        cc->InputSidePackets().Tag("INPUT_FILE_PATH").Get<std::string>();
+        cc->InputSidePackets().Tag(kInputFilePathTag).Get<std::string>();
     cap_ = absl::make_unique<cv::VideoCapture>(input_file_path);
     if (!cap_->isOpened()) {
       return mediapipe::InvalidArgumentErrorBuilder(MEDIAPIPE_LOC)
@@ -114,7 +120,7 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
     // back. To get correct image format, we read the first frame from the video
     // and get the number of channels.
     cv::Mat frame;
-    cap_->read(frame);
+    ReadFrame(frame);
     if (frame.empty()) {
       return mediapipe::InvalidArgumentErrorBuilder(MEDIAPIPE_LOC)
              << "Fail to read any frames from the video file at "
@@ -140,16 +146,16 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
     header->frame_rate = fps;
     header->duration = frame_count_ / fps;
 
-    if (cc->Outputs().HasTag("VIDEO_PRESTREAM")) {
+    if (cc->Outputs().HasTag(kVideoPrestreamTag)) {
       cc->Outputs()
-          .Tag("VIDEO_PRESTREAM")
+          .Tag(kVideoPrestreamTag)
           .Add(header.release(), Timestamp::PreStream());
-      cc->Outputs().Tag("VIDEO_PRESTREAM").Close();
+      cc->Outputs().Tag(kVideoPrestreamTag).Close();
     }
     // Rewind to the very first frame.
     cap_->set(cv::CAP_PROP_POS_AVI_RATIO, 0);
 
-    if (cc->OutputSidePackets().HasTag("SAVED_AUDIO_PATH")) {
+    if (cc->OutputSidePackets().HasTag(kSavedAudioPathTag)) {
 #ifdef HAVE_FFMPEG
       std::string saved_audio_path = std::tmpnam(nullptr);
       std::string ffmpeg_command =
@@ -159,14 +165,14 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
       int status_code = system(absl::StrCat("ls ", saved_audio_path).c_str());
       if (status_code == 0) {
         cc->OutputSidePackets()
-            .Tag("SAVED_AUDIO_PATH")
+            .Tag(kSavedAudioPathTag)
             .Set(MakePacket<std::string>(saved_audio_path));
       } else {
         LOG(WARNING) << "FFmpeg can't extract audio from " << input_file_path
                      << " by executing the following command: "
                      << ffmpeg_command;
         cc->OutputSidePackets()
-            .Tag("SAVED_AUDIO_PATH")
+            .Tag(kSavedAudioPathTag)
             .Set(MakePacket<std::string>(std::string()));
       }
 #else
@@ -187,13 +193,13 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
     Timestamp timestamp(cap_->get(cv::CAP_PROP_POS_MSEC) * 1000);
     if (format_ == ImageFormat::GRAY8) {
       cv::Mat frame = formats::MatView(image_frame.get());
-      cap_->read(frame);
+      ReadFrame(frame);
       if (frame.empty()) {
         return tool::StatusStop();
       }
     } else {
       cv::Mat tmp_frame;
-      cap_->read(tmp_frame);
+      ReadFrame(tmp_frame);
       if (tmp_frame.empty()) {
         return tool::StatusStop();
       }
@@ -208,7 +214,7 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
     // If the timestamp of the current frame is not greater than the one of the
     // previous frame, the new frame will be discarded.
     if (prev_timestamp_ < timestamp) {
-      cc->Outputs().Tag("VIDEO").Add(image_frame.release(), timestamp);
+      cc->Outputs().Tag(kVideoTag).Add(image_frame.release(), timestamp);
       prev_timestamp_ = timestamp;
       decoded_frames_++;
     }
@@ -226,6 +232,14 @@ class OpenCvVideoDecoderCalculator : public CalculatorBase {
                    << ").";
     }
     return absl::OkStatus();
+  }
+
+  // Sometimes an empty frame is returned even though there are more frames.
+  void ReadFrame(cv::Mat& frame) {
+    cap_->read(frame);
+    if (frame.empty()) {
+      cap_->read(frame);  // Try again.
+    }
   }
 
  private:

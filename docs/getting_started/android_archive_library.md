@@ -3,7 +3,7 @@ layout: default
 title: MediaPipe Android Archive
 parent: MediaPipe on Android
 grand_parent: Getting Started
-nav_order: 2
+nav_order: 3
 ---
 
 # MediaPipe Android Archive
@@ -48,6 +48,16 @@ each project.
     bazel build -c opt --strip=ALWAYS \
         --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
         --fat_apk_cpu=arm64-v8a,armeabi-v7a \
+        --legacy_whole_archive=0 \
+        --features=-legacy_whole_archive \
+        --copt=-fvisibility=hidden \
+        --copt=-ffunction-sections \
+        --copt=-fdata-sections \
+        --copt=-fstack-protector \
+        --copt=-Oz \
+        --copt=-fomit-frame-pointer \
+        --copt=-DABSL_MIN_LOG_LEVEL=2 \
+        --linkopt=-Wl,--gc-sections,--strip-all \
         //path/to/the/aar/build/file:aar_name.aar
     ```
 
@@ -57,6 +67,16 @@ each project.
     bazel build -c opt --strip=ALWAYS \
         --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
         --fat_apk_cpu=arm64-v8a,armeabi-v7a \
+        --legacy_whole_archive=0 \
+        --features=-legacy_whole_archive \
+        --copt=-fvisibility=hidden \
+        --copt=-ffunction-sections \
+        --copt=-fdata-sections \
+        --copt=-fstack-protector \
+        --copt=-Oz \
+        --copt=-fomit-frame-pointer \
+        --copt=-DABSL_MIN_LOG_LEVEL=2 \
+        --linkopt=-Wl,--gc-sections,--strip-all \
         //mediapipe/examples/android/src/java/com/google/mediapipe/apps/aar_example:mediapipe_face_detection.aar
 
     # It should print:
@@ -113,11 +133,11 @@ each project.
         androidTestImplementation 'androidx.test.ext:junit:1.1.0'
         androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
         // MediaPipe deps
-        implementation 'com.google.flogger:flogger:0.3.1'
-        implementation 'com.google.flogger:flogger-system-backend:0.3.1'
-        implementation 'com.google.code.findbugs:jsr305:3.0.2'
+        implementation 'com.google.flogger:flogger:latest.release'
+        implementation 'com.google.flogger:flogger-system-backend:latest.release'
+        implementation 'com.google.code.findbugs:jsr305:latest.release'
         implementation 'com.google.guava:guava:27.0.1-android'
-        implementation 'com.google.protobuf:protobuf-java:3.11.4'
+        implementation 'com.google.protobuf:protobuf-javalite:3.19.1'
         // CameraX core library
         def camerax_version = "1.0.0-beta10"
         implementation "androidx.camera:camera-core:$camerax_version"

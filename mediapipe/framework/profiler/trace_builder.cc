@@ -85,16 +85,16 @@ void BasicTraceEventTypes(TraceEventRegistry* result) {
       {TraceEvent::PACKET_QUEUED, "An input queue size when a packet arrives.",
        true, true, false},
   };
-  for (TraceEventType t : basic_types) {
+  for (const TraceEventType& t : basic_types) {
     (*result)[t.event_type()] = t;
   }
 }
 
-// A map defining int32 identifiers for std::string object pointers.
-// Lookup is fast when the same std::string object is used frequently.
+// A map defining int32 identifiers for string object pointers.
+// Lookup is fast when the same string object is used frequently.
 class StringIdMap {
  public:
-  // Returns the int32 identifier for a std::string object pointer.
+  // Returns the int32 identifier for a string object pointer.
   int32 operator[](const std::string* id) {
     if (id == nullptr) {
       return 0;

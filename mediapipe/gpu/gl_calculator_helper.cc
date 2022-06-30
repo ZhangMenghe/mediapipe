@@ -24,14 +24,7 @@
 #include "mediapipe/gpu/gpu_buffer.h"
 #include "mediapipe/gpu/gpu_service.h"
 
-#ifdef __APPLE__
-#include "mediapipe/objc/util.h"
-#endif
-
 namespace mediapipe {
-
-GlTexture::GlTexture(GLuint name, int width, int height)
-    : name_(name), width_(width), height_(height), target_(GL_TEXTURE_2D) {}
 
 // The constructor and destructor need to be defined here so that
 // std::unique_ptr can see the full definition of GlCalculatorHelperImpl.
@@ -42,9 +35,13 @@ GlCalculatorHelper::~GlCalculatorHelper() {}
 
 absl::Status GlCalculatorHelper::Open(CalculatorContext* cc) {
   CHECK(cc);
+  auto gpu_service = cc->Service(kGpuService);
+  RET_CHECK(gpu_service.IsAvailable())
+      << "GPU service not available. Did you forget to call "
+         "GlCalculatorHelper::UpdateContract?";
   // TODO return error from impl_ (needs two-stage init)
-  impl_ = absl::make_unique<GlCalculatorHelperImpl>(
-      cc, &cc->Service(kGpuService).GetObject());
+  impl_ =
+      absl::make_unique<GlCalculatorHelperImpl>(cc, &gpu_service.GetObject());
   return absl::OkStatus();
 }
 
@@ -116,12 +113,20 @@ GlTexture GlCalculatorHelper::CreateSourceTexture(
   return impl_->CreateSourceTexture(image_frame);
 }
 
-#ifdef __APPLE__
 GlTexture GlCalculatorHelper::CreateSourceTexture(const GpuBuffer& pixel_buffer,
                                                   int plane) {
   return impl_->CreateSourceTexture(pixel_buffer, plane);
 }
-#endif
+
+GpuBuffer GlCalculatorHelper::GpuBufferWithImageFrame(
+    std::shared_ptr<ImageFrame> image_frame) {
+  return impl_->GpuBufferWithImageFrame(std::move(image_frame));
+}
+
+GpuBuffer GlCalculatorHelper::GpuBufferCopyingImageFrame(
+    const ImageFrame& image_frame) {
+  return impl_->GpuBufferCopyingImageFrame(image_frame);
+}
 
 void GlCalculatorHelper::GetGpuBufferDimensions(const GpuBuffer& pixel_buffer,
                                                 int* width, int* height) {

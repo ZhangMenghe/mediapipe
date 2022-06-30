@@ -31,6 +31,9 @@
 namespace mediapipe {
 
 namespace {
+
+constexpr char kSessionTag[] = "SESSION";
+
 static constexpr char kStringSavedModelPath[] = "STRING_SAVED_MODEL_PATH";
 
 // Given the path to a directory containing multiple tensorflow saved models
@@ -66,6 +69,8 @@ const std::string MaybeConvertSignatureToTag(
                    [](unsigned char c) { return std::toupper(c); });
     output = absl::StrReplaceAll(output, {{"/", "_"}});
     output = absl::StrReplaceAll(output, {{"-", "_"}});
+    output = absl::StrReplaceAll(output, {{".", "_"}});
+    LOG(INFO) << "Renamed TAG from: " << name << " to " << output;
     return output;
   } else {
     return name;
@@ -108,7 +113,7 @@ class TensorFlowSessionFromSavedModelCalculator : public CalculatorBase {
       cc->InputSidePackets().Tag(kStringSavedModelPath).Set<std::string>();
     }
     // A TensorFlow model loaded and ready for use along with tensor
-    cc->OutputSidePackets().Tag("SESSION").Set<TensorFlowSession>();
+    cc->OutputSidePackets().Tag(kSessionTag).Set<TensorFlowSession>();
     return absl::OkStatus();
   }
 
@@ -160,7 +165,7 @@ class TensorFlowSessionFromSavedModelCalculator : public CalculatorBase {
           output_signature.first, options)] = output_signature.second.name();
     }
 
-    cc->OutputSidePackets().Tag("SESSION").Set(Adopt(session.release()));
+    cc->OutputSidePackets().Tag(kSessionTag).Set(Adopt(session.release()));
     return absl::OkStatus();
   }
 

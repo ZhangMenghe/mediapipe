@@ -97,10 +97,10 @@ absl::Status GlContext::CreateContextInternal(
           } else if (Module && Module.canvasCssSelector) {
             return cachedFindCanvasEventTarget(Module.canvasCssSelector);
           }
-        }
-        if (typeof console !== 'undefined') {
-          console.warn('Module properties canvas and canvasCssSelector not ' +
-                       'found during WebGL context creation.');
+          if (typeof console !== 'undefined') {
+            console.warn('Module properties canvas and canvasCssSelector not ' +
+                         'found during WebGL context creation.');
+          }
         }
         // We still go through with the find attempt, although for most use
         // cases it will not succeed, just in case the user does want to fall-
@@ -173,9 +173,8 @@ void GlContext::DestroyContext() {
   }
 }
 
-GlContext::ContextBinding GlContext::ThisContextBinding() {
+GlContext::ContextBinding GlContext::ThisContextBindingPlatform() {
   GlContext::ContextBinding result;
-  result.context_object = shared_from_this();
   result.context = context_;
   return result;
 }

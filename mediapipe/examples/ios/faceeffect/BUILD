@@ -24,7 +24,7 @@ load(
 
 licenses(["notice"])
 
-MIN_IOS_VERSION = "10.0"
+MIN_IOS_VERSION = "11.0"
 
 alias(
     name = "faceeffect",
@@ -72,6 +72,7 @@ objc_library(
         "//mediapipe/modules/face_geometry/data:geometry_pipeline_metadata_landmarks.binarypb",
         "//mediapipe/modules/face_landmark:face_landmark.tflite",
     ],
+    features = ["-layering_check"],
     sdk_frameworks = [
         "AVFoundation",
         "CoreGraphics",

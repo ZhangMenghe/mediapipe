@@ -21,7 +21,6 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <typeinfo>
 
 #include "absl/base/macros.h"
 #include "absl/memory/memory.h"
@@ -69,7 +68,7 @@ absl::StatusOr<Packet> PacketFromDynamicProto(const std::string& type_name,
 // The preferred method of creating a Packet is with MakePacket<T>().
 // The Packet typically owns the object that it contains, but
 // PointToForeign allows a Packet to be constructed which does not
-// own it's data.
+// own its data.
 //
 // This class is thread compatible.
 class Packet {
@@ -175,11 +174,13 @@ class Packet {
   // Note: This function is meant to be used internally within the MediaPipe
   // framework only.
   StatusOr<std::vector<const proto_ns::MessageLite*>>
-  GetVectorOfProtoMessageLitePtrs();
+  GetVectorOfProtoMessageLitePtrs() const;
 
   // Returns an error if the packet does not contain data of type T.
   template <typename T>
-  absl::Status ValidateAsType() const;
+  absl::Status ValidateAsType() const {
+    return ValidateAsType(kTypeId<T>);
+  }
 
   // Returns an error if the packet is not an instance of
   // a protocol buffer message.
@@ -187,7 +188,7 @@ class Packet {
 
   // Get the type id for the underlying type stored in the Packet.
   // Crashes if IsEmpty() == true.
-  size_t GetTypeId() const;
+  TypeId GetTypeId() const;
 
   // Returns the timestamp.
   class Timestamp Timestamp() const;
@@ -199,9 +200,9 @@ class Packet {
 
   // Returns the type name.  If the packet is empty or the type is not
   // registered (with MEDIAPIPE_REGISTER_TYPE or companion macros) then
-  // the empty std::string is returned.
+  // the empty string is returned.
   std::string RegisteredTypeName() const;
-  // Returns a std::string with the best guess at the type name.
+  // Returns a string with the best guess at the type name.
   std::string DebugTypeName() const;
 
  private:
@@ -217,6 +218,9 @@ class Packet {
   packet_internal::GetHolderShared(const Packet& packet);
   friend std::shared_ptr<packet_internal::HolderBase>
   packet_internal::GetHolderShared(Packet&& packet);
+
+  friend class PacketType;
+  absl::Status ValidateAsType(TypeId type_id) const;
 
   std::shared_ptr<packet_internal::HolderBase> holder_;
   class Timestamp timestamp_;
@@ -359,21 +363,16 @@ class HolderBase {
   HolderBase& operator=(const HolderBase&) = delete;
   virtual ~HolderBase();
   template <typename T>
-  void SetHolderTypeId() {
-    type_id_ = tool::GetTypeHash<T>();
+  bool PayloadIsOfType() const {
+    return GetTypeId() == kTypeId<T>;
   }
-  size_t GetHolderTypeId() const { return type_id_; }
-  template <typename T>
-  bool HolderIsOfType() const {
-    return type_id_ == tool::GetTypeHash<T>();
-  }
-  // Returns a printable std::string identifying the type stored in the holder.
+  // Returns a printable string identifying the type stored in the holder.
   virtual const std::string DebugTypeName() const = 0;
   // Returns the registered type name if it's available, otherwise the
-  // empty std::string.
+  // empty string.
   virtual const std::string RegisteredTypeName() const = 0;
   // Get the type id of the underlying data type.
-  virtual size_t GetTypeId() const = 0;
+  virtual TypeId GetTypeId() const = 0;
   // Downcasts this to Holder<T>.  Returns nullptr if deserialization
   // failed or if the requested type is not what is stored.
   template <typename T>
@@ -391,10 +390,9 @@ class HolderBase {
   // underlying object is a vector of protocol buffer objects, otherwise,
   // returns an error.
   virtual StatusOr<std::vector<const proto_ns::MessageLite*>>
-  GetVectorOfProtoMessageLite() = 0;
+  GetVectorOfProtoMessageLite() const = 0;
 
- private:
-  size_t type_id_;
+  virtual bool HasForeignOwner() const { return false; }
 };
 
 // Two helper functions to get the proto base pointers.
@@ -425,7 +423,7 @@ StatusOr<std::vector<const proto_ns::MessageLite*>>
 ConvertToVectorOfProtoMessageLitePtrs(const T* data,
                                       /*is_proto_vector=*/std::false_type) {
   return absl::InvalidArgumentError(absl::StrCat(
-      "The Packet stores \"", tool::TypeId<T>().name(), "\"",
+      "The Packet stores \"", kTypeId<T>.name(), "\"",
       "which is not convertible to vector<proto_ns::MessageLite*>."));
 }
 
@@ -442,7 +440,7 @@ ConvertToVectorOfProtoMessageLitePtrs(const T* data,
 }
 
 // This registry is used to create Holders of the right concrete C++ type given
-// a proto type std::string (which is used as the registration key).
+// a proto type string (which is used as the registration key).
 class MessageHolderRegistry
     : public GlobalFactoryRegistry<std::unique_ptr<HolderBase>> {};
 
@@ -501,14 +499,13 @@ class Holder : public HolderBase {
  public:
   explicit Holder(const T* ptr) : ptr_(ptr) {
     HolderSupport<T>::EnsureStaticInit();
-    SetHolderTypeId<Holder>();
   }
   ~Holder() override { delete_helper(); }
   const T& data() const {
     HolderSupport<T>::EnsureStaticInit();
     return *ptr_;
   }
-  size_t GetTypeId() const final { return tool::GetTypeHash<T>(); }
+  TypeId GetTypeId() const final { return kTypeId<T>; }
   // Releases the underlying data pointer and transfers the ownership to a
   // unique pointer.
   // This method is dangerous and is only used by Packet::Consume() if the
@@ -517,9 +514,7 @@ class Holder : public HolderBase {
   absl::StatusOr<std::unique_ptr<T>> Release(
       typename std::enable_if<!std::is_array<U>::value ||
                               std::extent<U>::value != 0>::type* = 0) {
-    // Since C++ doesn't allow virtual, templated functions, check holder
-    // type here to make sure it's not upcasted from a ForeignHolder.
-    if (!HolderIsOfType<Holder<T>>()) {
+    if (HasForeignOwner()) {
       return InternalError(
           "Foreign holder can't release data ptr without ownership.");
     }
@@ -563,7 +558,7 @@ class Holder : public HolderBase {
   // underlying object is a vector of protocol buffer objects, otherwise,
   // returns an error.
   StatusOr<std::vector<const proto_ns::MessageLite*>>
-  GetVectorOfProtoMessageLite() override {
+  GetVectorOfProtoMessageLite() const override {
     return ConvertToVectorOfProtoMessageLitePtrs(ptr_, is_proto_vector<T>());
   }
 
@@ -588,25 +583,19 @@ class Holder : public HolderBase {
 template <typename T>
 class ForeignHolder : public Holder<T> {
  public:
-  explicit ForeignHolder(const T* ptr) : Holder<T>(ptr) {
-    // Distinguishes between Holder and ForeignHolder since Consume() treats
-    // them differently.
-    this->template SetHolderTypeId<ForeignHolder>();
-  }
+  using Holder<T>::Holder;
   ~ForeignHolder() override {
     // Null out ptr_ so it doesn't get deleted by ~Holder.
+    // Note that ~Holder cannot call HasForeignOwner because the subclass's
+    // destructor runs first.
     this->ptr_ = nullptr;
   }
-  // Foreign holder can't release data pointer without ownership.
-  absl::StatusOr<std::unique_ptr<T>> Release() {
-    return absl::InternalError(
-        "Foreign holder can't release data ptr without ownership.");
-  }
+  bool HasForeignOwner() const final { return true; }
 };
 
 template <typename T>
 Holder<T>* HolderBase::As() {
-  if (HolderIsOfType<Holder<T>>() || HolderIsOfType<ForeignHolder<T>>()) {
+  if (PayloadIsOfType<T>()) {
     return static_cast<Holder<T>*>(this);
   }
   // Does not hold a T.
@@ -615,7 +604,7 @@ Holder<T>* HolderBase::As() {
 
 template <typename T>
 const Holder<T>* HolderBase::As() const {
-  if (HolderIsOfType<Holder<T>>() || HolderIsOfType<ForeignHolder<T>>()) {
+  if (PayloadIsOfType<T>()) {
     return static_cast<const Holder<T>*>(this);
   }
   // Does not hold a T.
@@ -644,7 +633,7 @@ inline absl::StatusOr<std::unique_ptr<T>> Packet::Consume() {
   MP_RETURN_IF_ERROR(ValidateAsType<T>());
   // Clients who use this function are responsible for ensuring that no
   // other thread is doing anything with this Packet.
-  if (holder_.unique()) {
+  if (!holder_->HasForeignOwner() && holder_.unique()) {
     VLOG(2) << "Consuming the data of " << DebugString();
     absl::StatusOr<std::unique_ptr<T>> release_result =
         holder_->As<T>()->Release();
@@ -666,8 +655,7 @@ inline absl::StatusOr<std::unique_ptr<T>> Packet::ConsumeOrCopy(
     typename std::enable_if<!std::is_array<T>::value>::type*) {
   MP_RETURN_IF_ERROR(ValidateAsType<T>());
   // If holder is the sole owner of the underlying data, consumes this packet.
-  if (!holder_->HolderIsOfType<packet_internal::ForeignHolder<T>>() &&
-      holder_.unique()) {
+  if (!holder_->HasForeignOwner() && holder_.unique()) {
     VLOG(2) << "Consuming the data of " << DebugString();
     absl::StatusOr<std::unique_ptr<T>> release_result =
         holder_->As<T>()->Release();
@@ -697,8 +685,7 @@ inline absl::StatusOr<std::unique_ptr<T>> Packet::ConsumeOrCopy(
                             std::extent<T>::value != 0>::type*) {
   MP_RETURN_IF_ERROR(ValidateAsType<T>());
   // If holder is the sole owner of the underlying data, consumes this packet.
-  if (!holder_->HolderIsOfType<packet_internal::ForeignHolder<T>>() &&
-      holder_.unique()) {
+  if (!holder_->HasForeignOwner() && holder_.unique()) {
     VLOG(2) << "Consuming the data of " << DebugString();
     absl::StatusOr<std::unique_ptr<T>> release_result =
         holder_->As<T>()->Release();
@@ -754,7 +741,7 @@ inline Packet& Packet::operator=(Packet&& packet) {
 
 inline bool Packet::IsEmpty() const { return holder_ == nullptr; }
 
-inline size_t Packet::GetTypeId() const {
+inline TypeId Packet::GetTypeId() const {
   CHECK(holder_);
   return holder_->GetTypeId();
 }
@@ -768,21 +755,6 @@ inline const T& Packet::Get() const {
     LOG(FATAL) << "Packet::Get() failed: " << status.message();
   }
   return holder->data();
-}
-
-template <typename T>
-absl::Status Packet::ValidateAsType() const {
-  if (ABSL_PREDICT_FALSE(IsEmpty())) {
-    return absl::InternalError(absl::StrCat(
-        "Expected a Packet of type: ", MediaPipeTypeStringOrDemangled<T>(),
-        ", but received an empty Packet."));
-  }
-  if (ABSL_PREDICT_FALSE(holder_->As<T>() == nullptr)) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "The Packet stores \"", holder_->DebugTypeName(), "\", but \"",
-        MediaPipeTypeStringOrDemangled<T>(), "\" was requested."));
-  }
-  return absl::OkStatus();
 }
 
 inline Timestamp Packet::Timestamp() const { return timestamp_; }

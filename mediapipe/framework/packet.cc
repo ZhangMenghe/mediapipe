@@ -21,6 +21,7 @@
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/framework/port/status_builder.h"
+#include "mediapipe/framework/tool/type_util.h"
 
 namespace mediapipe {
 namespace packet_internal {
@@ -105,6 +106,21 @@ std::string Packet::DebugString() const {
   return result;
 }
 
+absl::Status Packet::ValidateAsType(TypeId type_id) const {
+  if (ABSL_PREDICT_FALSE(IsEmpty())) {
+    return absl::InternalError(absl::StrCat(
+        "Expected a Packet of type: ", MediaPipeTypeStringOrDemangled(type_id),
+        ", but received an empty Packet."));
+  }
+  bool holder_is_right_type = holder_->GetTypeId() == type_id;
+  if (ABSL_PREDICT_FALSE(!holder_is_right_type)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "The Packet stores \"", holder_->DebugTypeName(), "\", but \"",
+        MediaPipeTypeStringOrDemangled(type_id), "\" was requested."));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Packet::ValidateAsProtoMessageLite() const {
   if (ABSL_PREDICT_FALSE(IsEmpty())) {
     return absl::InternalError("Packet is empty.");
@@ -127,7 +143,7 @@ const proto_ns::MessageLite& Packet::GetProtoMessageLite() const {
 }
 
 StatusOr<std::vector<const proto_ns::MessageLite*>>
-Packet::GetVectorOfProtoMessageLitePtrs() {
+Packet::GetVectorOfProtoMessageLitePtrs() const {
   if (holder_ == nullptr) {
     return absl::InternalError("Packet is empty.");
   }

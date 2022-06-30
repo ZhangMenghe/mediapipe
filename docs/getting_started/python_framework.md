@@ -74,7 +74,7 @@ Mapping\[str, Packet\]               | std::map<std::string, Packet> | create_st
 np.ndarray<br>(cv.mat and PIL.Image) | mp::ImageFrame                | create_image_frame(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;format=ImageFormat.SRGB,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data=mat) | get_image_frame(packet)
 np.ndarray                           | mp::Matrix                    | create_matrix(data)                                                                                                                                          | get_matrix(packet)
 Google Proto Message                 | Google Proto Message          | create_proto(proto)                                                                                                                                          | get_proto(packet)
-List\[Proto\]                        | std::vector\<Proto\>          | create_proto_vector(proto_list)                                                                                                                              | get_proto_list(packet)
+List\[Proto\]                        | std::vector\<Proto\>          | n/a                                                                                                                                                          | get_proto_list(packet)
 
 It's not uncommon that users create custom C++ classes and and send those into
 the graphs and calculators. To allow the custom classes to be used in Python
@@ -126,6 +126,7 @@ following steps:
             }
             return packet.Get<MyType>();
           });
+    }
     }  // namespace mediapipe
     ```
 
@@ -249,12 +250,12 @@ three stages: initialization and setup, graph run, and graph shutdown.
     graph.start_run()
 
     graph.add_packet_to_input_stream(
-        'in_stream', mp.packet_creator.create_str('abc').at(0))
+        'in_stream', mp.packet_creator.create_string('abc').at(0))
 
     rgb_img = cv2.cvtColor(cv2.imread('/path/to/your/image.png'), cv2.COLOR_BGR2RGB)
     graph.add_packet_to_input_stream(
         'in_stream',
-        mp.packet_creator.create_image_frame(format=mp.ImageFormat.SRGB,
+        mp.packet_creator.create_image_frame(image_format=mp.ImageFormat.SRGB,
                                              data=rgb_img).at(1))
     ```
 

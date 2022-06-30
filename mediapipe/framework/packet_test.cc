@@ -214,6 +214,21 @@ TEST(PacketTest, ValidateAsProtoMessageLite) {
   EXPECT_EQ(status.code(), absl::StatusCode::kInvalidArgument);
 }
 
+TEST(PacketTest, GetVectorOfProtos) {
+  std::vector<mediapipe::PacketTestProto> protos(2);
+  protos[0].add_x(123);
+  protos[1].add_x(456);
+  // Normally we'd move here, but we copy to use the protos for comparison.
+  const Packet packet =
+      MakePacket<std::vector<mediapipe::PacketTestProto>>(protos);
+  auto maybe_proto_ptrs = packet.GetVectorOfProtoMessageLitePtrs();
+  EXPECT_THAT(maybe_proto_ptrs,
+              IsOkAndHolds(testing::Pointwise(EqualsProto(), protos)));
+
+  const Packet wrong = MakePacket<int>(1);
+  EXPECT_THAT(wrong.GetVectorOfProtoMessageLitePtrs(), testing::Not(IsOk()));
+}
+
 TEST(PacketTest, SyncedPacket) {
   Packet synced_packet = AdoptAsSyncedPacket(new int(100));
   Packet value_packet =
@@ -358,9 +373,9 @@ TEST(PacketTest, TestConsumeForeignHolder) {
   Packet packet = PointToForeign(data.get());
   absl::StatusOr<std::unique_ptr<int>> result = packet.Consume<int>();
   EXPECT_FALSE(result.ok());
-  EXPECT_EQ(result.status().code(), absl::StatusCode::kInternal);
+  EXPECT_EQ(result.status().code(), absl::StatusCode::kFailedPrecondition);
   EXPECT_EQ(result.status().message(),
-            "Foreign holder can't release data ptr without ownership.");
+            "Packet isn't the sole owner of the holder.");
   ASSERT_FALSE(packet.IsEmpty());
   EXPECT_EQ(33, packet.Get<int>());
 }

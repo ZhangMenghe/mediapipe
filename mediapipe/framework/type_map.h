@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // This header defines static maps to store the mappings from type hash id and
-// name std::string to MediaPipeTypeData.  It also provides code to inspect
-// types of packets and access registered serialize and deserialize functions.
+// name string to MediaPipeTypeData.  It also provides code to inspect types of
+// packets and access registered serialize and deserialize functions.
 // Calculators can use this to infer types of packets and adjust accordingly.
 //
 // Register a type:
@@ -242,7 +242,7 @@ class StaticMap {
   class MapName : public type_map_internal::StaticMap<MapName, KeyType> {};
 // Defines a map from unique typeid number to MediaPipeTypeData.
 DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeIdToMediaPipeTypeData, size_t);
-// Defines a map from unique type std::string to MediaPipeTypeData.
+// Defines a map from unique type string to MediaPipeTypeData.
 DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeStringToMediaPipeTypeData, std::string);
 
 // MEDIAPIPE_REGISTER_TYPE can be used to register a type.
@@ -267,7 +267,7 @@ DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeStringToMediaPipeTypeData, std::string);
 //   #undef MY_MAP_TYPE
 //
 //   MEDIAPIPE_REGISTER_TYPE(
-//       std::string, "string", StringSerializeFn, StringDeserializeFn);
+//       std::string, "std::string", StringSerializeFn, StringDeserializeFn);
 //
 #define MEDIAPIPE_REGISTER_TYPE(type, type_name, serialize_fn, deserialize_fn) \
   SET_MEDIAPIPE_TYPE_MAP_VALUE(                                                \
@@ -293,7 +293,7 @@ DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeStringToMediaPipeTypeData, std::string);
 //     typedef is used, the name should be prefixed with the namespace(s),
 //     seperated by double colons.
 //
-// Example 1: register type with non-std::string proxy.
+// Example 1: register type with non-string proxy.
 //   absl::Status ToProxyFn(
 //       const ClassType& obj, ProxyType* proxy)
 //   {
@@ -315,15 +315,15 @@ DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeStringToMediaPipeTypeData, std::string);
 //      ::mediapipe::DeserializeUsingGenericFn<ClassType WITH_MEDIAPIPE_PROXY
 //      ProxyType>, ToProxyFn, FromProxyFn);
 //
-// Example 2: register type with std::string proxy.
-//   absl::Status ToProxyFn(const ClassType& obj, std::string* encoding)
+// Example 2: register type with string proxy.
+//   absl::Status ToProxyFn(const ClassType& obj, string* encoding)
 //   {
 //     ...
 //     return absl::OkStatus();
 //   }
 //
 //   absl::Status FromProxyFn(
-//       const ProxyType& proxy, std::string* encoding) {
+//       const ProxyType& proxy, string* encoding) {
 //     ...
 //     return absl::OkStatus();
 //   }
@@ -361,26 +361,30 @@ DEFINE_MEDIAPIPE_TYPE_MAP(PacketTypeStringToMediaPipeTypeData, std::string);
 // End define MEDIAPIPE_REGISTER_TYPE_WITH_PROXY.
 
 // Helper functions's to retrieve registration data.
-inline const std::string* MediaPipeTypeStringFromTypeId(const size_t type_id) {
+inline const std::string* MediaPipeTypeStringFromTypeId(TypeId type_id) {
   const MediaPipeTypeData* value =
-      PacketTypeIdToMediaPipeTypeData::GetValue(type_id);
+      PacketTypeIdToMediaPipeTypeData::GetValue(type_id.hash_code());
   return (value) ? &value->type_string : nullptr;
 }
 
-// Returns std::string identifier of type or NULL if not registered.
+// Returns string identifier of type or NULL if not registered.
 template <typename T>
 inline const std::string* MediaPipeTypeString() {
-  return MediaPipeTypeStringFromTypeId(tool::GetTypeHash<T>());
+  return MediaPipeTypeStringFromTypeId(kTypeId<T>);
 }
 
-template <typename T>
-const std::string MediaPipeTypeStringOrDemangled() {
-  const std::string* type_string = MediaPipeTypeString<T>();
+inline std::string MediaPipeTypeStringOrDemangled(TypeId type_id) {
+  const std::string* type_string = MediaPipeTypeStringFromTypeId(type_id);
   if (type_string) {
     return *type_string;
   } else {
-    return mediapipe::Demangle(tool::TypeId<T>().name());
+    return type_id.name();
   }
+}
+
+template <typename T>
+std::string MediaPipeTypeStringOrDemangled() {
+  return MediaPipeTypeStringOrDemangled(kTypeId<T>);
 }
 
 // Returns type hash id of type identified by type_string or NULL if not

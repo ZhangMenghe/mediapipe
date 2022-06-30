@@ -36,7 +36,6 @@ cc_test(
         ":tag",
         ":test_contracts",
         "//mediapipe/framework:calculator_framework",
-        "//mediapipe/framework/deps:message_matchers",
         "//mediapipe/framework/port:gtest_main",
         "//mediapipe/framework/port:parse_text_proto",
         "@com_google_absl//absl/strings",
@@ -135,6 +134,7 @@ cc_test(
     deps = [
         ":packet",
         "//mediapipe/framework/port:gtest_main",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -149,6 +149,7 @@ cc_library(
         "//mediapipe/framework:calculator_contract",
         "//mediapipe/framework:output_side_packet",
         "//mediapipe/framework/port:logging",
+        "//mediapipe/framework/tool:type_util",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -175,7 +176,6 @@ cc_test(
         ":port",
         ":test_contracts",
         "//mediapipe/framework:calculator_framework",
-        "//mediapipe/framework/deps:message_matchers",
         "//mediapipe/framework/port:gtest_main",
         "//mediapipe/framework/port:parse_text_proto",
         "//mediapipe/framework/tool:subgraph_expansion",

@@ -90,8 +90,10 @@ class InferenceCalculatorMetalImpl
   absl::Status Close(CalculatorContext* cc) override;
 
  private:
-  absl::Status LoadModel(CalculatorContext* cc);
-  absl::Status LoadDelegate(CalculatorContext* cc);
+  absl::Status InitInterpreter(CalculatorContext* cc);
+  void AddDelegate(CalculatorContext* cc,
+                   tflite::InterpreterBuilder* interpreter_builder);
+  absl::Status CreateConverters(CalculatorContext* cc);
 
   // TfLite requires us to keep the model alive as long as the interpreter is.
   Packet<TfLiteModelPtr> model_packet_;
@@ -126,12 +128,9 @@ absl::Status InferenceCalculatorMetalImpl::Open(CalculatorContext* cc) {
   const auto& options = cc->Options<::mediapipe::InferenceCalculatorOptions>();
   allow_precision_loss_ = options.delegate().gpu().allow_precision_loss();
 
-  MP_RETURN_IF_ERROR(LoadModel(cc));
-
   gpu_helper_ = [[MPPMetalHelper alloc] initWithCalculatorContext:cc];
   RET_CHECK(gpu_helper_);
-  MP_RETURN_IF_ERROR(LoadDelegate(cc));
-  return absl::OkStatus();
+  return InitInterpreter(cc);
 }
 
 absl::Status InferenceCalculatorMetalImpl::Process(CalculatorContext* cc) {
@@ -199,28 +198,30 @@ absl::Status InferenceCalculatorMetalImpl::Close(CalculatorContext* cc) {
   return absl::OkStatus();
 }
 
-absl::Status InferenceCalculatorMetalImpl::LoadModel(CalculatorContext* cc) {
+absl::Status InferenceCalculatorMetalImpl::InitInterpreter(
+    CalculatorContext* cc) {
   ASSIGN_OR_RETURN(model_packet_, GetModelAsPacket(cc));
   const auto& model = *model_packet_.Get();
-  tflite::ops::builtin::BuiltinOpResolver op_resolver =
-      kSideInCustomOpResolver(cc).GetOr(
-          tflite::ops::builtin::BuiltinOpResolverWithoutDefaultDelegates());
-
-  tflite::InterpreterBuilder(model, op_resolver)(&interpreter_);
+  ASSIGN_OR_RETURN(auto op_resolver_packet, GetOpResolverAsPacket(cc));
+  const auto& op_resolver = op_resolver_packet.Get();
+  tflite::InterpreterBuilder interpreter_builder(model, op_resolver);
+  AddDelegate(cc, &interpreter_builder);
+  interpreter_builder.SetNumThreads(
+      cc->Options<mediapipe::InferenceCalculatorOptions>().cpu_num_thread());
+  RET_CHECK_EQ(interpreter_builder(&interpreter_), kTfLiteOk);
   RET_CHECK(interpreter_);
 
-  interpreter_->SetNumThreads(
-      cc->Options<mediapipe::InferenceCalculatorOptions>().cpu_num_thread());
-
+  MP_RETURN_IF_ERROR(CreateConverters(cc));
   RET_CHECK_EQ(interpreter_->AllocateTensors(), kTfLiteOk);
   // TODO: Support quantized tensors.
-  CHECK(interpreter_->tensor(interpreter_->inputs()[0])->quantization.type !=
-        kTfLiteAffineQuantization);
-
+  RET_CHECK_NE(
+      interpreter_->tensor(interpreter_->inputs()[0])->quantization.type,
+      kTfLiteAffineQuantization);
   return absl::OkStatus();
 }
 
-absl::Status InferenceCalculatorMetalImpl::LoadDelegate(CalculatorContext* cc) {
+void InferenceCalculatorMetalImpl::AddDelegate(
+    CalculatorContext* cc, tflite::InterpreterBuilder* interpreter_builder) {
   const auto& calculator_opts =
       cc->Options<mediapipe::InferenceCalculatorOptions>();
 
@@ -234,8 +235,11 @@ absl::Status InferenceCalculatorMetalImpl::LoadDelegate(CalculatorContext* cc) {
   options.wait_type = TFLGpuDelegateWaitType::TFLGpuDelegateWaitTypeDoNotWait;
   delegate_ =
       TfLiteDelegatePtr(TFLGpuDelegateCreate(&options), &TFLGpuDelegateDelete);
-  RET_CHECK_EQ(interpreter_->ModifyGraphWithDelegate(delegate_.get()),
-               kTfLiteOk);
+  interpreter_builder->AddDelegate(delegate_.get());
+}
+
+absl::Status InferenceCalculatorMetalImpl::CreateConverters(
+    CalculatorContext* cc) {
   id<MTLDevice> device = gpu_helper_.mtlDevice;
 
   // Get input image sizes.

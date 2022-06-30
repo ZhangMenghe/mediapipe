@@ -20,34 +20,34 @@ nav_order: 2
 
 ## Overview
 
-MediaPipe Face Mesh is a face geometry solution that estimates 468 3D face
-landmarks in real-time even on mobile devices. It employs machine learning (ML)
-to infer the 3D surface geometry, requiring only a single camera input without
-the need for a dedicated depth sensor. Utilizing lightweight model architectures
-together with GPU acceleration throughout the pipeline, the solution delivers
-real-time performance critical for live experiences.
+MediaPipe Face Mesh is a solution that estimates 468 3D face landmarks in
+real-time even on mobile devices. It employs machine learning (ML) to infer the
+3D facial surface, requiring only a single camera input without the need for a
+dedicated depth sensor. Utilizing lightweight model architectures together with
+GPU acceleration throughout the pipeline, the solution delivers real-time
+performance critical for live experiences.
 
-Additionally, the solution is bundled with the Face Geometry module that bridges
-the gap between the face landmark estimation and useful real-time augmented
-reality (AR) applications. It establishes a metric 3D space and uses the face
-landmark screen positions to estimate face geometry within that space. The face
-geometry data consists of common 3D geometry primitives, including a face pose
-transformation matrix and a triangular face mesh. Under the hood, a lightweight
-statistical analysis method called
+Additionally, the solution is bundled with the Face Transform module that
+bridges the gap between the face landmark estimation and useful real-time
+augmented reality (AR) applications. It establishes a metric 3D space and uses
+the face landmark screen positions to estimate a face transform within that
+space. The face transform data consists of common 3D primitives, including a
+face pose transformation matrix and a triangular face mesh. Under the hood, a
+lightweight statistical analysis method called
 [Procrustes Analysis](https://en.wikipedia.org/wiki/Procrustes_analysis) is
 employed to drive a robust, performant and portable logic. The analysis runs on
 CPU and has a minimal speed/memory footprint on top of the ML model inference.
 
 ![face_mesh_ar_effects.gif](../images/face_mesh_ar_effects.gif) |
 :-------------------------------------------------------------: |
-*Fig 1. AR effects utilizing facial surface geometry.*          |
+*Fig 1. AR effects utilizing the 3D facial surface.*            |
 
 ## ML Pipeline
 
 Our ML pipeline consists of two real-time deep neural network models that work
 together: A detector that operates on the full image and computes face locations
 and a 3D face landmark model that operates on those locations and predicts the
-approximate surface geometry via regression. Having the face accurately cropped
+approximate 3D surface via regression. Having the face accurately cropped
 drastically reduces the need for common data augmentations like affine
 transformations consisting of rotations, translation and scale changes. Instead
 it allows the network to dedicate most of its capacity towards coordinate
@@ -55,8 +55,8 @@ prediction accuracy. In addition, in our pipeline the crops can also be
 generated based on the face landmarks identified in the previous frame, and only
 when the landmark model could no longer identify face presence is the face
 detector invoked to relocalize the face. This strategy is similar to that
-employed in our [MediaPipe Hands](./hands.md) solution, which uses a palm detector
-together with a hand landmark model.
+employed in our [MediaPipe Hands](./hands.md) solution, which uses a palm
+detector together with a hand landmark model.
 
 The pipeline is implemented as a MediaPipe
 [graph](https://github.com/google/mediapipe/tree/master/mediapipe/graphs/face_mesh/face_mesh_mobile.pbtxt)
@@ -111,7 +111,24 @@ You can find more information about the face landmark model in this
 :------------------------------------------------------------------------: |
 *Fig 2. Face landmarks: the red box indicates the cropped area as input to the landmark model, the red dots represent the 468 landmarks in 3D, and the green lines connecting landmarks illustrate the contours around the eyes, eyebrows, lips and the entire face.* |
 
-## Face Geometry Module
+#### Attention Mesh Model
+
+In addition to the [Face Landmark Model](#face-landmark-model) we provide
+another model that applies
+[attention](https://en.wikipedia.org/wiki/Attention_(machine_learning)) to
+semantically meaningful face regions, and therefore predicting landmarks more
+accurately around lips, eyes and irises, at the expense of more compute. It
+enables applications like AR makeup and AR puppeteering.
+
+The attention mesh model can be selected in the Solution APIs via the
+[refine_landmarks](#refine_landmarks) option. You can also find more information
+about the model in this [paper](https://arxiv.org/abs/2006.10962).
+
+![attention_mesh_architecture.png](../images/attention_mesh_architecture.png) |
+:---------------------------------------------------------------------------: |
+*Fig 3. Attention Mesh: Overview of model architecture.*                      |
+
+## Face Transform Module
 
 The [Face Landmark Model](#face-landmark-model) performs a single-camera face landmark
 detection in the screen coordinate space: the X- and Y- coordinates are
@@ -123,7 +140,7 @@ enable the full spectrum of augmented reality (AR) features like aligning a
 virtual 3D object with a detected face.
 
 The
-[Face Geometry module](https://github.com/google/mediapipe/tree/master/mediapipe/modules/face_geometry)
+[Face Transform module](https://github.com/google/mediapipe/tree/master/mediapipe/modules/face_geometry)
 moves away from the screen coordinate space towards a metric 3D space and
 provides necessary primitives to handle a detected face as a regular 3D object.
 By design, you'll be able to use a perspective camera to project the final 3D
@@ -134,7 +151,7 @@ landmark positions are not changed.
 
 #### Metric 3D Space
 
-The **Metric 3D space** established within the Face Geometry module is a
+The **Metric 3D space** established within the Face Transform module is a
 right-handed orthonormal metric 3D coordinate space. Within the space, there is
 a **virtual perspective camera** located at the space origin and pointed in the
 negative direction of the Z-axis. In the current pipeline, it is assumed that
@@ -145,8 +162,8 @@ be set freely, however for better results it is advised to set them as close to
 the *real physical camera parameters* as possible.
 
 ![face_geometry_metric_3d_space.gif](../images/face_geometry_metric_3d_space.gif) |
-:----------------------------------------------------------------------------: |
-*Fig 3. A visualization of multiple key elements in the Metric 3D space.*      |
+:-------------------------------------------------------------------------------: |
+*Fig 4. A visualization of multiple key elements in the Metric 3D space.*         |
 
 #### Canonical Face Model
 
@@ -167,11 +184,11 @@ functions:
 
 ### Components
 
-#### Geometry Pipeline
+#### Transform Pipeline
 
-The **Geometry Pipeline** is a key component, which is responsible for
-estimating face geometry objects within the Metric 3D space. On each frame, the
-following steps are executed in the given order:
+The **Transform Pipeline** is a key component, which is responsible for
+estimating the face transform objects within the Metric 3D space. On each frame,
+the following steps are executed in the given order:
 
 -   Face landmark screen coordinates are converted into the Metric 3D space
     coordinates;
@@ -182,12 +199,12 @@ following steps are executed in the given order:
     positions (XYZ), while both the vertex texture coordinates (UV) and the
     triangular topology are inherited from the canonical face model.
 
-The geometry pipeline is implemented as a MediaPipe
+The transform pipeline is implemented as a MediaPipe
 [calculator](https://github.com/google/mediapipe/tree/master/mediapipe/modules/face_geometry/geometry_pipeline_calculator.cc).
-For your convenience, the face geometry pipeline calculator is bundled together
-with corresponding metadata into a unified MediaPipe
+For your convenience, this calculator is bundled together with corresponding
+metadata into a unified MediaPipe
 [subgraph](https://github.com/google/mediapipe/tree/master/mediapipe/modules/face_geometry/face_geometry_from_landmarks.pbtxt).
-The face geometry format is defined as a Protocol Buffer
+The face transform format is defined as a Protocol Buffer
 [message](https://github.com/google/mediapipe/tree/master/mediapipe/modules/face_geometry/protos/face_geometry.proto).
 
 #### Effect Renderer
@@ -210,7 +227,7 @@ The effect renderer is implemented as a MediaPipe
 
 | ![face_geometry_renderer.gif](../images/face_geometry_renderer.gif)     |
 | :---------------------------------------------------------------------: |
-| *Fig 4. An example of face effects rendered by the Face Geometry Effect Renderer.* |
+| *Fig 5. An example of face effects rendered by the Face Transform Effect Renderer.* |
 
 ## Solution APIs
 
@@ -233,6 +250,12 @@ unrelated, images. Default to `false`.
 #### max_num_faces
 
 Maximum number of faces to detect. Default to `1`.
+
+#### refine_landmarks
+
+Whether to further refine the landmark coordinates around the eyes and lips, and
+output additional landmarks around the irises by applying the
+[Attention Mesh Model](#attention-mesh-model). Default to `false`.
 
 #### min_detection_confidence
 
@@ -271,6 +294,7 @@ Supported configuration options:
 
 *   [static_image_mode](#static_image_mode)
 *   [max_num_faces](#max_num_faces)
+*   [refine_landmarks](#refine_landmarks)
 *   [min_detection_confidence](#min_detection_confidence)
 *   [min_tracking_confidence](#min_tracking_confidence)
 
@@ -278,6 +302,7 @@ Supported configuration options:
 import cv2
 import mediapipe as mp
 mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
 mp_face_mesh = mp.solutions.face_mesh
 
 # For static images:
@@ -286,6 +311,7 @@ drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 with mp_face_mesh.FaceMesh(
     static_image_mode=True,
     max_num_faces=1,
+    refine_landmarks=True,
     min_detection_confidence=0.5) as face_mesh:
   for idx, file in enumerate(IMAGE_FILES):
     image = cv2.imread(file)
@@ -301,15 +327,32 @@ with mp_face_mesh.FaceMesh(
       mp_drawing.draw_landmarks(
           image=annotated_image,
           landmark_list=face_landmarks,
-          connections=mp_face_mesh.FACE_CONNECTIONS,
-          landmark_drawing_spec=drawing_spec,
-          connection_drawing_spec=drawing_spec)
+          connections=mp_face_mesh.FACEMESH_TESSELATION,
+          landmark_drawing_spec=None,
+          connection_drawing_spec=mp_drawing_styles
+          .get_default_face_mesh_tesselation_style())
+      mp_drawing.draw_landmarks(
+          image=annotated_image,
+          landmark_list=face_landmarks,
+          connections=mp_face_mesh.FACEMESH_CONTOURS,
+          landmark_drawing_spec=None,
+          connection_drawing_spec=mp_drawing_styles
+          .get_default_face_mesh_contours_style())
+      mp_drawing.draw_landmarks(
+          image=annotated_image,
+          landmark_list=face_landmarks,
+          connections=mp_face_mesh.FACEMESH_IRISES,
+          landmark_drawing_spec=None,
+          connection_drawing_spec=mp_drawing_styles
+          .get_default_face_mesh_iris_connections_style())
     cv2.imwrite('/tmp/annotated_image' + str(idx) + '.png', annotated_image)
 
 # For webcam input:
 drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 cap = cv2.VideoCapture(0)
 with mp_face_mesh.FaceMesh(
+    max_num_faces=1,
+    refine_landmarks=True,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5) as face_mesh:
   while cap.isOpened():
@@ -319,12 +362,10 @@ with mp_face_mesh.FaceMesh(
       # If loading a video, use 'break' instead of 'continue'.
       continue
 
-    # Flip the image horizontally for a later selfie-view display, and convert
-    # the BGR image to RGB.
-    image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
     # To improve performance, optionally mark the image as not writeable to
     # pass by reference.
     image.flags.writeable = False
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(image)
 
     # Draw the face mesh annotations on the image.
@@ -335,10 +376,26 @@ with mp_face_mesh.FaceMesh(
         mp_drawing.draw_landmarks(
             image=image,
             landmark_list=face_landmarks,
-            connections=mp_face_mesh.FACE_CONNECTIONS,
-            landmark_drawing_spec=drawing_spec,
-            connection_drawing_spec=drawing_spec)
-    cv2.imshow('MediaPipe FaceMesh', image)
+            connections=mp_face_mesh.FACEMESH_TESSELATION,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing_styles
+            .get_default_face_mesh_tesselation_style())
+        mp_drawing.draw_landmarks(
+            image=image,
+            landmark_list=face_landmarks,
+            connections=mp_face_mesh.FACEMESH_CONTOURS,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing_styles
+            .get_default_face_mesh_contours_style())
+        mp_drawing.draw_landmarks(
+            image=image,
+            landmark_list=face_landmarks,
+            connections=mp_face_mesh.FACEMESH_IRISES,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing_styles
+            .get_default_face_mesh_iris_connections_style())
+    # Flip the image horizontally for a selfie-view display.
+    cv2.imshow('MediaPipe Face Mesh', cv2.flip(image, 1))
     if cv2.waitKey(5) & 0xFF == 27:
       break
 cap.release()
@@ -353,6 +410,7 @@ and the following usage example.
 Supported configuration options:
 
 *   [maxNumFaces](#max_num_faces)
+*   [refineLandmarks](#refine_landmarks)
 *   [minDetectionConfidence](#min_detection_confidence)
 *   [minTrackingConfidence](#min_tracking_confidence)
 
@@ -393,8 +451,10 @@ function onResults(results) {
                      {color: '#C0C0C070', lineWidth: 1});
       drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#FF3030'});
       drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, {color: '#FF3030'});
+      drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_IRIS, {color: '#FF3030'});
       drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#30FF30'});
       drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYEBROW, {color: '#30FF30'});
+      drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_IRIS, {color: '#30FF30'});
       drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#E0E0E0'});
       drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E0E0E0'});
     }
@@ -407,6 +467,7 @@ const faceMesh = new FaceMesh({locateFile: (file) => {
 }});
 faceMesh.setOptions({
   maxNumFaces: 1,
+  refineLandmarks: true,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5
 });
@@ -421,6 +482,202 @@ const camera = new Camera(videoElement, {
 });
 camera.start();
 </script>
+```
+
+### Android Solution API
+
+Please first follow general
+[instructions](../getting_started/android_solutions.md) to add MediaPipe Gradle
+dependencies and try the Android Solution API in the companion
+[example Android Studio project](https://github.com/google/mediapipe/tree/master/mediapipe/examples/android/solutions/facemesh),
+and learn more in the usage example below.
+
+Supported configuration options:
+
+*   [staticImageMode](#static_image_mode)
+*   [maxNumFaces](#max_num_faces)
+*   [refineLandmarks](#refine_landmarks)
+*   runOnGpu: Run the pipeline and the model inference on GPU or CPU.
+
+#### Camera Input
+
+```java
+// For camera input and result rendering with OpenGL.
+FaceMeshOptions faceMeshOptions =
+    FaceMeshOptions.builder()
+        .setStaticImageMode(false)
+        .setRefineLandmarks(true)
+        .setMaxNumFaces(1)
+        .setRunOnGpu(true).build();
+FaceMesh faceMesh = new FaceMesh(this, faceMeshOptions);
+faceMesh.setErrorListener(
+    (message, e) -> Log.e(TAG, "MediaPipe Face Mesh error:" + message));
+
+// Initializes a new CameraInput instance and connects it to MediaPipe Face Mesh Solution.
+CameraInput cameraInput = new CameraInput(this);
+cameraInput.setNewFrameListener(
+    textureFrame -> faceMesh.send(textureFrame));
+
+// Initializes a new GlSurfaceView with a ResultGlRenderer<FaceMeshResult> instance
+// that provides the interfaces to run user-defined OpenGL rendering code.
+// See mediapipe/examples/android/solutions/facemesh/src/main/java/com/google/mediapipe/examples/facemesh/FaceMeshResultGlRenderer.java
+// as an example.
+SolutionGlSurfaceView<FaceMeshResult> glSurfaceView =
+    new SolutionGlSurfaceView<>(
+        this, faceMesh.getGlContext(), faceMesh.getGlMajorVersion());
+glSurfaceView.setSolutionResultRenderer(new FaceMeshResultGlRenderer());
+glSurfaceView.setRenderInputImage(true);
+
+faceMesh.setResultListener(
+    faceMeshResult -> {
+      NormalizedLandmark noseLandmark =
+          result.multiFaceLandmarks().get(0).getLandmarkList().get(1);
+      Log.i(
+          TAG,
+          String.format(
+              "MediaPipe Face Mesh nose normalized coordinates (value range: [0, 1]): x=%f, y=%f",
+              noseLandmark.getX(), noseLandmark.getY()));
+      // Request GL rendering.
+      glSurfaceView.setRenderData(faceMeshResult);
+      glSurfaceView.requestRender();
+    });
+
+// The runnable to start camera after the GLSurfaceView is attached.
+glSurfaceView.post(
+    () ->
+        cameraInput.start(
+            this,
+            faceMesh.getGlContext(),
+            CameraInput.CameraFacing.FRONT,
+            glSurfaceView.getWidth(),
+            glSurfaceView.getHeight()));
+```
+
+#### Image Input
+
+```java
+// For reading images from gallery and drawing the output in an ImageView.
+FaceMeshOptions faceMeshOptions =
+    FaceMeshOptions.builder()
+        .setStaticImageMode(true)
+        .setRefineLandmarks(true)
+        .setMaxNumFaces(1)
+        .setRunOnGpu(true).build();
+FaceMesh faceMesh = new FaceMesh(this, faceMeshOptions);
+
+// Connects MediaPipe Face Mesh Solution to the user-defined ImageView instance
+// that allows users to have the custom drawing of the output landmarks on it.
+// See mediapipe/examples/android/solutions/facemesh/src/main/java/com/google/mediapipe/examples/facemesh/FaceMeshResultImageView.java
+// as an example.
+FaceMeshResultImageView imageView = new FaceMeshResultImageView(this);
+faceMesh.setResultListener(
+    faceMeshResult -> {
+      int width = faceMeshResult.inputBitmap().getWidth();
+      int height = faceMeshResult.inputBitmap().getHeight();
+      NormalizedLandmark noseLandmark =
+          result.multiFaceLandmarks().get(0).getLandmarkList().get(1);
+      Log.i(
+          TAG,
+          String.format(
+              "MediaPipe Face Mesh nose coordinates (pixel values): x=%f, y=%f",
+              noseLandmark.getX() * width, noseLandmark.getY() * height));
+      // Request canvas drawing.
+      imageView.setFaceMeshResult(faceMeshResult);
+      runOnUiThread(() -> imageView.update());
+    });
+faceMesh.setErrorListener(
+    (message, e) -> Log.e(TAG, "MediaPipe Face Mesh error:" + message));
+
+// ActivityResultLauncher to get an image from the gallery as Bitmap.
+ActivityResultLauncher<Intent> imageGetter =
+    registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+          Intent resultIntent = result.getData();
+          if (resultIntent != null && result.getResultCode() == RESULT_OK) {
+            Bitmap bitmap = null;
+            try {
+              bitmap =
+                  MediaStore.Images.Media.getBitmap(
+                      this.getContentResolver(), resultIntent.getData());
+              // Please also rotate the Bitmap based on its orientation.
+            } catch (IOException e) {
+              Log.e(TAG, "Bitmap reading error:" + e);
+            }
+            if (bitmap != null) {
+              faceMesh.send(bitmap);
+            }
+          }
+        });
+Intent pickImageIntent = new Intent(Intent.ACTION_PICK);
+pickImageIntent.setDataAndType(MediaStore.Images.Media.INTERNAL_CONTENT_URI, "image/*");
+imageGetter.launch(pickImageIntent);
+```
+
+#### Video Input
+
+```java
+// For video input and result rendering with OpenGL.
+FaceMeshOptions faceMeshOptions =
+    FaceMeshOptions.builder()
+        .setStaticImageMode(false)
+        .setRefineLandmarks(true)
+        .setMaxNumFaces(1)
+        .setRunOnGpu(true).build();
+FaceMesh faceMesh = new FaceMesh(this, faceMeshOptions);
+faceMesh.setErrorListener(
+    (message, e) -> Log.e(TAG, "MediaPipe Face Mesh error:" + message));
+
+// Initializes a new VideoInput instance and connects it to MediaPipe Face Mesh Solution.
+VideoInput videoInput = new VideoInput(this);
+videoInput.setNewFrameListener(
+    textureFrame -> faceMesh.send(textureFrame));
+
+// Initializes a new GlSurfaceView with a ResultGlRenderer<FaceMeshResult> instance
+// that provides the interfaces to run user-defined OpenGL rendering code.
+// See mediapipe/examples/android/solutions/facemesh/src/main/java/com/google/mediapipe/examples/facemesh/FaceMeshResultGlRenderer.java
+// as an example.
+SolutionGlSurfaceView<FaceMeshResult> glSurfaceView =
+    new SolutionGlSurfaceView<>(
+        this, faceMesh.getGlContext(), faceMesh.getGlMajorVersion());
+glSurfaceView.setSolutionResultRenderer(new FaceMeshResultGlRenderer());
+glSurfaceView.setRenderInputImage(true);
+
+faceMesh.setResultListener(
+    faceMeshResult -> {
+      NormalizedLandmark noseLandmark =
+          result.multiFaceLandmarks().get(0).getLandmarkList().get(1);
+      Log.i(
+          TAG,
+          String.format(
+              "MediaPipe Face Mesh nose normalized coordinates (value range: [0, 1]): x=%f, y=%f",
+              noseLandmark.getX(), noseLandmark.getY()));
+      // Request GL rendering.
+      glSurfaceView.setRenderData(faceMeshResult);
+      glSurfaceView.requestRender();
+    });
+
+ActivityResultLauncher<Intent> videoGetter =
+    registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+          Intent resultIntent = result.getData();
+          if (resultIntent != null) {
+            if (result.getResultCode() == RESULT_OK) {
+              glSurfaceView.post(
+                  () ->
+                      videoInput.start(
+                          this,
+                          resultIntent.getData(),
+                          faceMesh.getGlContext(),
+                          glSurfaceView.getWidth(),
+                          glSurfaceView.getHeight()));
+            }
+          }
+        });
+Intent pickVideoIntent = new Intent(Intent.ACTION_PICK);
+pickVideoIntent.setDataAndType(MediaStore.Video.Media.INTERNAL_CONTENT_URI, "video/*");
+videoGetter.launch(pickVideoIntent);
 ```
 
 ## Example Apps

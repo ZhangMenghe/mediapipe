@@ -19,17 +19,11 @@ from typing import NamedTuple, Union
 import numpy as np
 from mediapipe.framework.formats import detection_pb2
 from mediapipe.framework.formats import location_data_pb2
-# pylint: disable=unused-import
-from mediapipe.calculators.tensor import image_to_tensor_calculator_pb2
-from mediapipe.calculators.tensor import inference_calculator_pb2
-from mediapipe.calculators.tensor import tensors_to_detections_calculator_pb2
-from mediapipe.calculators.tflite import ssd_anchors_calculator_pb2
-from mediapipe.calculators.util import non_max_suppression_calculator_pb2
-# pylint: enable=unused-import
+from mediapipe.modules.face_detection import face_detection_pb2
 from mediapipe.python.solution_base import SolutionBase
 
-SHORT_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_short_range_cpu.binarypb'
-FULL_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_full_range_cpu.binarypb'
+_SHORT_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_short_range_cpu.binarypb'
+_FULL_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_full_range_cpu.binarypb'
 
 
 def get_key_point(
@@ -83,15 +77,14 @@ class FaceDetection(SolutionBase):
         https://solutions.mediapipe.dev/face_detection#model_selection.
     """
 
-    binary_graph_path = FULL_RANGE_GRAPH_FILE_PATH if model_selection == 1 else SHORT_RANGE_GRAPH_FILE_PATH
-    subgraph_name = 'facedetectionfullrangecommon' if model_selection == 1 else 'facedetectionshortrangecommon'
+    binary_graph_path = _FULL_RANGE_GRAPH_FILE_PATH if model_selection == 1 else _SHORT_RANGE_GRAPH_FILE_PATH
 
     super().__init__(
         binary_graph_path=binary_graph_path,
-        calculator_params={
-            subgraph_name + '__TensorsToDetectionsCalculator.min_score_thresh':
-                min_detection_confidence,
-        },
+        graph_options=self.create_graph_options(
+            face_detection_pb2.FaceDetectionOptions(), {
+                'min_score_thresh': min_detection_confidence,
+            }),
         outputs=['detections'])
 
   def process(self, image: np.ndarray) -> NamedTuple:

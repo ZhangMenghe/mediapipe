@@ -117,6 +117,7 @@ mediapipe_proto_library(
         "//mediapipe/framework:calculator_options_proto",
         "//mediapipe/framework:calculator_proto",
         "//mediapipe/framework/formats:classification_proto",
+        "//mediapipe/framework/formats:landmark_proto",
     ],
 )
 
@@ -133,6 +134,16 @@ mediapipe_proto_library(
 mediapipe_proto_library(
     name = "flow_limiter_calculator_proto",
     srcs = ["flow_limiter_calculator.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_options_proto",
+        "//mediapipe/framework:calculator_proto",
+    ],
+)
+
+mediapipe_proto_library(
+    name = "graph_profile_calculator_proto",
+    srcs = ["graph_profile_calculator.proto"],
     visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework:calculator_options_proto",
@@ -203,6 +214,7 @@ cc_library(
         "//mediapipe/framework:collection_item_id",
         "//mediapipe/framework:packet",
         "//mediapipe/framework/formats:classification_cc_proto",
+        "//mediapipe/framework/formats:detection_cc_proto",
         "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/formats:rect_cc_proto",
         "//mediapipe/framework/port:integral_types",
@@ -299,8 +311,8 @@ cc_library(
 )
 
 cc_library(
-    name = "concatenate_normalized_landmark_list_calculator",
-    srcs = ["concatenate_normalized_landmark_list_calculator.cc"],
+    name = "concatenate_proto_list_calculator",
+    srcs = ["concatenate_proto_list_calculator.cc"],
     visibility = ["//visibility:public"],
     deps = [
         ":concatenate_vector_calculator_cc_proto",
@@ -314,10 +326,10 @@ cc_library(
 )
 
 cc_test(
-    name = "concatenate_normalized_landmark_list_calculator_test",
-    srcs = ["concatenate_normalized_landmark_list_calculator_test.cc"],
+    name = "concatenate_proto_list_calculator_test",
+    srcs = ["concatenate_proto_list_calculator_test.cc"],
     deps = [
-        ":concatenate_normalized_landmark_list_calculator",
+        ":concatenate_proto_list_calculator",
         ":concatenate_vector_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_runner",
@@ -521,9 +533,13 @@ cc_test(
         ":split_vector_calculator",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_runner",
+        "//mediapipe/framework/api2:node",
+        "//mediapipe/framework/api2:port",
         "//mediapipe/framework/port:gtest_main",
         "//mediapipe/framework/port:parse_text_proto",
         "//mediapipe/framework/port:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -539,6 +555,22 @@ cc_library(
         "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
+)
+
+cc_test(
+    name = "packet_cloner_calculator_test",
+    srcs = ["packet_cloner_calculator_test.cc"],
+    deps = [
+        ":packet_cloner_calculator",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:timestamp",
+        "//mediapipe/framework/port:gtest_main",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/framework/stream_handler:immediate_input_stream_handler",
+        "//mediapipe/framework/tool:sink",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 cc_library(
@@ -950,8 +982,8 @@ cc_test(
 )
 
 cc_library(
-    name = "split_landmarks_calculator",
-    srcs = ["split_landmarks_calculator.cc"],
+    name = "split_proto_list_calculator",
+    srcs = ["split_proto_list_calculator.cc"],
     visibility = ["//visibility:public"],
     deps = [
         ":split_vector_calculator_cc_proto",
@@ -965,10 +997,10 @@ cc_library(
 )
 
 cc_test(
-    name = "split_landmarks_calculator_test",
-    srcs = ["split_landmarks_calculator_test.cc"],
+    name = "split_proto_list_calculator_test",
+    srcs = ["split_proto_list_calculator_test.cc"],
     deps = [
-        ":split_landmarks_calculator",
+        ":split_proto_list_calculator",
         ":split_vector_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_runner",
@@ -1181,6 +1213,7 @@ cc_library(
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:collection_item_id",
         "//mediapipe/framework/formats:classification_cc_proto",
+        "//mediapipe/framework/formats:landmark_cc_proto",
         "//mediapipe/framework/port:integral_types",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
@@ -1199,4 +1232,78 @@ cc_test(
         "//mediapipe/framework/port:status",
         "@com_google_absl//absl/strings",
     ],
+)
+
+cc_library(
+    name = "graph_profile_calculator",
+    srcs = ["graph_profile_calculator.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":graph_profile_calculator_cc_proto",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:calculator_profile_cc_proto",
+        "//mediapipe/framework/api2:node",
+        "//mediapipe/framework/api2:packet",
+        "//mediapipe/framework/api2:port",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ],
+    alwayslink = 1,
+)
+
+cc_test(
+    name = "graph_profile_calculator_test",
+    srcs = ["graph_profile_calculator_test.cc"],
+    deps = [
+        ":graph_profile_calculator",
+        "//mediapipe/framework:calculator_cc_proto",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:calculator_profile_cc_proto",
+        "//mediapipe/framework:test_calculators",
+        "//mediapipe/framework/deps:clock",
+        "//mediapipe/framework/port:core_proto",
+        "//mediapipe/framework/port:gtest_main",
+        "//mediapipe/framework/port:integral_types",
+        "//mediapipe/framework/port:logging",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:threadpool",
+        "//mediapipe/framework/tool:simulation_clock_executor",
+        "//mediapipe/framework/tool:sink",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
+    name = "get_vector_item_calculator",
+    srcs = ["get_vector_item_calculator.cc"],
+    hdrs = ["get_vector_item_calculator.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:packet",
+        "//mediapipe/framework/api2:node",
+        "//mediapipe/framework/api2:port",
+        "//mediapipe/framework/formats:classification_cc_proto",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "vector_size_calculator",
+    srcs = ["vector_size_calculator.cc"],
+    hdrs = ["vector_size_calculator.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/api2:node",
+        "//mediapipe/framework/formats:classification_cc_proto",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+        "//mediapipe/framework/port:status",
+    ],
+    alwayslink = 1,
 )

@@ -19,6 +19,8 @@ load("//mediapipe/framework:encode_binary_proto.bzl", "encode_binary_proto", "ge
 load("//mediapipe/framework:transitive_protos.bzl", "transitive_protos")
 load("//mediapipe/framework/deps:expand_template.bzl", "expand_template")
 load("//mediapipe/framework/tool:build_defs.bzl", "clean_dep")
+load("//mediapipe/framework/deps:descriptor_set.bzl", "direct_descriptor_set", "transitive_descriptor_set")
+load("@org_tensorflow//tensorflow/lite/core/shims:cc_library_with_tflite.bzl", "cc_library_with_tflite")
 
 def mediapipe_binary_graph(name, graph = None, output_name = None, deps = [], testonly = False, **kwargs):
     """Converts a graph from text format to binary format."""
@@ -97,6 +99,7 @@ def mediapipe_simple_subgraph(
         register_as,
         graph,
         deps = [],
+        tflite_deps = None,
         visibility = None,
         testonly = None,
         **kwargs):
@@ -108,6 +111,7 @@ def mediapipe_simple_subgraph(
           CamelCase.
       graph: the BUILD label of a text-format MediaPipe graph.
       deps: any calculators or subgraphs used by this graph.
+      tflite_deps: any calculators or subgraphs used by this graph that may use different TFLite implementation.
       visibility: The list of packages the subgraph should be visible to.
       testonly: pass 1 if the graph is to be used only for tests.
       **kwargs: Remaining keyword args, forwarded to cc_library.
@@ -137,17 +141,147 @@ def mediapipe_simple_subgraph(
         },
         testonly = testonly,
     )
+    if not tflite_deps:
+        native.cc_library(
+            name = name,
+            srcs = [
+                name + "_linked.cc",
+                graph_base_name + ".inc",
+            ],
+            deps = [
+                clean_dep("//mediapipe/framework:calculator_framework"),
+                clean_dep("//mediapipe/framework:subgraph"),
+            ] + deps,
+            alwayslink = 1,
+            visibility = visibility,
+            testonly = testonly,
+            **kwargs
+        )
+    else:
+        cc_library_with_tflite(
+            name = name,
+            srcs = [
+                name + "_linked.cc",
+                graph_base_name + ".inc",
+            ],
+            tflite_deps = tflite_deps,
+            deps = [
+                clean_dep("//mediapipe/framework:calculator_framework"),
+                clean_dep("//mediapipe/framework:subgraph"),
+            ] + deps,
+            alwayslink = 1,
+            visibility = visibility,
+            testonly = testonly,
+            **kwargs
+        )
+
+def mediapipe_reexport_library(
+        name,
+        actual,
+        **kwargs):
+    """Defines a cc_library that exports the headers of other libraries.
+
+    Normally cc_library does not export the headers of its dependencies,
+    and the clang "layering_check" requires clients to depend on them
+    directly.  Header files can be exported by listing them in either
+    cc_library's "hdrs" or "textual_hdrs" argument.  The "textual_hdrs"
+    argument can also accept library targets and has the effect of
+    exporting their header files and permitting client references to them.
+    The result is a new library target that combines and exports the public
+    interfaces of several existing library targets.
+
+    Args:
+      name: the name for the combined target.
+      actual: the targets to combine and export together.
+      **kwargs: Remaining keyword args, forwarded to cc_library.
+    """
     native.cc_library(
         name = name,
+        textual_hdrs = actual,
+        deps = actual,
+        **kwargs
+    )
+
+def mediapipe_options_library(
+        name,
+        proto_lib,
+        deps = [],
+        visibility = None,
+        testonly = None,
+        **kwargs):
+    """Registers options protobuf metadata for defining options packets.
+
+    Args:
+      name: name of the options_lib target to define.
+      proto_lib: the proto_library target to register.
+      deps: any additional protobuf dependencies.
+      visibility: The list of packages the subgraph should be visible to.
+      testonly: pass 1 if the graph is to be used only for tests.
+      **kwargs: Remaining keyword args, forwarded to cc_library.
+    """
+
+    transitive_descriptor_set(
+        name = proto_lib + "_transitive",
+        deps = [proto_lib],
+        testonly = testonly,
+    )
+    direct_descriptor_set(
+        name = proto_lib + "_direct",
+        deps = [proto_lib],
+        testonly = testonly,
+    )
+    data_as_c_string(
+        name = name + "_inc",
+        srcs = [proto_lib + "_transitive-transitive-descriptor-set.proto.bin"],
+        outs = [proto_lib + "_descriptors.inc"],
+    )
+    native.genrule(
+        name = name + "_type_name",
+        srcs = [proto_lib + "_direct-direct-descriptor-set.proto.bin"],
+        outs = [name + "_type_name.h"],
+        cmd = ("$(location " + "//mediapipe/framework/tool:message_type_util" + ") " +
+               ("--input_path=$(location %s) " % (proto_lib + "_direct-direct-descriptor-set.proto.bin")) +
+               ("--root_type_macro_output_path=$(location %s) " % (name + "_type_name.h"))),
+        tools = ["//mediapipe/framework/tool:message_type_util"],
+        visibility = visibility,
+        testonly = testonly,
+    )
+    expand_template(
+        name = name + "_cc",
+        template = clean_dep("//mediapipe/framework/tool:options_lib_template.cc"),
+        out = name + ".cc",
+        substitutions = {
+            "{{MESSAGE_NAME_HEADER}}": native.package_name() + "/" + name + "_type_name.h",
+            "{{MESSAGE_PROTO_HEADER}}": native.package_name() + "/" + proto_lib.replace("_proto", ".pb.h"),
+            "{{DESCRIPTOR_INC_FILE_PATH}}": native.package_name() + "/" + proto_lib + "_descriptors.inc",
+        },
+        testonly = testonly,
+    )
+    native.cc_library(
+        name = proto_lib.replace("_proto", "_options_registry"),
         srcs = [
-            name + "_linked.cc",
-            graph_base_name + ".inc",
+            name + ".cc",
+            proto_lib + "_descriptors.inc",
+            name + "_type_name.h",
         ],
         deps = [
             clean_dep("//mediapipe/framework:calculator_framework"),
-            clean_dep("//mediapipe/framework:subgraph"),
+            clean_dep("//mediapipe/framework/port:advanced_proto"),
+            clean_dep("//mediapipe/framework/tool:options_registry"),
+            proto_lib.replace("_proto", "_cc_proto"),
         ] + deps,
         alwayslink = 1,
+        visibility = visibility,
+        testonly = testonly,
+        features = ["-no_undefined"],
+        **kwargs
+    )
+    mediapipe_reexport_library(
+        name = name,
+        actual = [
+            proto_lib.replace("_proto", "_cc_proto"),
+            proto_lib.replace("_proto", "_options_registry"),
+        ],
         visibility = visibility,
         testonly = testonly,
         **kwargs

@@ -89,6 +89,13 @@ proto_library(
 )
 
 proto_library(
+    name = "tensor_to_vector_string_calculator_options_proto",
+    srcs = ["tensor_to_vector_string_calculator_options.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["//mediapipe/framework:calculator_proto"],
+)
+
+proto_library(
     name = "unpack_media_sequence_calculator_proto",
     srcs = ["unpack_media_sequence_calculator.proto"],
     visibility = ["//visibility:public"],
@@ -258,6 +265,14 @@ mediapipe_cc_proto_library(
 )
 
 mediapipe_cc_proto_library(
+    name = "tensor_to_vector_string_calculator_options_cc_proto",
+    srcs = ["tensor_to_vector_string_calculator_options.proto"],
+    cc_deps = ["//mediapipe/framework:calculator_cc_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":tensor_to_vector_string_calculator_options_proto"],
+)
+
+mediapipe_cc_proto_library(
     name = "unpack_media_sequence_calculator_cc_proto",
     srcs = ["unpack_media_sequence_calculator.proto"],
     cc_deps = [
@@ -319,6 +334,7 @@ cc_library(
         ":image_frame_to_tensor_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/port:core_proto",
         "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
     ] + select({
@@ -572,9 +588,21 @@ cc_library(
         "//mediapipe/framework/port:ret_check",
     ] + select({
         "//conditions:default": [
-            "//mediapipe/framework/port:file_helpers",
         ],
-    }),
+        "//mediapipe:android": [],
+    }) + select(
+        {
+            "//conditions:default": [
+            ],
+        },
+    ) + select(
+        {
+            "//conditions:default": [
+            ],
+            "//mediapipe:android": [
+            ],
+        },
+    ),
     alwayslink = 1,
 )
 
@@ -695,6 +723,26 @@ cc_library(
 )
 
 cc_library(
+    name = "tensor_to_vector_string_calculator",
+    srcs = ["tensor_to_vector_string_calculator.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/framework/port:ret_check",
+        ":tensor_to_vector_string_calculator_options_cc_proto",
+    ] + select({
+        "//conditions:default": [
+            "@org_tensorflow//tensorflow/core:framework",
+        ],
+        "//mediapipe:android": [
+            "@org_tensorflow//tensorflow/core:portable_tensorflow_lib_lite",
+        ],
+    }),
+    alwayslink = 1,
+)
+
+cc_library(
     name = "unpack_media_sequence_calculator",
     srcs = ["unpack_media_sequence_calculator.cc"],
     visibility = [
@@ -705,7 +753,6 @@ cc_library(
         "//mediapipe/calculators/tensorflow:unpack_media_sequence_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:location",
-        "//mediapipe/framework/port:ret_check",
         "//mediapipe/framework/port:status",
         "//mediapipe/util:audio_decoder_cc_proto",
         "//mediapipe/util/sequence:media_sequence",
@@ -864,6 +911,7 @@ cc_test(
         "//mediapipe/calculators/tensorflow:pack_media_sequence_calculator_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_runner",
+        "//mediapipe/framework:timestamp",
         "//mediapipe/framework/formats:detection_cc_proto",
         "//mediapipe/framework/formats:image_frame",
         "//mediapipe/framework/formats:image_frame_opencv",
@@ -1050,6 +1098,20 @@ cc_test(
     deps = [
         ":tensor_to_vector_float_calculator",
         ":tensor_to_vector_float_calculator_options_cc_proto",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework:calculator_runner",
+        "//mediapipe/framework/port:gtest_main",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+    ],
+)
+
+cc_test(
+    name = "tensor_to_vector_string_calculator_test",
+    srcs = ["tensor_to_vector_string_calculator_test.cc"],
+    deps = [
+        ":tensor_to_vector_string_calculator",
+        ":tensor_to_vector_string_calculator_options_cc_proto",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_runner",
         "//mediapipe/framework/port:gtest_main",

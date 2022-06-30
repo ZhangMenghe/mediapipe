@@ -22,9 +22,8 @@
 // For consistency, we now set MEDIAPIPE_MOBILE there too. However, for the sake
 // of projects that may want to build MediaPipe using alternative build systems,
 // we also try to set platform-specific defines in this header if missing.
-#if !defined(MEDIAPIPE_MOBILE) &&                                      \
-    (defined(__ANDROID__) || (defined(__APPLE__) && !TARGET_OS_OSX) || \
-     defined(__EMSCRIPTEN__))
+#if !defined(MEDIAPIPE_MOBILE) && \
+    (defined(__ANDROID__) || defined(__EMSCRIPTEN__))
 #define MEDIAPIPE_MOBILE
 #endif
 
@@ -36,6 +35,11 @@
 #include "TargetConditionals.h"  // for TARGET_OS_*
 #if !defined(MEDIAPIPE_IOS) && !TARGET_OS_OSX
 #define MEDIAPIPE_IOS
+
+#if !defined(MEDIAPIPE_MOBILE) && !TARGET_OS_OSX
+#define MEDIAPIPE_MOBILE
+#endif
+
 #endif
 #if !defined(MEDIAPIPE_OSX) && TARGET_OS_OSX
 #define MEDIAPIPE_OSX
@@ -56,18 +60,23 @@
 #define MEDIAPIPE_OPENGL_ES_30 300
 #define MEDIAPIPE_OPENGL_ES_31 310
 
+// NOTE: MEDIAPIPE_OPENGL_ES_VERSION macro represents the maximum OpenGL ES
+// version to build for. Runtime availability is _not_ guaranteed; in
+// particular, uses of OpenGL ES 3.1 should be guarded by a runtime check.
+// TODO: identify and fix code where macro is used incorrectly.
 #if MEDIAPIPE_DISABLE_GPU
 #define MEDIAPIPE_OPENGL_ES_VERSION 0
 #define MEDIAPIPE_METAL_ENABLED 0
 #else
 #if defined(MEDIAPIPE_ANDROID)
 #if defined(MEDIAPIPE_DISABLE_GL_COMPUTE)
-#define MEDIAPIPE_OPENGL_ES_VERSION MEDIAPIPE_OPENGL_ES_20
+#define MEDIAPIPE_OPENGL_ES_VERSION MEDIAPIPE_OPENGL_ES_30
 #else
 #define MEDIAPIPE_OPENGL_ES_VERSION MEDIAPIPE_OPENGL_ES_31
 #endif
 #define MEDIAPIPE_METAL_ENABLED 0
 #elif defined(MEDIAPIPE_IOS)
+// TODO: use MEDIAPIPE_OPENGL_ES_30 for iOS as max version.
 #define MEDIAPIPE_OPENGL_ES_VERSION MEDIAPIPE_OPENGL_ES_20
 #define MEDIAPIPE_METAL_ENABLED 1
 #elif defined(MEDIAPIPE_OSX)

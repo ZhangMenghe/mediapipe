@@ -24,7 +24,7 @@ load(
 
 licenses(["notice"])
 
-MIN_IOS_VERSION = "10.0"
+MIN_IOS_VERSION = "11.0"
 
 alias(
     name = "handdetectiongpu",
@@ -55,7 +55,7 @@ objc_library(
     name = "HandDetectionGpuAppLibrary",
     data = [
         "//mediapipe/graphs/hand_tracking:hand_detection_mobile_gpu_binary_graph",
-        "//mediapipe/modules/palm_detection:palm_detection.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
     ],
     deps = [
         "//mediapipe/examples/ios/common:CommonMediaPipeAppLibrary",

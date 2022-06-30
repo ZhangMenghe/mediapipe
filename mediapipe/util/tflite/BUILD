@@ -34,10 +34,12 @@ cc_library(
     hdrs = ["cpu_op_resolver.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/port:logging",
+        "//mediapipe/util/tflite/operations:landmarks_to_transform_matrix",
         "//mediapipe/util/tflite/operations:max_pool_argmax",
         "//mediapipe/util/tflite/operations:max_unpooling",
+        "//mediapipe/util/tflite/operations:transform_landmarks",
+        "//mediapipe/util/tflite/operations:transform_tensor_bilinear",
         "//mediapipe/util/tflite/operations:transpose_conv_bias",
         "@org_tensorflow//tensorflow/lite:builtin_op_data",
         "@org_tensorflow//tensorflow/lite:framework",
@@ -46,6 +48,17 @@ cc_library(
     # For using the symbol `MediaPipe_RegisterTfLiteOpResolver` in Python
     # with `tensorflow.lite.python.interpreter.InterpreterWithCustomOps`.
     alwayslink = 1,
+)
+
+cc_library(
+    name = "error_reporter",
+    srcs = ["error_reporter.cc"],
+    hdrs = ["error_reporter.h"],
+    deps = [
+        "@org_tensorflow//tensorflow/lite:minimal_logging",
+        "@org_tensorflow//tensorflow/lite:stateful_error_reporter",
+        "@org_tensorflow//tensorflow/lite/core/api:error_reporter",
+    ],
 )
 
 cc_library(
@@ -96,13 +109,17 @@ cc_library(
             "@org_tensorflow//tensorflow/lite/delegates/gpu/common:model_builder",
             "@org_tensorflow//tensorflow/lite/delegates/gpu/gl:api2",
         ],
-    }) + ["@org_tensorflow//tensorflow/lite/core/api"],
+    }) + [
+        "@com_google_absl//absl/status",
+        "@org_tensorflow//tensorflow/lite/core/api",
+    ],
 )
 
 cc_library(
     name = "tflite_model_loader",
     srcs = ["tflite_model_loader.cc"],
     hdrs = ["tflite_model_loader.h"],
+    visibility = ["//visibility:public"],
     deps = [
         "//mediapipe/framework/api2:packet",
         "//mediapipe/framework/port:ret_check",

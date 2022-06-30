@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """This script is used to set up automatic provisioning for iOS examples.
 
 It scans the provisioning profiles used by Xcode, looking for one matching the
@@ -29,6 +28,7 @@ import os
 import plistlib
 import re
 import subprocess
+from typing import Optional
 import uuid
 
 # This script is meant to be located in the MediaPipe iOS examples directory
@@ -79,7 +79,7 @@ def configure_bundle_id_prefix(
   return bundle_id_prefix
 
 
-def get_app_id(profile_path) -> str:
+def get_app_id(profile_path) -> Optional[str]:
   try:
     plist = subprocess.check_output(
         ["security", "cms", "-D", "-i", profile_path])

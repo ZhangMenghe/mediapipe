@@ -105,19 +105,20 @@ GpuResources::~GpuResources() {
 }
 
 absl::Status GpuResources::PrepareGpuNode(CalculatorNode* node) {
-  CHECK(node->UsesGpu());
+  CHECK(ContainsKey(node->Contract().ServiceRequests(), kGpuService.key));
   std::string node_id = node->GetCalculatorState().NodeName();
   std::string node_type = node->GetCalculatorState().CalculatorType();
   std::string context_key;
 
 #ifndef __EMSCRIPTEN__
   // TODO Allow calculators to request a separate context.
-  // For now, white-list a few calculators to run in their own context.
+  // For now, allow a few calculators to run in their own context.
   bool gets_own_context = (node_type == "ImageFrameToGpuBufferCalculator") ||
                           (node_type == "GpuBufferToImageFrameCalculator") ||
                           (node_type == "GlSurfaceSinkCalculator");
 
-  const auto& options = node->GetCalculatorState().Options<GlContextOptions>();
+  const auto& options =
+      node->GetCalculatorState().Options<mediapipe::GlContextOptions>();
   if (options.has_gl_context_name() && !options.gl_context_name().empty()) {
     context_key = absl::StrCat("user:", options.gl_context_name());
   } else if (gets_own_context) {

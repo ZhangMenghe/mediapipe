@@ -9,8 +9,8 @@
 #include "mediapipe/framework/api2/port.h"
 #include "mediapipe/framework/calculator.pb.h"
 #include "mediapipe/framework/calculator_framework.h"
-#include "mediapipe/framework/deps/message_matchers.h"
 #include "mediapipe/framework/graph_service.h"
+#include "mediapipe/framework/port/gmock.h"
 #include "mediapipe/framework/port/gtest.h"
 #include "mediapipe/framework/port/status_matchers.h"
 
@@ -155,6 +155,7 @@ TEST(ValidatedGraphConfigTest, InitializeSubgraphWithServiceCalculatorB) {
         kStringTestService, std::make_shared<std::string>(calculator_name)));
     MP_EXPECT_OK(config.Initialize(graph,
                                    /*graph_registry=*/nullptr,
+                                   /*subgraph_options=*/nullptr,
                                    /*service_manager=*/&service_manager));
     ASSERT_TRUE(config.Initialized());
     EXPECT_THAT(config.Config(), EqualsProto(ExpectedConfigExpandedFromGraph(

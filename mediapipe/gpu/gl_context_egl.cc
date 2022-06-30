@@ -15,6 +15,8 @@
 #include <utility>
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "mediapipe/framework/port/logging.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
@@ -29,6 +31,8 @@
 #if HAS_EGL
 
 namespace mediapipe {
+
+namespace {
 
 static pthread_key_t egl_release_thread_key;
 static pthread_once_t egl_release_key_once = PTHREAD_ONCE_INIT;
@@ -67,6 +71,29 @@ static void EnsureEglThreadRelease() {
                       reinterpret_cast<void*>(0xDEADBEEF));
 }
 
+static absl::StatusOr<EGLDisplay> GetInitializedDefaultEglDisplay() {
+  EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+  RET_CHECK(display != EGL_NO_DISPLAY)
+      << "eglGetDisplay() returned error " << std::showbase << std::hex
+      << eglGetError();
+
+  EGLint major = 0;
+  EGLint minor = 0;
+  EGLBoolean egl_initialized = eglInitialize(display, &major, &minor);
+  RET_CHECK(egl_initialized) << "Unable to initialize EGL";
+  LOG(INFO) << "Successfully initialized EGL. Major : " << major
+            << " Minor: " << minor;
+
+  return display;
+}
+
+static absl::StatusOr<EGLDisplay> GetInitializedEglDisplay() {
+  auto status_or_display = GetInitializedDefaultEglDisplay();
+  return status_or_display;
+}
+
+}  // namespace
+
 GlContext::StatusOrGlContext GlContext::Create(std::nullptr_t nullp,
                                                bool create_thread) {
   return Create(EGL_NO_CONTEXT, create_thread);
@@ -85,7 +112,7 @@ GlContext::StatusOrGlContext GlContext::Create(EGLContext share_context,
   return std::move(context);
 }
 
-absl::Status GlContext::CreateContextInternal(EGLContext external_context,
+absl::Status GlContext::CreateContextInternal(EGLContext share_context,
                                               int gl_version) {
   CHECK(gl_version == 2 || gl_version == 3);
 
@@ -131,8 +158,7 @@ absl::Status GlContext::CreateContextInternal(EGLContext external_context,
       // clang-format on
   };
 
-  context_ =
-      eglCreateContext(display_, config_, external_context, context_attr);
+  context_ = eglCreateContext(display_, config_, share_context, context_attr);
   int error = eglGetError();
   RET_CHECK(context_ != EGL_NO_CONTEXT)
       << "Could not create GLES " << gl_version << " context; "
@@ -149,25 +175,14 @@ absl::Status GlContext::CreateContextInternal(EGLContext external_context,
   return absl::OkStatus();
 }
 
-absl::Status GlContext::CreateContext(EGLContext external_context) {
-  EGLint major = 0;
-  EGLint minor = 0;
+absl::Status GlContext::CreateContext(EGLContext share_context) {
+  ASSIGN_OR_RETURN(display_, GetInitializedEglDisplay());
 
-  display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-  RET_CHECK(display_ != EGL_NO_DISPLAY)
-      << "eglGetDisplay() returned error " << std::showbase << std::hex
-      << eglGetError();
-
-  EGLBoolean success = eglInitialize(display_, &major, &minor);
-  RET_CHECK(success) << "Unable to initialize EGL";
-  LOG(INFO) << "Successfully initialized EGL. Major : " << major
-            << " Minor: " << minor;
-
-  auto status = CreateContextInternal(external_context, 3);
+  auto status = CreateContextInternal(share_context, 3);
   if (!status.ok()) {
     LOG(WARNING) << "Creating a context with OpenGL ES 3 failed: " << status;
     LOG(WARNING) << "Fall back on OpenGL ES 2.";
-    status = CreateContextInternal(external_context, 2);
+    status = CreateContextInternal(share_context, 2);
   }
   MP_RETURN_IF_ERROR(status);
 
@@ -254,9 +269,8 @@ void GlContext::DestroyContext() {
 #endif  // __ANDROID__
 }
 
-GlContext::ContextBinding GlContext::ThisContextBinding() {
+GlContext::ContextBinding GlContext::ThisContextBindingPlatform() {
   GlContext::ContextBinding result;
-  result.context_object = shared_from_this();
   result.display = display_;
   result.draw_surface = surface_;
   result.read_surface = surface_;

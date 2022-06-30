@@ -14,6 +14,7 @@
 
 #include "mediapipe/python/pybind/packet_getter.h"
 
+#include "absl/status/statusor.h"
 #include "mediapipe/framework/formats/image.h"
 #include "mediapipe/framework/formats/matrix.h"
 #include "mediapipe/framework/packet.h"
@@ -41,16 +42,16 @@ namespace py = pybind11;
 
 void PublicPacketGetters(pybind11::module* m) {
   m->def("get_str", &GetContent<std::string>,
-         R"doc(Get the content of a MediaPipe std::string Packet as a str.
+         R"doc(Get the content of a MediaPipe string Packet as a str.
 
   Args:
-    packet: A MediaPipe std::string Packet.
+    packet: A MediaPipe string Packet.
 
   Returns:
     A str.
 
   Raises:
-    ValueError: If the Packet doesn't contain std::string data.
+    ValueError: If the Packet doesn't contain string data.
 
   Examples:
     packet = mp.packet_creator.create_string('abc')
@@ -62,16 +63,16 @@ void PublicPacketGetters(pybind11::module* m) {
       [](const Packet& packet) {
         return py::bytes(GetContent<std::string>(packet));
       },
-      R"doc(Get the content of a MediaPipe std::string Packet as a bytes object.
+      R"doc(Get the content of a MediaPipe string Packet as a bytes object.
 
   Args:
-    packet: A MediaPipe std::string Packet.
+    packet: A MediaPipe string Packet.
 
   Returns:
     A bytes object.
 
   Raises:
-    ValueError: If the Packet doesn't contain std::string data.
+    ValueError: If the Packet doesn't contain string data.
 
   Examples:
     packet = mp.packet_creator.create_string(b'\xd0\xd0\xd0')
@@ -189,7 +190,28 @@ void PublicPacketGetters(pybind11::module* m) {
 )doc");
 
   m->def(
-      "get_int_list", &GetContent<std::vector<int>>,
+      "get_int_list",
+      [](const Packet& packet) {
+        if (packet.ValidateAsType<std::vector<int>>().ok()) {
+          auto int_list = packet.Get<std::vector<int>>();
+          return std::vector<int64>(int_list.begin(), int_list.end());
+        } else if (packet.ValidateAsType<std::vector<int8>>().ok()) {
+          auto int_list = packet.Get<std::vector<int8>>();
+          return std::vector<int64>(int_list.begin(), int_list.end());
+        } else if (packet.ValidateAsType<std::vector<int16>>().ok()) {
+          auto int_list = packet.Get<std::vector<int16>>();
+          return std::vector<int64>(int_list.begin(), int_list.end());
+        } else if (packet.ValidateAsType<std::vector<int32>>().ok()) {
+          auto int_list = packet.Get<std::vector<int32>>();
+          return std::vector<int64>(int_list.begin(), int_list.end());
+        } else if (packet.ValidateAsType<std::vector<int64>>().ok()) {
+          auto int_list = packet.Get<std::vector<int64>>();
+          return std::vector<int64>(int_list.begin(), int_list.end());
+        }
+        throw RaisePyError(PyExc_ValueError,
+                           "Packet doesn't contain int, int8, int16, int32, or "
+                           "int64 containers.");
+      },
       R"doc(Get the content of a MediaPipe int vector Packet as an integer list.
 
   Args:
@@ -225,7 +247,22 @@ void PublicPacketGetters(pybind11::module* m) {
 )doc");
 
   m->def(
-      "get_float_list", &GetContent<std::vector<float>>,
+      "get_float_list",
+      [](const Packet& packet) {
+        if (packet.ValidateAsType<std::vector<float>>().ok()) {
+          return packet.Get<std::vector<float>>();
+        } else if (packet.ValidateAsType<std::array<float, 16>>().ok()) {
+          auto float_array = packet.Get<std::array<float, 16>>();
+          return std::vector<float>(float_array.begin(), float_array.end());
+        } else if (packet.ValidateAsType<std::array<float, 4>>().ok()) {
+          auto float_array = packet.Get<std::array<float, 4>>();
+          return std::vector<float>(float_array.begin(), float_array.end());
+        } else {
+          throw RaisePyError(PyExc_ValueError,
+                             "Packet doesn't contain std::vector<float> or "
+                             "std::array<float, 4 / 16> containers.");
+        }
+      },
       R"doc(Get the content of a MediaPipe float vector Packet as a float list.
 
   Args:
@@ -244,7 +281,7 @@ void PublicPacketGetters(pybind11::module* m) {
 
   m->def(
       "get_str_list", &GetContent<std::vector<std::string>>,
-      R"doc(Get the content of a MediaPipe std::string vector Packet as a str list.
+      R"doc(Get the content of a MediaPipe string vector Packet as a str list.
 
   Args:
     packet: A MediaPipe Packet that holds std:vector<std::string>.
@@ -300,7 +337,7 @@ void PublicPacketGetters(pybind11::module* m) {
     dict_packet = mp.packet_creator.create_string_to_packet_map({
         'float': packet_creator.create_float(0.1),
         'int': packet_creator.create_int(1),
-        'std::string': packet_creator.create_string('1')
+        'string': packet_creator.create_string('1')
     data = mp.packet_getter.get_str_to_packet_dict(dict_packet)
 )doc");
 
@@ -396,11 +433,11 @@ void InternalPacketGetters(pybind11::module* m) {
   m->def(
       "_get_serialized_proto",
       [](const Packet& packet) {
-        // By default, py::bytes is an extra copy of the original std::string
-        // object: https://github.com/pybind/pybind11/issues/1236 However, when
-        // Pybind11 performs the C++ to Python transition, it only increases the
-        // py::bytes object's ref count. See the implmentation at line 1583 in
-        // "pybind11/cast.h".
+        // By default, py::bytes is an extra copy of the original string object:
+        // https://github.com/pybind/pybind11/issues/1236
+        // However, when Pybind11 performs the C++ to Python transition, it
+        // only increases the py::bytes object's ref count. See the
+        // implmentation at line 1583 in "pybind11/cast.h".
         return py::bytes(packet.GetProtoMessageLite().SerializeAsString());
       },
       py::return_value_policy::move);

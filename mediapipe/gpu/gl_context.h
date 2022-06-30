@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
 #include "mediapipe/framework/executor.h"
 #include "mediapipe/framework/mediapipe_profiling.h"
@@ -28,6 +29,7 @@
 #include "mediapipe/framework/port/statusor.h"
 #include "mediapipe/framework/port/threadpool.h"
 #include "mediapipe/framework/timestamp.h"
+#include "mediapipe/gpu/attachments.h"
 #include "mediapipe/gpu/gl_base.h"
 #include "mediapipe/gpu/gpu_buffer_format.h"
 
@@ -228,6 +230,12 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
   CVOpenGLTextureCacheRef cv_texture_cache() const { return *texture_cache_; }
 #endif  // HAS_EGL
 
+  // Returns whatever the current platform's native context handle is.
+  // Prefer the explicit *_context methods above, unless you're going to use
+  // this in a context that you are sure will work with whatever definition of
+  // PlatformGlContext is in use.
+  PlatformGlContext native_context() const { return context_; }
+
   // Check if the context is current on this thread. Mainly for test purposes.
   bool IsCurrent() const;
 
@@ -274,6 +282,24 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
       f();
       return absl::OkStatus();
     }).IgnoreError();
+  }
+
+  // Sets default texture filtering parameters.
+  void SetStandardTextureParams(GLenum target, GLint internal_format);
+
+  using AttachmentBase = internal::AttachmentBase<GlContext>;
+  template <class T>
+  using Attachment = internal::Attachment<GlContext, T>;
+
+  // TOOD: const result?
+  template <class T>
+  T& GetCachedAttachment(const Attachment<T>& attachment) {
+    DCHECK(IsCurrent());
+    internal::AttachmentPtr<void>& entry = attachments_[&attachment];
+    if (entry == nullptr) {
+      entry = attachment.factory()(*this);
+    }
+    return *static_cast<T*>(entry.get());
   }
 
   // These are used for testing specific SyncToken implementations. Do not use
@@ -342,11 +368,11 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
   // This wraps a thread_local.
   static std::weak_ptr<GlContext>& CurrentContext();
 
-  static absl::Status SwitchContext(ContextBinding* old_context,
+  static absl::Status SwitchContext(ContextBinding* saved_context,
                                     const ContextBinding& new_context);
 
-  absl::Status EnterContext(ContextBinding* previous_context);
-  absl::Status ExitContext(const ContextBinding* previous_context);
+  absl::Status EnterContext(ContextBinding* saved_context);
+  absl::Status ExitContext(const ContextBinding* saved_context);
   void DestroyContext();
 
   bool HasContext() const;
@@ -378,12 +404,14 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
 
   // A binding that can be used to make this GlContext current.
   ContextBinding ThisContextBinding();
+  // Fill in platform-specific fields. Must _not_ set context_obj.
+  ContextBinding ThisContextBindingPlatform();
   // Fills in a ContextBinding with platform-specific information about which
   // context is current on this thread.
   static void GetCurrentContextBinding(ContextBinding* binding);
   // Makes the context described by new_context current on this thread.
   static absl::Status SetCurrentContextBinding(
-      const ContextBinding& new_context);
+      const ContextBinding& new_binding);
 
   // If not null, a dedicated thread used to execute tasks on this context.
   // Used on Android due to expensive context switching on some configurations.
@@ -395,6 +423,13 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
   // glGetString and glGetStringi both return pointers to static strings,
   // so we should be fine storing the extension pieces as string_view's.
   std::set<absl::string_view> gl_extensions_;
+
+  // Used by SetStandardTextureParams. Do we want several of these bools, or a
+  // better mechanism?
+  bool can_linear_filter_float_textures_;
+
+  absl::flat_hash_map<const AttachmentBase*, internal::AttachmentPtr<void>>
+      attachments_;
 
   // Number of glFinish calls completed on the GL thread.
   // Changes should be guarded by mutex_. However, we use simple atomic
@@ -415,6 +450,8 @@ class GlContext : public std::enable_shared_from_this<GlContext> {
   absl::CondVar wait_for_gl_finish_cv_ ABSL_GUARDED_BY(mutex_);
 
   std::unique_ptr<mediapipe::GlProfilingHelper> profiling_helper_ = nullptr;
+
+  bool destructing_ = false;
 };
 
 // For backward compatibility. TODO: migrate remaining callers.
@@ -425,4 +462,5 @@ const GlTextureInfo& GlTextureInfoForGpuBufferFormat(GpuBufferFormat format,
                                                      int plane);
 
 }  // namespace mediapipe
+
 #endif  // MEDIAPIPE_GPU_GL_CONTEXT_H_

@@ -28,7 +28,9 @@ from typing import Any, Iterable, List, Mapping, NamedTuple, Optional, Union
 
 import numpy as np
 
+from google.protobuf.internal import containers
 from google.protobuf import descriptor
+from google.protobuf import message
 # resources dependency
 # pylint: disable=unused-import
 # pylint: enable=unused-import
@@ -78,14 +80,22 @@ CALCULATOR_TO_OPTIONS = {
 }
 
 
+def type_names_from_oneof(oneof_type_name: str) -> Optional[List[str]]:
+  if oneof_type_name.startswith('OneOf<') and oneof_type_name.endswith('>'):
+    comma_separated_types = oneof_type_name[len('OneOf<'):-len('>')]
+    return [n.strip() for n in comma_separated_types.split(',')]
+  return None
+
+
 # TODO: Support more packet data types, such as "Any" type.
 @enum.unique
-class _PacketDataType(enum.Enum):
+class PacketDataType(enum.Enum):
   """The packet data types supported by the SolutionBase class."""
   STRING = 'string'
   BOOL = 'bool'
   BOOL_LIST = 'bool_list'
   INT = 'int'
+  INT_LIST = 'int_list'
   FLOAT = 'float'
   FLOAT_LIST = 'float_list'
   AUDIO = 'matrix'
@@ -95,73 +105,92 @@ class _PacketDataType(enum.Enum):
   PROTO_LIST = 'proto_list'
 
   @staticmethod
-  def from_registered_name(registered_name: str) -> '_PacketDataType':
-    return NAME_TO_TYPE[registered_name]
+  def from_registered_name(registered_name: str) -> 'PacketDataType':
+    try:
+      return NAME_TO_TYPE[registered_name]
+    except KeyError as e:
+      names = type_names_from_oneof(registered_name)
+      if names:
+        for n in names:
+          if n in NAME_TO_TYPE.keys():
+            return NAME_TO_TYPE[n]
+      raise e
 
-
-NAME_TO_TYPE: Mapping[str, '_PacketDataType'] = {
+NAME_TO_TYPE: Mapping[str, 'PacketDataType'] = {
     'string':
-        _PacketDataType.STRING,
+        PacketDataType.STRING,
     'bool':
-        _PacketDataType.BOOL,
+        PacketDataType.BOOL,
     '::std::vector<bool>':
-        _PacketDataType.BOOL_LIST,
+        PacketDataType.BOOL_LIST,
     'int':
-        _PacketDataType.INT,
+        PacketDataType.INT,
+    '::std::vector<int>':
+        PacketDataType.INT_LIST,
+    'int64':
+        PacketDataType.INT,
+    '::std::vector<int64>':
+        PacketDataType.INT_LIST,
     'float':
-        _PacketDataType.FLOAT,
+        PacketDataType.FLOAT,
     '::std::vector<float>':
-        _PacketDataType.FLOAT_LIST,
+        PacketDataType.FLOAT_LIST,
     '::mediapipe::Matrix':
-        _PacketDataType.AUDIO,
+        PacketDataType.AUDIO,
     '::mediapipe::ImageFrame':
-        _PacketDataType.IMAGE_FRAME,
+        PacketDataType.IMAGE_FRAME,
     '::mediapipe::Classification':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::ClassificationList':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
+    '::mediapipe::ClassificationListCollection':
+        PacketDataType.PROTO,
     '::mediapipe::Detection':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::DetectionList':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::Landmark':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::LandmarkList':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
+    '::mediapipe::LandmarkListCollection':
+        PacketDataType.PROTO,
     '::mediapipe::NormalizedLandmark':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::FrameAnnotation':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::Trigger':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::Rect':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::NormalizedRect':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
     '::mediapipe::NormalizedLandmarkList':
-        _PacketDataType.PROTO,
+        PacketDataType.PROTO,
+    '::mediapipe::NormalizedLandmarkListCollection':
+        PacketDataType.PROTO,
     '::mediapipe::Image':
-        _PacketDataType.IMAGE,
+        PacketDataType.IMAGE,
     '::std::vector<::mediapipe::Classification>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::ClassificationList>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::Detection>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::DetectionList>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::Landmark>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::LandmarkList>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::NormalizedLandmark>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::NormalizedLandmarkList>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::Rect>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
     '::std::vector<::mediapipe::NormalizedRect>':
-        _PacketDataType.PROTO_LIST,
+        PacketDataType.PROTO_LIST,
 }
 
 
@@ -188,8 +217,10 @@ class SolutionBase:
       binary_graph_path: Optional[str] = None,
       graph_config: Optional[calculator_pb2.CalculatorGraphConfig] = None,
       calculator_params: Optional[Mapping[str, Any]] = None,
+      graph_options: Optional[message.Message] = None,
       side_inputs: Optional[Mapping[str, Any]] = None,
-      outputs: Optional[List[str]] = None):
+      outputs: Optional[List[str]] = None,
+      stream_type_hints: Optional[Mapping[str, PacketDataType]] = None):
     """Initializes the SolutionBase object.
 
     Args:
@@ -198,10 +229,12 @@ class SolutionBase:
         format.
       calculator_params: A mapping from the
         {calculator_name}.{options_field_name} str to the field value.
+      graph_options: The graph options protobuf for the mediapipe graph.
       side_inputs: A mapping from the side packet name to the packet raw data.
       outputs: A list of the graph output stream names to observe. If the list
         is empty, all the output streams listed in the graph config will be
         automatically observed by default.
+      stream_type_hints: A mapping from the stream name to its packet type hint.
 
     Raises:
       FileNotFoundError: If the binary graph file can't be found.
@@ -217,6 +250,7 @@ class SolutionBase:
         calculator_params is not allowed to be modified.
         e) If the calculator options field is a repeated field but the field
         value to be set is not iterable.
+        f) If not all calculator params are valid.
     """
     if bool(binary_graph_path) == bool(graph_config):
       raise ValueError(
@@ -232,10 +266,14 @@ class SolutionBase:
       validated_graph.initialize(graph_config=graph_config)
 
     canonical_graph_config_proto = self._initialize_graph_interface(
-        validated_graph, side_inputs, outputs)
+        validated_graph, side_inputs, outputs, stream_type_hints)
     if calculator_params:
       self._modify_calculator_options(canonical_graph_config_proto,
                                       calculator_params)
+    if graph_options:
+      self._set_extension(canonical_graph_config_proto.graph_options,
+                          graph_options)
+
     self._graph = calculator_graph.CalculatorGraph(
         graph_config=canonical_graph_config_proto)
     self._simulated_timestamp = 0
@@ -247,27 +285,29 @@ class SolutionBase:
     for stream_name in self._output_stream_type_info.keys():
       self._graph.observe_output_stream(stream_name, callback, True)
 
-    input_side_packets = {
+    self._input_side_packets = {
         name: self._make_packet(self._side_input_type_info[name], data)
         for name, data in (side_inputs or {}).items()
     }
-    self._graph.start_run(input_side_packets)
+    self._graph.start_run(self._input_side_packets)
 
   # TODO: Use "inspect.Parameter" to fetch the input argument names and
   # types from "_input_stream_type_info" and then auto generate the process
   # method signature by "inspect.Signature" in __init__.
   def process(
-      self, input_data: Union[np.ndarray, Mapping[str,
-                                                  np.ndarray]]) -> NamedTuple:
+      self, input_data: Union[np.ndarray, Mapping[str, Union[np.ndarray,
+                                                             message.Message]]]
+  ) -> NamedTuple:
     """Processes a set of RGB image data and output SolutionOutputs.
 
     Args:
       input_data: Either a single numpy ndarray object representing the solo
-        image input of a graph or a mapping from the stream name to the image
-        data that represents every input streams of a graph.
+        image input of a graph or a mapping from the stream name to the image or
+        proto data that represents every input streams of a graph.
 
     Raises:
-      NotImplementedError: If input_data contains non image data.
+      NotImplementedError: If input_data contains audio data or a list of proto
+        objects.
       RuntimeError: If the underlying graph occurs any error.
       ValueError: If the input image data is not three channel RGB.
 
@@ -300,8 +340,15 @@ class SolutionBase:
     self._simulated_timestamp += 33333
     for stream_name, data in input_dict.items():
       input_stream_type = self._input_stream_type_info[stream_name]
-      if (input_stream_type == _PacketDataType.IMAGE_FRAME or
-          input_stream_type == _PacketDataType.IMAGE):
+      if (input_stream_type == PacketDataType.PROTO_LIST or
+          input_stream_type == PacketDataType.AUDIO):
+        # TODO: Support audio data.
+        raise NotImplementedError(
+            f'SolutionBase can only process non-audio and non-proto-list data. '
+            f'{self._input_stream_type_info[stream_name].name} '
+            f'type is not supported yet.')
+      elif (input_stream_type == PacketDataType.IMAGE_FRAME or
+            input_stream_type == PacketDataType.IMAGE):
         if data.shape[2] != RGB_CHANNELS:
           raise ValueError('Input image must contain three channel rgb data.')
         self._graph.add_packet_to_input_stream(
@@ -309,11 +356,10 @@ class SolutionBase:
             packet=self._make_packet(input_stream_type,
                                      data).at(self._simulated_timestamp))
       else:
-        # TODO: Support audio data.
-        raise NotImplementedError(
-            f'SolutionBase can only process image data. '
-            f'{self._input_stream_type_info[stream_name].name} '
-            f'type is not supported yet.')
+        self._graph.add_packet_to_input_stream(
+            stream=stream_name,
+            packet=self._make_packet(input_stream_type,
+                                     data).at(self._simulated_timestamp))
 
     self._graph.wait_until_idle()
     # Create a NamedTuple object where the field names are mapping to the graph
@@ -338,11 +384,18 @@ class SolutionBase:
     self._input_stream_type_info = None
     self._output_stream_type_info = None
 
+  def reset(self) -> None:
+    """Resets the graph for another run."""
+    if self._graph:
+      self._graph.close()
+      self._graph.start_run(self._input_side_packets)
+
   def _initialize_graph_interface(
       self,
       validated_graph: validated_graph_config.ValidatedGraphConfig,
       side_inputs: Optional[Mapping[str, Any]] = None,
-      outputs: Optional[List[str]] = None):
+      outputs: Optional[List[str]] = None,
+      stream_type_hints: Optional[Mapping[str, PacketDataType]] = None):
     """Gets graph interface type information and returns the canonical graph config proto."""
 
     canonical_graph_config_proto = calculator_pb2.CalculatorGraphConfig()
@@ -353,13 +406,16 @@ class SolutionBase:
       return tag_index_name.split(':')[-1]
 
     # Gets the packet type information of the input streams and output streams
-    # from the validated calculator graph. The mappings from the stream names to
-    # the packet data types is for deciding which packet creator and getter
-    # methods to call in the process() method.
+    # from the user provided stream_type_hints field or validated calculator
+    # graph. The mappings from the stream names to the packet data types is
+    # for deciding which packet creator and getter methods to call in the
+    # process() method.
     def get_stream_packet_type(packet_tag_index_name):
-      return _PacketDataType.from_registered_name(
-          validated_graph.registered_stream_type_name(
-              get_name(packet_tag_index_name)))
+      stream_name = get_name(packet_tag_index_name)
+      if stream_type_hints and stream_name in stream_type_hints.keys():
+        return stream_type_hints[stream_name]
+      return PacketDataType.from_registered_name(
+          validated_graph.registered_stream_type_name(stream_name))
 
     self._input_stream_type_info = {
         get_name(tag_index_name): get_stream_packet_type(tag_index_name)
@@ -380,7 +436,7 @@ class SolutionBase:
     # packet data types is for making the input_side_packets dict for graph
     # start_run().
     def get_side_packet_type(packet_tag_index_name):
-      return _PacketDataType.from_registered_name(
+      return PacketDataType.from_registered_name(
           validated_graph.registered_side_packet_type_name(
               get_name(packet_tag_index_name)))
 
@@ -419,7 +475,7 @@ class SolutionBase:
         else:
           field_label = calculator_options.DESCRIPTOR.fields_by_name[
               field_name].label
-          if field_label is descriptor.FieldDescriptor.LABEL_REPEATED:
+          if field_label == descriptor.FieldDescriptor.LABEL_REPEATED:
             if not isinstance(field_value, Iterable):
               raise ValueError(
                   f'{field_name} is a repeated proto field but the value '
@@ -478,17 +534,63 @@ class SolutionBase:
       # have been visited.
       if num_modified == len(nested_calculator_params):
         break
+    if num_modified < len(nested_calculator_params):
+      raise ValueError('Not all calculator params are valid.')
 
-  def _make_packet(self, packet_data_type: _PacketDataType,
+  def create_graph_options(self, options_message: message.Message,
+                           values: Mapping[str, Any]) -> message.Message:
+    """Sets protobuf field values.
+
+    Args:
+      options_message: the options protobuf message.
+      values: field value pairs, where each field may be a "." separated path.
+
+    Returns:
+      the options protobuf message.
+    """
+
+    if hasattr(values, 'items'):
+      values = values.items()
+    for pair in values:
+      (field, value) = pair
+      fields = field.split('.')
+      m = options_message
+      while len(fields) > 1:
+        m = getattr(m, fields[0])
+        del fields[0]
+      v = getattr(m, fields[0])
+      if hasattr(v, 'append'):
+        del v[:]
+        v.extend(value)
+      elif hasattr(v, 'CopyFrom'):
+        v.CopyFrom(value)
+      else:
+        setattr(m, fields[0], value)
+    return options_message
+
+  def _set_extension(self,
+                     extension_list: containers.RepeatedCompositeFieldContainer,
+                     extension_value: message.Message) -> None:
+    """Sets one value in a repeated protobuf.Any extension field."""
+    for extension_any in extension_list:
+      if extension_any.Is(extension_value.DESCRIPTOR):
+        v = type(extension_value)()
+        extension_any.Unpack(v)
+        v.MergeFrom(extension_value)
+        extension_any.Pack(v)
+        return
+    extension_list.add().Pack(extension_value)
+
+  def _make_packet(self, packet_data_type: PacketDataType,
                    data: Any) -> packet.Packet:
-    if (packet_data_type == _PacketDataType.IMAGE_FRAME or
-        packet_data_type == _PacketDataType.IMAGE):
+    if (packet_data_type == PacketDataType.IMAGE_FRAME or
+        packet_data_type == PacketDataType.IMAGE):
       return getattr(packet_creator, 'create_' + packet_data_type.value)(
           data, image_format=image_frame.ImageFormat.SRGB)
     else:
       return getattr(packet_creator, 'create_' + packet_data_type.value)(data)
 
-  def _get_packet_content(self, packet_data_type: _PacketDataType,
+  def _get_packet_content(self, packet_data_type: PacketDataType,
                           output_packet: packet.Packet) -> Any:
     """Gets packet content from a packet by type.
 
@@ -503,10 +605,10 @@ class SolutionBase:
 
     if output_packet.is_empty():
       return None
-    if packet_data_type == _PacketDataType.STRING:
+    if packet_data_type == PacketDataType.STRING:
       return packet_getter.get_str(output_packet)
-    elif (packet_data_type == _PacketDataType.IMAGE_FRAME or
-          packet_data_type == _PacketDataType.IMAGE):
+    elif (packet_data_type == PacketDataType.IMAGE_FRAME or
+          packet_data_type == PacketDataType.IMAGE):
       return getattr(packet_getter, 'get_' +
                      packet_data_type.value)(output_packet).numpy_view()
     else:
