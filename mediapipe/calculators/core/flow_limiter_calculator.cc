@@ -20,7 +20,12 @@
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/util/header_util.h"
-
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+#include <chrono> 
+#include <cstdint>
+#include <ctime>
 namespace mediapipe {
 
 // FlowLimiterCalculator is used to limit the number of pipelined processing
@@ -73,8 +78,56 @@ namespace mediapipe {
 //   }
 //   output_stream: "gated_frames"
 // }
+
+  class perfMonitor {
+private:
+	const static int32_t kNumSamples = 100;
+    float current_FPS_;
+    time_t tv_last_sec_;
+
+    double last_tick_;
+    int32_t tickindex_;
+    double ticksum_;
+    double ticklist_[kNumSamples];
+
+    double UpdateTick(double currentTick){
+		ticksum_ -= ticklist_[tickindex_];
+		ticksum_ += currentTick;
+		ticklist_[tickindex_] = currentTick;
+		tickindex_ = (tickindex_ + 1) % kNumSamples;
+
+		return ((double)ticksum_ / kNumSamples);
+	}
+
+public:
+    perfMonitor(){
+		current_FPS_ = 0;
+		tv_last_sec_ = 0;
+		last_tick_ = 0;
+		tickindex_ = .0f;
+		ticksum_ = 0;
+		for (int32_t i = 0; i < kNumSamples; ++i) ticklist_[i] = 0;
+	}
+    float Update(){
+		struct timeval Time;
+		gettimeofday(&Time, NULL);
+
+		double time = Time.tv_sec + Time.tv_usec * 1.0 / 1000000.0;
+		double tick = time - last_tick_;
+		double d = UpdateTick(tick);
+		last_tick_ = time;
+
+		if (Time.tv_sec - tv_last_sec_ >= 1) {
+		current_FPS_ = 1.f / d;
+		tv_last_sec_ = Time.tv_sec;
+		}
+		return current_FPS_;
+	}
+};
 class FlowLimiterCalculator : public CalculatorBase {
  public:
+perfMonitor m_pm;
+
   static ::mediapipe::Status GetContract(CalculatorContract* cc) {
     int num_data_streams = cc->Inputs().NumEntries("");
     RET_CHECK_GE(num_data_streams, 1);
@@ -119,6 +172,8 @@ class FlowLimiterCalculator : public CalculatorBase {
   bool Allow() { return num_in_flight_ < max_in_flight_; }
 
   ::mediapipe::Status Process(CalculatorContext* cc) final {
+    // __android_log_print(ANDROID_LOG_INFO, "MyTag", "===fps %.2f", m_pm.Update());
+
     bool old_allow = Allow();
     Timestamp lowest_incomplete_ts = Timestamp::Done();
 

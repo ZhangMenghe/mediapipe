@@ -361,33 +361,33 @@ RET_CHECK(!cc->Outputs().GetTags().empty());
     }
     land_mark_valid = true;
 	}
-  //prepare ear info
+  // //prepare ear info
   std::vector<faceRect> ear_rects;
-  if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
-		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
-    for(auto rect:rects){
-		  ear_rects.push_back(faceRect(
-        rect.x_center(), 
-        rect.y_center(), 
-        rect.width(),
-        rect.height(), 
-        rect.rotation(), true));
-        // std::cout<<"=====rect: "<<rect.x_center()<<" "<<rect.y_center()<<std::endl;
-    }
-  }
+  // if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
+	// 	const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+  //   for(auto rect:rects){
+	// 	  ear_rects.push_back(faceRect(
+  //       rect.x_center(), 
+  //       rect.y_center(), 
+  //       rect.width(),
+  //       rect.height(), 
+  //       rect.rotation(), true));
+  //       // std::cout<<"=====rect: "<<rect.x_center()<<" "<<rect.y_center()<<std::endl;
+  //   }
+  // }
   bool ear_landmark_valid = false;
-  //prepare ear landmarks
-	if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag) && !cc->Inputs().Tag(kInputEarLandMarksVectorTag).IsEmpty()){
-		auto& nlandmarks_vec = cc->Inputs().Tag(kInputEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
-		auto landmarks = nlandmarks_vec[0];
+  // //prepare ear landmarks
+	// if(cc->Inputs().HasTag(kInputEarLandMarksVectorTag) && !cc->Inputs().Tag(kInputEarLandMarksVectorTag).IsEmpty()){
+	// 	auto& nlandmarks_vec = cc->Inputs().Tag(kInputEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+	// 	auto landmarks = nlandmarks_vec[0];
 
-    if(right_ear_points == nullptr) right_ear_points = new float[3 * landmarks.landmark_size()];
-    for(int i=0; i<landmarks.landmark_size();i++){
-        const NormalizedLandmark& landmark = landmarks.landmark(i);
-        right_ear_points[3*i] = landmark.x();right_ear_points[3*i+1] = landmark.y();right_ear_points[3*i+2] = .0f;
-     }
-    ear_landmark_valid = true; 
-  }
+  //   if(right_ear_points == nullptr) right_ear_points = new float[3 * landmarks.landmark_size()];
+  //   for(int i=0; i<landmarks.landmark_size();i++){
+  //       const NormalizedLandmark& landmark = landmarks.landmark(i);
+  //       right_ear_points[3*i] = landmark.x();right_ear_points[3*i+1] = landmark.y();right_ear_points[3*i+2] = .0f;
+  //    }
+  //   ear_landmark_valid = true; 
+  // }
 
 
 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());

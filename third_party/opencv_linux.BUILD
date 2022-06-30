@@ -15,12 +15,12 @@ exports_files(["LICENSE"])
 #    name = "opencv",
 #    srcs = glob(
 #        [
-#            "lib/x86_64-linux-gnu/libopencv_core.so",
-#            "lib/x86_64-linux-gnu/libopencv_highgui.so",
-#            "lib/x86_64-linux-gnu/libopencv_imgcodecs.so",
-#            "lib/x86_64-linux-gnu/libopencv_imgproc.so",
-#            "lib/x86_64-linux-gnu/libopencv_video.so",
-#            "lib/x86_64-linux-gnu/libopencv_videoio.so",
+#            "lib/libopencv_core.so",
+#            "lib/libopencv_highgui.so",
+#            "lib/libopencv_imgcodecs.so",
+#            "lib/libopencv_imgproc.so",
+#            "lib/libopencv_video.so",
+#            "lib/libopencv_videoio.so",
 #        ],
 #     ),
 #     hdrs = glob(["include/opencv2/**/*.h*"]),

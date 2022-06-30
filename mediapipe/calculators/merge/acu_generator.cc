@@ -5,7 +5,10 @@
 #include <algorithm> 
 #include <chrono> 
 #include <iostream> 
-#include<vector> 
+#include <vector>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 using namespace std; 
 using namespace std::chrono; 
 using namespace mediapipe;
@@ -283,9 +286,9 @@ void acuGenerator::onSetup(std::string shader_path){
     auto duration = duration_cast<microseconds>(stop - start); 
 
     // #ifdef __ANDROID__
-    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===setup %d", duration.count());
+        // __android_log_print(ANDROID_LOG_INFO, "MyTag", "===setup %d", duration.count());
     // #else
-    //     std::cout<<"setup "<<duration.count()<<std::endl;
+        std::cout<<"setup "<<duration.count()<<std::endl;
     // #endif
     prenderer = new PointRenderer(glm::vec4(1.0,.5,.0,1.0));
     all_prenderer = new PointRenderer(glm::vec4(.0,.0,1.0,1.0));
@@ -423,11 +426,8 @@ void acuGenerator::draw_markers(const float* points){
 // void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, const float* points){
 void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRect> ear_rects, const float* points, const float* ear_points){
 
-    auto stop = high_resolution_clock::now(); 
-    auto duration = duration_cast<microseconds>(stop - last_time); 
-    last_time = stop;
 
-    draw_markers(points);
+    // draw_markers(points);
 
     // draw all 468 points
     // data_num = 468;
@@ -453,11 +453,7 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
     // }
     // right_ear_renderer->Draw(right_ear_data, ear_landmark_num, GL_POINTS);
 
-    // #ifdef __ANDROID__
-    //     __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
-    // #else
-    //     std::cout<<"time "<<duration.count()<<std::endl;
-    // #endif
+
 
 
   
@@ -518,7 +514,15 @@ void acuGenerator::onDraw(faceRect rect, cv::Mat& hair_mask, std::vector<faceRec
         line_renderers[tc]->Draw(pdata_+roffset, target_meridain.data(), data_num, target_meridain.size(), GL_LINE_STRIP);
     }
     
+    auto stop = high_resolution_clock::now(); 
+    auto duration = duration_cast<microseconds>(stop - last_time); 
+    last_time = stop;
 
+    // #ifdef __ANDROID__
+        // __android_log_print(ANDROID_LOG_INFO, "MyTag", "===time %d", duration.count());
+    // #else
+        std::cout<<"time "<<duration.count()<<std::endl;
+    // #endif
 }
 /*return vec4 ranging [0,1] x increase to right, y increase down..IDK */
 void acuGenerator::gen_all_points(const float* points, int& data_num){

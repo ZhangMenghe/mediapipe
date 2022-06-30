@@ -212,17 +212,17 @@ new_local_repository(
 new_local_repository(
     name = "orb_slam2",
     build_file = "orb_slam2.BUILD",
-    path = "/home/eevee/Github/ORB_SLAM2",
+    path = "/home/eevee/Storage/Github/ORB_SLAM2",
 )
 new_local_repository(
     name = "helmsley_vr",
     build_file = "helmsley_vr.BUILD",
-    path = "/home/eevee/Github/volume-rendering/volume-rendering-cpp",
+    path = "/home/eevee/Storage/Github/volume-rendering/volume-rendering-cpp",
 )
 new_local_repository(
     name = "acu_face_render",
     build_file = "acu_face_render.BUILD",
-    path = "/home/eevee/Github/acu-face-render",
+    path = "/home/eevee/Storage/Github/acu-face-render",
 )
 new_local_repository(
     name = "linux_opengl",
@@ -265,7 +265,7 @@ android_sdk_repository(
     name = "androidsdk",
     # path = "/home/eevee/Android/Sdk",
     # api_level = 28,
-    # build_tools_version = "28.0.3"
+    build_tools_version = "31.0.0-rc2"
 )
 
 # iOS basic build deps.

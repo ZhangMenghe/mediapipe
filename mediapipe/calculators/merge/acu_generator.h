@@ -16,9 +16,9 @@
 #include <glm/gtx/string_cast.hpp>
 #include <PrimeRenderer/PointCloudRenderer.h>
 #include <PrimeRenderer/QuadRenderer.h>
-
 #include <chrono> 
-
+#include <cstdint>
+#include <ctime>
 namespace mediapipe {
 static bool my_isspace(char ch){/*return ch ==' ';*/return std::isspace(static_cast<unsigned char>(ch));}
 const float MINFINITY = std::numeric_limits<float>::max();
@@ -58,7 +58,6 @@ class acuGenerator{
 private:
     std::chrono::high_resolution_clock::time_point last_time = std::chrono::high_resolution_clock::now();
     static acuGenerator* myPtr_;
-
 	const int ACU_INFO_NUMS = 9;
 	const std::vector<std::string> unit_functions{"GetX","GetY","Avg"};
 	std::string spath;

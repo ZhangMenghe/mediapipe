@@ -75,22 +75,22 @@ namespace {
 		}
 
 		//draw_delaunay
-		std::vector<cv::Vec6f> triangleList;
-		subdiv.getTriangleList(triangleList);
-		std::vector<cv::Point2i> pt(3);
+		// std::vector<cv::Vec6f> triangleList;
+		// subdiv.getTriangleList(triangleList);
+		// std::vector<cv::Point2i> pt(3);
 
-		for(auto i=0; i<triangleList.size();i++){
-			auto t = triangleList[i];
-			pt[0] = cv::Point2i(cvRound(t[0]), cvRound(t[1]));
-			pt[1] = cv::Point2i(cvRound(t[2]), cvRound(t[3]));
-			pt[2] = cv::Point2i(cvRound(t[4]), cvRound(t[5]));
+		// for(auto i=0; i<triangleList.size();i++){
+		// 	auto t = triangleList[i];
+		// 	pt[0] = cv::Point2i(cvRound(t[0]), cvRound(t[1]));
+		// 	pt[1] = cv::Point2i(cvRound(t[2]), cvRound(t[3]));
+		// 	pt[2] = cv::Point2i(cvRound(t[4]), cvRound(t[5]));
 
-			if(rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])){
-				trianlge_lst.push_back(
-					std::vector<int>{points_dict[encode_str(pt[0])], points_dict[encode_str(pt[1])], points_dict[encode_str(pt[2])]}
-				);
-			}
-		}
+		// 	if(rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])){
+		// 		trianlge_lst.push_back(
+		// 			std::vector<int>{points_dict[encode_str(pt[0])], points_dict[encode_str(pt[1])], points_dict[encode_str(pt[2])]}
+		// 		);
+		// 	}
+		// }
 	}
 	// Apply affine transform calculated using srcTri and dstTri to src
 void applyAffineTransform(Mat &warpImage, Mat &src, std::vector<Point2f> &srcTri, std::vector<Point2f> &dstTri){
@@ -230,131 +230,131 @@ REGISTER_CALCULATOR(EarRegionsMarkerCalculator);
 }
 
 ::mediapipe::Status EarRegionsMarkerCalculator::RenderGpu(CalculatorContext* cc) {
-	const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
-	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
-	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
-	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
+// 	const Packet& input_packet = cc->Inputs().Tag(kGpuBufferTag).Value();
+// 	const auto& input_buffer = input_packet.Get<mediapipe::GpuBuffer>();
+// 	auto img_tex = gpu_helper_.CreateSourceTexture(input_buffer);
+// 	auto dst_tex = gpu_helper_.CreateDestinationTexture(img_tex.width(), img_tex.height());
   
-	std::vector<cv::Mat> dest_imgs;
-	if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
-		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
-		int id = 0;
-		for(auto rect:rects){
-			if(rect.width() == 0)continue;
+// 	std::vector<cv::Mat> dest_imgs;
+// 	if (cc->Inputs().HasTag(kEarNormRectsTag) && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()) {
+// 		const auto& rects = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+// 		int id = 0;
+// 		for(auto rect:rects){
+// 			if(rect.width() == 0)continue;
 
-			float xoff = rect.x_center() - 0.5f*rect.width();
-			float yoff = rect.y_center() - 0.5f*rect.height();
-			m_dest_rects[id][0]=xoff; m_dest_rects[id][1]=yoff; m_dest_rects[id][2]=rect.width();m_dest_rects[id][3]=rect.height();
-			id++;
-			auto frame_width = rect.width()* img_tex.width();
-			auto frame_height = rect.height()* img_tex.height();
+// 			float xoff = rect.x_center() - 0.5f*rect.width();
+// 			float yoff = rect.y_center() - 0.5f*rect.height();
+// 			m_dest_rects[id][0]=xoff; m_dest_rects[id][1]=yoff; m_dest_rects[id][2]=rect.width();m_dest_rects[id][3]=rect.height();
+// 			id++;
+// 			auto frame_width = rect.width()* img_tex.width();
+// 			auto frame_height = rect.height()* img_tex.height();
 			
-			std::unique_ptr<ImageFrame> frame = absl::make_unique<ImageFrame>(
-				ImageFormatForGpuBufferFormat(input_buffer.format()), 
-				frame_width, frame_height, ImageFrame::kGlDefaultAlignmentBoundary);
+// 			std::unique_ptr<ImageFrame> frame = absl::make_unique<ImageFrame>(
+// 				ImageFormatForGpuBufferFormat(input_buffer.format()), 
+// 				frame_width, frame_height, ImageFrame::kGlDefaultAlignmentBoundary);
 
-			gpu_helper_.BindFramebuffer(img_tex);
-			const auto info = GlTextureInfoForGpuBufferFormat(input_buffer.format(), 0);
-			glReadPixels(xoff * img_tex.width(), 
-						yoff * img_tex.height(),
-						frame_width, 
-						frame_height, 
-						info.gl_format,
-						info.gl_type, frame->MutablePixelData());
-			glFlush();
-			dest_imgs.push_back( mediapipe::formats::MatView(frame.release()));
-			// cv::imwrite( "debug_out/crop_" + std::to_string(gid++) +".png" , dest_imgs.back());
-		}
-		if(dest_imgs.empty()){
-			cc->Outputs().Tag(kGpuBufferTag).AddPacket(input_packet);
-			img_tex.Release();
-			dst_tex.Release();
-			return ::mediapipe::OkStatus();
-		}
-	}
+// 			gpu_helper_.BindFramebuffer(img_tex);
+// 			const auto info = GlTextureInfoForGpuBufferFormat(input_buffer.format(), 0);
+// 			glReadPixels(xoff * img_tex.width(), 
+// 						yoff * img_tex.height(),
+// 						frame_width, 
+// 						frame_height, 
+// 						info.gl_format,
+// 						info.gl_type, frame->MutablePixelData());
+// 			glFlush();
+// 			dest_imgs.push_back( mediapipe::formats::MatView(frame.release()));
+// 			// cv::imwrite( "debug_out/crop_" + std::to_string(gid++) +".png" , dest_imgs.back());
+// 		}
+// 		if(dest_imgs.empty()){
+// 			cc->Outputs().Tag(kGpuBufferTag).AddPacket(input_packet);
+// 			img_tex.Release();
+// 			dst_tex.Release();
+// 			return ::mediapipe::OkStatus();
+// 		}
+// 	}
 
-	//prepare ear landmarks
-	std::vector<float*> dest_points;
-    auto output_landmark_vec = absl::make_unique<std::vector<NormalizedLandmarkList>>();
+// 	//prepare ear landmarks
+// 	std::vector<float*> dest_points;
+//     auto output_landmark_vec = absl::make_unique<std::vector<NormalizedLandmarkList>>();
 
-	m_morph_imgs.clear();
-	m_mask_imgs.clear();
+// 	m_morph_imgs.clear();
+// 	m_mask_imgs.clear();
 
-	if(!cc->Inputs().Tag(kEarLandMarksVectorTag).IsEmpty()
-    && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()){
-		auto& landmarks_vec = cc->Inputs().Tag(kEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
-    	auto& rect_vec = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
-    	int num = landmarks_vec.size();
-		for(int i=0; i<num; i++){
-			NormalizedLandmarkList output_landmarks;
-			auto srect = rect_vec[i];
-			auto slandmarks = landmarks_vec[i];
+// 	if(!cc->Inputs().Tag(kEarLandMarksVectorTag).IsEmpty()
+//     && !cc->Inputs().Tag(kEarNormRectsTag).IsEmpty()){
+// 		auto& landmarks_vec = cc->Inputs().Tag(kEarLandMarksVectorTag).Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
+//     	auto& rect_vec = cc->Inputs().Tag(kEarNormRectsTag).Get<std::vector<NormalizedRect>>();
+//     	int num = landmarks_vec.size();
+// 		for(int i=0; i<num; i++){
+// 			NormalizedLandmarkList output_landmarks;
+// 			auto srect = rect_vec[i];
+// 			auto slandmarks = landmarks_vec[i];
 			
-			if(dest_imgs[i].cols > 0 && dest_imgs[i].rows>0){
-				dest_points.push_back(new float[2*kLandmarkNum]);
-				prepare_dest_image_landmarks(dest_imgs[i].cols, dest_imgs[i].rows, slandmarks, dest_points.back());
-				morph_recolor_image(dest_imgs[i], dest_points[i]);
-			}
+// 			if(dest_imgs[i].cols > 0 && dest_imgs[i].rows>0){
+// 				dest_points.push_back(new float[2*kLandmarkNum]);
+// 				prepare_dest_image_landmarks(dest_imgs[i].cols, dest_imgs[i].rows, slandmarks, dest_points.back());
+// 				// morph_recolor_image(dest_imgs[i], dest_points[i]);
+// 			}
 
-			project_landmarks(srect, slandmarks, output_landmarks);
-			output_landmark_vec->emplace_back(output_landmarks);
-		}
+// 			project_landmarks(srect, slandmarks, output_landmarks);
+// 			output_landmark_vec->emplace_back(output_landmarks);
+// 		}
 
-  }
-  		int width = m_morph_imgs[0].size().width;
-		int height = m_morph_imgs[0].size().height;
+//   }
+//   		int width = m_morph_imgs[0].size().width;
+// 		int height = m_morph_imgs[0].size().height;
 
-		std::unique_ptr<ImageFrame> morph_frame = absl::make_unique<ImageFrame>(
-			ImageFormat::SRGB, width, height,
-			ImageFrame::kGlDefaultAlignmentBoundary);
-		m_morph_imgs[0].copyTo(formats::MatView(morph_frame.get()));
-		auto morph_tex_right = gpu_helper_.CreateSourceTexture(*morph_frame.release());
+// 		std::unique_ptr<ImageFrame> morph_frame = absl::make_unique<ImageFrame>(
+// 			ImageFormat::SRGB, width, height,
+// 			ImageFrame::kGlDefaultAlignmentBoundary);
+// 		m_morph_imgs[0].copyTo(formats::MatView(morph_frame.get()));
+// 		auto morph_tex_right = gpu_helper_.CreateSourceTexture(*morph_frame.release());
 
-		std::unique_ptr<ImageFrame> mask_frame = absl::make_unique<ImageFrame>(
-			ImageFormat::GRAY8, width, height,
-			ImageFrame::kGlDefaultAlignmentBoundary);
-		m_mask_imgs[0].copyTo(formats::MatView(mask_frame.get()));
-		auto mask_tex_right = gpu_helper_.CreateSourceTexture(*mask_frame.release());
+// 		std::unique_ptr<ImageFrame> mask_frame = absl::make_unique<ImageFrame>(
+// 			ImageFormat::GRAY8, width, height,
+// 			ImageFrame::kGlDefaultAlignmentBoundary);
+// 		m_mask_imgs[0].copyTo(formats::MatView(mask_frame.get()));
+// 		auto mask_tex_right = gpu_helper_.CreateSourceTexture(*mask_frame.release());
 
-	  // Run recolor shader on GPU.
-  {
-    gpu_helper_.BindFramebuffer(dst_tex);  // GL_TEXTURE0
+// 	  // Run recolor shader on GPU.
+//   {
+//     // gpu_helper_.BindFramebuffer(dst_tex);  // GL_TEXTURE0
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(img_tex.target(), img_tex.name());
+//     // glActiveTexture(GL_TEXTURE0);
+//     // glBindTexture(img_tex.target(), img_tex.name());
 	
-	if(!m_morph_imgs.empty()){
+// 	// if(!m_morph_imgs.empty()){
 
-		glActiveTexture(GL_TEXTURE1);
-    	glBindTexture(morph_tex_right.target(), morph_tex_right.name());
+// 	// 	glActiveTexture(GL_TEXTURE1);
+//     // 	glBindTexture(morph_tex_right.target(), morph_tex_right.name());
 
-		glActiveTexture(GL_TEXTURE2);
-    	glBindTexture(mask_tex_right.target(), mask_tex_right.name());
-	}
+// 	// 	glActiveTexture(GL_TEXTURE2);
+//     // 	glBindTexture(mask_tex_right.target(), mask_tex_right.name());
+// 	// }
 
-    GlRender();
-	glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, 0);
+//     // GlRender();
+// 	// glActiveTexture(GL_TEXTURE2);
+//     // glBindTexture(GL_TEXTURE_2D, 0);
 
-	glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, 0);
+// 	// glActiveTexture(GL_TEXTURE1);
+//     // glBindTexture(GL_TEXTURE_2D, 0);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+//     // glActiveTexture(GL_TEXTURE0);
+//     // glBindTexture(GL_TEXTURE_2D, 0);
 
-  	glUniform4f(glGetUniformLocation(program_, "u_rect_right"), m_dest_rects[0][0], m_dest_rects[0][1], m_dest_rects[0][2], m_dest_rects[0][3]);
-  	glUniform4f(glGetUniformLocation(program_, "u_rect_left"), m_dest_rects[1][0], m_dest_rects[1][1], m_dest_rects[1][2], m_dest_rects[1][3]);
-	glFlush();
-  }
+//   	// glUniform4f(glGetUniformLocation(program_, "u_rect_right"), m_dest_rects[0][0], m_dest_rects[0][1], m_dest_rects[0][2], m_dest_rects[0][3]);
+//   	// glUniform4f(glGetUniformLocation(program_, "u_rect_left"), m_dest_rects[1][0], m_dest_rects[1][1], m_dest_rects[1][2], m_dest_rects[1][3]);
+// 	// glFlush();
+//   }
 	
-	// Send result image in GPU packet.
-	auto output = dst_tex.GetFrame<mediapipe::GpuBuffer>();
-	cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
+// 	// Send result image in GPU packet.
+// 	auto output = img_tex.GetFrame<mediapipe::GpuBuffer>();
+// 	cc->Outputs().Tag(kGpuBufferTag).Add(output.release(), cc->InputTimestamp());
 	
-	cc->Outputs().Tag(kEarLandMarksVectorTag).Add(output_landmark_vec.release(), cc->InputTimestamp());
-	// Cleanup
-	img_tex.Release();
-	dst_tex.Release();
+// 	cc->Outputs().Tag(kEarLandMarksVectorTag).Add(output_landmark_vec.release(), cc->InputTimestamp());
+// 	// Cleanup
+// 	img_tex.Release();
+// 	dst_tex.Release();
 	
 
 	return ::mediapipe::OkStatus();
@@ -519,8 +519,10 @@ void EarRegionsMarkerCalculator::prepare_dest_image_landmarks(int width, int hei
 		points[2*i+1] = fmax(.0f, points[2*i+1]);
 	}
 }
-void EarRegionsMarkerCalculator::morph_recolor_image(cv::Mat& dest_img, const float* dest_landmarks){
+void EarRegionsMarkerCalculator::morph_recolor_image(cv::Mat& dest_img_ori, const float* dest_landmarks){
+	dest_img_ori = cv::Mat::zeros(dest_img_ori.size(), dest_img_ori.type());
 	cv::Mat img_recolor_resized;
+	cv::Mat dest_img = Mat::zeros(dest_img_ori.size(), CV_32FC3);
 	cv::resize(m_img_recolor, img_recolor_resized, dest_img.size());
 
 	img_recolor_resized.convertTo(img_recolor_resized, CV_32F);
